@@ -6,9 +6,9 @@ Continue the next local work unit in the isolated checkout
 `N:/Proyects/forge/.worktrees/api-bootstrap`, branch `feat/forge-api-bootstrap`.
 This document is reconciled against Git and source evidence on 2026-10-03.
 F01/F02 are implemented and committed; F03 has historical functional proof but no
-completed native review. F04 transport is implemented and self-verified, not integrated or committed.
+completed native review. F04 transport is implemented, functionally verified and locally committed; not integrated.
 Parent readback/full mirror released the source-write gate; independent verification
-and parent spot check passed; local commit evidence is the next checkpoint.
+and parent spot check passed; local behavior commit evidence is recorded below.
 
 ## Authorized outcome and boundaries
 
@@ -49,7 +49,7 @@ These are ordered delivery increments, not calendar commitments. S1 is NOT compl
 - [x] F01 — Isolated repository, sprint plan and foundation change spec. Parent readback/mirror completed before implementation. Route: delegated (preparation and multi-file documents). Included in `4281b990f90ba9708e2ec82caf1fdf7b9c390bfb`.
 - [x] F02 — Pure-domain trusted identity/membership authorization and allowlisted bootstrap. Observed RED then GREEN; tests/docs in `4281b990f90ba9708e2ec82caf1fdf7b9c390bfb`. Route: delegated (multi-file behavior).
 - [ ] F03 — Historical independent verification and parent spot check passed, but native review did not complete. No approved verdict or receipt is claimed; retain this historical gap without restarting old authority.
-- [ ] F04 — Bounded FastAPI bootstrap transport. Route: delegated (new transport, HTTP tests, dependency metadata and accompanying spec). See seven acceptance checkpoints below. Self-verification, independent verification and parent spot check passed; local commit remains pending. Native review is NOT approved.
+- [x] F04 — Bounded FastAPI bootstrap transport. Route: delegated (new transport, HTTP tests, dependency metadata and accompanying spec). See seven acceptance checkpoints below. Self-verification, independent verification and parent spot check passed; local commit recorded below. Native review is NOT approved.
 - [ ] F05 — PostgreSQL schema and real two-organization RLS proof. Separate pending unit; derive exact scope/tests after F04. No database, SQL, Entra integration or production work is authorized by this F04 task.
 
 ## F04 acceptance checkpoints
@@ -60,7 +60,7 @@ These are ordered delivery increments, not calendar commitments. S1 is NOT compl
 - [x] F04.4 — Implement injected trusted token-validator and scoped bootstrap-reader ports with production default accepting no bearer token. Read fresh data per request, verify identity and all organization IDs before revealing owned suspended membership, and reuse the existing domain allowlist unchanged. No runtime fixtures or fake-auth environment switch.
 - [x] F04.5 — Observe passing HTTP tests for allowed projection/no secrets, missing/inconsistent/wrong-identity and cross-organization records (including foreign suspended membership), live suspension reread, secret-rich provider exceptions, PF-10 envelopes and OpenAPI security/response contracts. Health is process-only liveness; capabilities beyond the domain subset remain deferred.
 - [x] F04.6 — Entire unittest suite GREEN, compileall, pip check, whitespace check and loopback-only uvicorn smoke are observed and recorded. UI: N/A (no screen). Writer, independent and parent checks passed. Native review remains pending, not approved.
-- [ ] F04.7 — One coherent behavior/tests/spec work-unit commit on `feat/forge-api-bootstrap`, after parent authorization. Record commit identity, exact results and authored lines. Local feature-branch-chain only; no push/PR/merge. Do not infer native review completion from functional verification or Git commit.
+- [x] F04.7 — One coherent behavior/tests/spec work-unit commit on `feat/forge-api-bootstrap`, after parent authorization. Record commit identity, exact results and authored lines. Local feature-branch-chain only; no push/PR/merge. Do not infer native review completion from functional verification or Git commit.
 
 ## F04 exact checks and runtime evidence
 
@@ -151,7 +151,7 @@ commits. No native review operation was performed by the writer.
 - Starlette warns that httpx TestClient support is deprecated; compatibility is
   observed for the installed pins, not guaranteed for future dependencies.
 - Domain source/tests unchanged. UI N/A. Independent verifier and parent spot check
-  passed; commit remains pending. Final writer whitespace checks are recorded below.
+  passed; local behavior commit observed. Final writer whitespace checks are recorded below.
 
 Final writer rerun: full suite 31/31, compileall and pip check exit 0;
 `git diff --check` exit 0; all eight authored files (including untracked) have
@@ -171,5 +171,21 @@ response-validation redaction, and OpenAPI. All 17 observed error UUIDs were uni
 the diagnostic script's expected count of 18 was a harness expectation mismatch,
 not an implementation failure. Parent reran all 31 tests: exit 0.
 Original checkout was independently confirmed clean. This is functional proof,
-not native review approval. Local commit is authorized; evidence follows after
-observing Git success. DB/RLS, Entra integration and real UI remain unimplemented.
+not native review approval. Local commit success is observed below. DB/RLS, Entra integration and real UI
+remain unimplemented. Native review remains pending, not approved.
+
+## F04 local commit evidence
+
+Behavior/tests/spec: `34009c465aca6a64e67479d144755f024262a004`
+(`feat(api): expose authorized bootstrap transport`), observed on
+`feat/forge-api-bootstrap`. Exactly eight approved files staged; `.venv` excluded.
+Cached whitespace check passed. Numstat: 841 additions, 104 deletions, 945 authored
+lines; this final precommit count supersedes the earlier 933-line writer snapshot.
+No push, PR, merge or native review action occurred. Native review is pending, NOT
+approved; original F03 remains incomplete and DB/RLS/Entra/UI are still pending.
+
+This documentation-only evidence follow-up records the observed behavior hash,
+without trying to store its own future hash. Its identity and final clean checkout
+proof are supplied in the worker handoff for the parent recovery mirror.
+Next: parent refreshes the full task mirror and decides the next bounded unit;
+no unfinished F04 functional check is hidden by the commit.
