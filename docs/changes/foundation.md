@@ -58,3 +58,10 @@ En la carpeta canónica `N:/Proyects/forge`, Python 3.12.14 ejecutó 13 pruebas:
 RED con 23 errores de `NotImplementedError` (incluye subcasos), después GREEN con
 13 pruebas aprobadas. `compileall` pasó. No hubo instalaciones ni servicios externos.
 La revisión independiente y los commits siguen pendientes; S1 no está cerrado.
+
+## Estado reconciliado del dominio
+
+El primer corte quedó en `4281b990f90ba9708e2ec82caf1fdf7b9c390bfb`; su verificación
+independiente histórica pasó (13 pruebas y 26 controles), sin revisión nativa
+completada. El transporte posterior F04 se documenta en `api-bootstrap.md` y reutiliza
+este módulo y sus pruebas sin modificarlos. No integra Entra ni demuestra DB/RLS.

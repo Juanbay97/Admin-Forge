@@ -25,3 +25,11 @@ Antes de cerrar S1 faltan contratos HTTP, adaptadores confiables y pruebas reale
 PostgreSQL/RLS. S2 requiere registro y consentimiento Entra autorizados. Integraciones,
 gastos, acceso remoto y cambios productivos requieren autorización separada.
 Refinar estimaciones después de medir el primer corte, no antes de tener evidencia.
+
+## Segundo corte de S1: transporte de bootstrap
+
+F04 añade `/forge/v1/bootstrap` y liveness `/healthz` con denegación predeterminada,
+puertos confiables inyectados y errores estructurados. Contrato: [api-bootstrap.md](changes/api-bootstrap.md).
+La autoverificación local, verificación independiente y spot check del padre pasaron.
+Commit documentado en el task; revisión nativa no aprobada. Sin Entra ni PostgreSQL/RLS, por lo
+que S1 continúa abierto. F05 reserva la prueba real de DB/RLS como unidad separada.

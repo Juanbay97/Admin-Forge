@@ -1,8 +1,14 @@
 [project]
 name = "prometheon-forge"
 version = "0.1.0"
-description = "Pure-domain foundation for an organization-aware agent platform"
+description = "Organization-aware domain foundation and default-deny HTTP transport"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi==0.142.2",
+    "uvicorn==0.54.0",
+]
 
-# Tests use Python's standard-library unittest; no test dependencies are needed.
+[project.optional-dependencies]
+test = ["httpx==0.28.1"]
+
+# Tests use standard-library unittest; httpx powers the in-process HTTP client.
