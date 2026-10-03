@@ -1,0 +1,8 @@
+[project]
+name = "prometheon-forge"
+version = "0.1.0"
+description = "Pure-domain foundation for an organization-aware agent platform"
+requires-python = ">=3.12"
+dependencies = []
+
+# Tests use Python's standard-library unittest; no test dependencies are needed.
