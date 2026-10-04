@@ -1,8 +1,9 @@
 # Prometheon Forge
 
 An organization-aware agent platform with executable domain contracts and a
-**default-deny HTTP bootstrap**. Corporate sign-in, real token validation adapters,
-PostgreSQL/RLS, effective capabilities and the client are not integrated.
+**default-deny HTTP bootstrap**. Scoped PostgreSQL storage and strict Entra v2 token
+adapters have local/offline proof. Runtime composition, live corporate enrollment,
+desktop sign-in, effective capabilities and client UI are not integrated.
 
 ## Local setup and checks
 
@@ -135,3 +136,50 @@ only RLS. Direct DB discovery without explicit owned-harness configuration fails
 clearly (currently unittest exit 5 with three setup errors and zero tests), not skip.
 Real size-one pool tests cover same backend reuse after success/error, concurrent
 serialization, fresh revocation/configuration, role misconfiguration and DB HTTP.
+
+## Offline-proven Entra v2 access-token adapter
+
+F06 supplies an explicit trusted adapter, not live corporate sign-in. Runtime pins:
+PyJWT[crypto] 2.15.1 and cryptography 50.0.2. Run its real-RSA/JWKS/transport/HTTP
+tests without an account or network:
+
+    ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_entra.py -v
+
+Trusted composition constructs EntraConfiguration with allowed_tenants, audience
+(the Forge resource API GUID), allowed_clients (public-client GUIDs), and
+required_scopes; all nonempty allowlists are bounded. EntraTokenValidator accepts
+that configuration plus optional trusted fetcher/clock/ValidationLimits injections.
+Pass it to create_app(token_validator=..., bootstrap_reader=...) only through trusted
+composition. No environment token, fake identity, client secret or email linking.
+
+The immutable verified principal preserves actual sub, tid and oid separately.
+Domain identity is provider entra + exact validated tenant-v2 issuer + canonical
+oid GUID: subject means the Forge provider principal, NOT raw OIDC sub.
+This intentionally links one tenant object across client-specific subjects without
+joining objects from different tenants or guest home identity providers.
+F07 must persist explicit tid/oid binding before real enrollment.
+
+Defaults: 16 tenant/32 client/16 scope entries, 16 KiB JWT, 128-character kid,
+256 KiB discovery/JWKS response, 64 keys, 1-hour tenant cache, 60-second refresh
+cooldown (also after failure), two concurrent fetches, 3-second socket/lock admission
+timeout and 60-second clock skew. Fetch reads check a 6-second deadline before/after
+each bounded read; DNS scheduling follows the OS, not a claimed end-to-end SLA.
+Transport disables ambient proxies, redirects and credentials; only exact configured
+Microsoft tenant metadata and official tenant/common v2 keys URLs are fetched.
+Expired cache never becomes a fallback; unavailable metadata yields redacted 503.
+Unknown kid refresh is cooldown-limited; invalid tokens yield 401 before reader calls.
+A valid cached key may remain usable through a refresh failure only until its TTL.
+
+Scopes, audience, tenant, issuer, authorized client and real fixed-RS256 signature
+must all match; ID/Graph/app-only tokens never replace a Forge delegated access token.
+The resource registration later needs requestedAccessTokenVersion=2.
+The default factory remains unconfigured/deny-all; /healthz is still liveness only.
+No tenant enrollment, runtime readiness UI, PKCE client, refresh-token storage,
+provisioning, production or staging account activity is implemented here.
+
+See docs/changes/entra-token-validation.md and odd/tasks/forge-identity.md.
+
+F06 functional closure: writer 113 tests (38 Entra +13 domain +18 HTTP +44 DB);
+independent original 111 plus P2 retest (38 and six oversized-date cases); parent
+38-test spot check. The NumericDate P2 is closed; no live sign-in or native approval.
+Local delivery evidence is recorded in odd/tasks/forge-identity.md.
