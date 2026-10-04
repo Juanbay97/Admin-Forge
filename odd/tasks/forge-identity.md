@@ -3,8 +3,8 @@
 ## Current outcome and release gate
 
 F06 completed: writer 113 tests, independent checks/P2 retest and parent spot check
-passed. Parent authorized local behavior/test/docs commit; its observed identity is
-recorded below after commit. Source release followed mirror 2468/readback.
+passed. Parent-authorized local behavior/test/docs commit identity and exact stats are
+recorded below. Source release followed mirror 2468/readback.
 No live tenant enrollment, desktop sign-in, UI or runtime composition is enabled.
 Gentle AI review GLOBALOFF: disabled/unmanaged, no calls or consent prompt.
 
@@ -175,6 +175,7 @@ same helper protects configured numeric limits and injected wall clock.
 Post-correction full rerun: 38 Entra +13 domain +18 HTTP +44 PostgreSQL, no skips,
 all exit 0. PostgreSQL17.11 owned container removed and exact-ID absence confirmed.
 compileall/pip check/git diff --check exit 0; warning unchanged.
+
 ## Final functional closure
 
 - Writer after P2 correction: 38 Entra +13 domain +18 HTTP +44 PostgreSQL
@@ -193,10 +194,14 @@ compileall/pip check/git diff --check exit 0; warning unchanged.
 
 ## Local delivery evidence
 
-Parent authorized only six-path conventional local behavior/test/docs commit
-feat(auth): validate Entra access tokens. No source bytes changed during final
-documentation closure. Exact behavior hash/stats are recorded after observed commit,
-with one small task-document follow-up to avoid a self-referential future hash.
+Observed behavior commit: 279fef10e248d25e72bb943ff08348600d4b6231
+(feat(auth): validate Entra access tokens), existing feat/forge-tenant-storage branch.
+Exactly six approved files:1488 additions +2 deletions =1490 authored lines.
+No source bytes changed during final documentation closure or commit; source/test/
+manifest blobs match the independent accepted candidate. Protected surfaces unchanged.
+No active commit hooks; clean checkout observed immediately after behavior commit.
+Git emitted existing automatic-identity notice; no config change/amend or AI attribution.
+This small task-only follow-up records the actual hash without future self-reference.
 No push, PR, merge, remote/production/account action or Gentle AI operation.
 
 ## Recovery and next step
