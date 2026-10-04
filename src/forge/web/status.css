@@ -1,0 +1,73 @@
+:root {
+  color-scheme: dark;
+  --navy: #0B1D26;
+  --teal: #0F6B6D;
+  --copper: #E07A2D;
+  --sand: #E8DCC1;
+  --charcoal: #1A1A1A;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--sand);
+  background: var(--navy);
+}
+* { box-sizing: border-box; }
+body { margin: 0; line-height: 1.6; }
+.skip-link {
+  position: absolute;
+  top: -6rem;
+  left: 1rem;
+  padding: .75rem 1rem;
+  background: var(--sand);
+  color: var(--navy);
+  z-index: 1;
+}
+.skip-link:focus { top: 1rem; }
+:focus-visible { outline: 3px solid var(--sand); outline-offset: 5px; }
+.brand, main, footer { width: min(100% - 3rem, 62rem); margin-inline: auto; }
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1.5rem;
+  border-bottom: 2px solid var(--copper);
+}
+.brand-name { font-size: 1.25rem; letter-spacing: .025em; }
+.context { font-size: .9rem; }
+main { padding-block: 2.5rem; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; margin: .5rem 0 1rem; }
+h2 { font-size: 1.2rem; margin: 0 0 1rem; }
+p { max-width: 47rem; }
+.eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; }
+.intro { margin-bottom: 2rem; }
+button {
+  font: inherit;
+  font-weight: 650;
+  border: 2px solid var(--sand);
+  border-radius: .4rem;
+  background: var(--teal);
+  color: var(--sand);
+  padding: .65rem 1.1rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--navy); }
+button:disabled { cursor: wait; }
+#announcement { min-height: 1.6rem; }
+.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 0; }
+.check {
+  padding: 1.2rem;
+  border: 1px solid var(--sand);
+  border-radius: .5rem;
+  background: var(--charcoal);
+  min-width: 0;
+}
+dt { font-size: .9rem; }
+dd { margin: .3rem 0 0; font-size: 1.15rem; font-weight: 650; overflow-wrap: anywhere; }
+.limits { margin-top: 2rem; padding-left: 1.2rem; border-left: 4px solid var(--copper); }
+footer { padding-bottom: 2rem; font-size: .85rem; }
+@media (max-width: 40rem) {
+  .brand, main, footer { width: min(100% - 2rem, 62rem); }
+  .brand { align-items: flex-start; flex-direction: column; gap: .25rem; }
+  main { padding-block: 1.75rem; }
+  .checks { grid-template-columns: 1fr; }
+}

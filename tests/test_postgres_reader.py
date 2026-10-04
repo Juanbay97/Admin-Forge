@@ -82,6 +82,21 @@ class PostgresReaderTests(unittest.TestCase):
                     conn.execute('REVOKE ' + privilege + '(' + columns + ') ON forge.identities FROM forge_runtime')
         self.assert_clean()
 
+    def test_pair_column_mutations_are_detected_without_table_grants(self):
+        for privilege in ('UPDATE', 'INSERT', 'REFERENCES'):
+            with self.subTest(privilege=privilege), connect() as conn:
+                clause = privilege + '(entra_tenant_id,entra_object_id)'
+                conn.execute('GRANT ' + clause + ' ON forge.identities TO forge_runtime')
+                try:
+                    self.assertFalse(conn.execute(
+                        "SELECT has_table_privilege('forge_runtime','forge.identities',%s)",
+                        (privilege,)).fetchone()[0])
+                    with self.assertRaisesRegex(RuntimeError, 'runtime role'):
+                        self.reader.read(ALICE, str(ORG_A))
+                finally:
+                    conn.execute('REVOKE ' + clause + ' ON forge.identities FROM forge_runtime')
+        self.assert_clean()
+
     def test_bound_entra_identity_retains_membership_and_revocation_checks(self):
         from forge.entra import VerifiedPrincipal
         from forge.identity_store import PostgresIdentityBinder

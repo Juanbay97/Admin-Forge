@@ -16,3 +16,14 @@ dependencies = [
 test = ["httpx==0.28.1"]
 
 # Tests use standard-library unittest; httpx powers the in-process HTTP client.
+
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+forge = ["web/status.html", "web/status.css", "web/status.js"]

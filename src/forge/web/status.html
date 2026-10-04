@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Runtime status · Prometheon Forge</title>
+  <link rel="stylesheet" href="/status.css">
+  <script src="/status.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to runtime status</a>
+  <header class="brand">
+    <span class="brand-name">Prometheon <strong>Forge</strong></span>
+    <span class="context">Local runtime</span>
+  </header>
+  <main id="main" tabindex="-1">
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow">Operational visibility</p>
+      <h1 id="title">Runtime status</h1>
+      <p>Check what is configured and what has actually been verified.
+        This screen does not sign you in or grant access.</p>
+      <button id="refresh" type="button">Refresh status</button>
+      <p id="announcement" role="status" aria-live="polite" aria-atomic="true">
+        Status has not been checked.
+      </p>
+    </section>
+    <section aria-labelledby="checks-title">
+      <h2 id="checks-title">Current checks</h2>
+      <dl class="checks">
+        <div class="check"><dt>Runtime</dt><dd id="runtime">Not checked</dd></div>
+        <div class="check"><dt>Configuration</dt><dd id="configuration">Not checked</dd></div>
+        <div class="check"><dt>Storage role and schema</dt><dd id="storage">Not checked</dd></div>
+        <div class="check"><dt>Identity provider</dt><dd id="identity_provider">Not checked</dd></div>
+        <div class="check"><dt>Onboarding</dt><dd id="onboarding">Not checked</dd></div>
+        <div class="check"><dt>User access</dt><dd id="user_access">Not checked</dd></div>
+      </dl>
+    </section>
+    <aside class="limits" aria-labelledby="limits-title">
+      <h2 id="limits-title">What “ready” means</h2>
+      <p>Ready means explicit local configuration and a verified storage role and
+        migrated schema. It does not verify live Entra connectivity, enrollment,
+        administration, or any person's access.</p>
+      <p>Onboarding is not implemented. User access is evaluated only by an
+        authenticated bootstrap request, never by this screen.</p>
+    </aside>
+  </main>
+  <footer>Prometheon Forge · Read-only runtime status</footer>
+</body>
+</html>

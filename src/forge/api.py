@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, Request, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.telemetry import TelemetryConfig
 from pydantic import BaseModel, ConfigDict
 from starlette.exceptions import HTTPException
 
@@ -115,13 +116,22 @@ def valid_identity(value: object) -> bool:
 def create_app(
     token_validator: TokenValidator | None = None,
     bootstrap_reader: BootstrapReader | None = None,
+    *, lifespan=None,
 ) -> FastAPI:
     """Sync dependencies/handlers use FastAPI's worker pool, never the event loop.
 
     Unconfigured applications reject every token. Injection is trusted composition,
     not token validation by itself; no development identity exists in runtime.
     """
-    app = FastAPI(title="Prometheon Forge control API", version="0.1.0")
+    # Native telemetry otherwise inherits global providers and OTEL setup, which
+    # can capture raw request input outside the API's redacted response contract.
+    # Disable every signal as well as setup; auto_configure=False alone is unsafe.
+    telemetry: TelemetryConfig = {
+        "tracing": False, "metrics": False, "logs": False,
+        "operation_spans": False, "auto_configure": False,
+    }
+    app = FastAPI(title="Prometheon Forge control API", version="0.1.0",
+                  lifespan=lifespan, telemetry=telemetry)
     bearer = HTTPBearer(auto_error=False, scheme_name="ForgeBearer")
 
     @app.exception_handler(ApiFailure)

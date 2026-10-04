@@ -1,53 +1,70 @@
 # Forge identity delivery
 
-## Current outcome and release gate
+## Current outcome and gate
 
-F07a functional closure passed: writer142, independent142 applicable checks and
-parent73 DB spot. Local coherent behavior/test/docs commit8183b8d completed;
-actual identity/stats are recorded below. No onboarding/login wiring.
-Source release followed parent full mirror2468/exact readback.
-F06 completed: writer 113, independent/P2 retest and parent spot passed; actual
-commits and historical proof remain below. F07a starting baseline was4ab2d40.
-No live tenant enrollment, desktop sign-in, UI or runtime composition is enabled.
-Gentle AI review GLOBALOFF: disabled/unmanaged, no calls or consent prompt.
+F06/F07a are locally committed. **F08a local operational-shell delivery is closed
+with explicit UI evidence limits.** Writer184, independent original181 plus focused
+28runtime+18API correction retest (138 other applicable proof), corrected wheel,
+and parent28 spot passed. Parent accepted available browser functional proof, not
+full network/screen-reader/loading certification. C10b remains follow-up evidence;
+F07b/F09 remain unfinished. Coherent local commit authorized; identity recorded below.
+Parent full mirror2468/readback preceded source; refreshed mirror is parent-owned.
+No server/browser launched by this writer. Exact released scope is below.
+Gentle GLOBALOFF: disabled/unmanaged, no calls, consent or native approval.
+No live enrollment, login, onboarding, administrative client or deployment is enabled.
 
-## Objective, problem and inherited evidence
+## Objective and inherited evidence
 
-Provide the missing trusted token validator without weakening default-deny API
-or organization/membership checks. PF-02/PF-10/PF-12 constrain identity, HTTP/data
-contracts and proof. Completed F06 SDD: docs/changes/entra-token-validation.md.
-Current F07a SDD: docs/changes/entra-identity-binding.md.
-Closed foundation remains in odd/tasks/forge-foundation.md; recovery mirror topic
-odd/forge-foundation/tasks, observation 2374. F05b behavior commit:
-279905eae2113c40749d5ac6fa9358cdce1b85d8. Historical F06 baseline:
-f44032ea175c9197eb8cdca1f28348ce4fc6bd44. Recorded independent/parent proof:
-44 PostgreSQL +13 foundation +18 HTTP tests, exact owned-container cleanup.
-This is historical evidence, not a new run or proof of Entra.
+Build trustworthy identity foundations, then deliberately compose the existing
+validator/reader with a truthful read-only status UI. Preserve default-deny API,
+organization/membership checks and separation of authentication from enrollment.
+PF-02/PF-10/PF-12 constrain identity/contracts/proof; PF-03/PF-09/PF-11 inform status,
+configuration and UI without authorizing administration. English technical/UI
+artifacts; current SDD docs/changes/runtime-status.md is neutral Spanish.
+Completed SDDs: docs/changes/entra-token-validation.md and
+docs/changes/entra-identity-binding.md.
 
-## Work units
+Closed foundation: odd/tasks/forge-foundation.md, mirror 2374/topic
+odd/forge-foundation/tasks. F05b behavior 279905eae2113c40749d5ac6fa9358cdce1b85d8;
+historical 44 PostgreSQL+13 foundation+18 HTTP tests and exact owned-container cleanup.
+Historical F06 baseline f44032ea175c9197eb8cdca1f28348ce4fc6bd44.
+Historical evidence is not a new run or live Entra proof.
 
-- [x] **F06 — Backend Entra v2 validator (completed).**
-  Explicit trusted config, immutable verified principal, bounded discovery/JWKS,
-  real RS256, offline cryptographic/HTTP tests and docs.
-  Route: delegated direct; preparation reading and multiple non-trivial files.
-  Closure: writer/independent/parent proof passed; local coherent commit authorized.
-- [x] **F07a — Bind existing Entra identities (functional closure complete).**
-  Add explicit immutable tid/oid metadata, restricted internal binder and Entra-only
-  reader gating. Accepted design2485/source release; writer/independent142 and
-  parent73 passed. Coherent local commit8183b8d completed; actual evidence below.
-  Route: delegated direct; migration, adapter and real-DB tests are non-trivial.
+## Work units and delivery strategy
+
+- [x] **F06 — Backend Entra v2 validator.** Explicit trusted configuration,
+  verified principal, bounded discovery/JWKS and real RS256. Writer 113,
+  independent P2 correction/retest and parent 38 passed; commits below.
+  Route: delegated direct, preparation reading/multiple non-trivial files.
+- [x] **F07a — Bind existing Entra identities.** Immutable persistent tid/oid,
+  restricted internal binder and Entra-only reader gating. Writer/independent 142
+  applicable checks, parent 73 DB passed; commits below. No login wiring.
+  Route: delegated direct, migration/adapter/real-DB tests.
+- [x] **F08a — Explicit runtime composition and truthful local status UI.**
+  Compose existing Entra/reader ports; lifecycle, restricted-role/schema readiness,
+  real local HTML/CSS/JS status only. Corrected writer184 and rebuilt wheel passed;
+  independent focused retest and parent28 passed; local delivery accepted with C10b evidence limits.
+  Route: delegated direct, lifecycle/security/UI and tests cross non-trivial files.
 - [ ] **F07b — Creation, invitations and provisioning (future; not released).**
-  Refine object/invitation confirmation, identity creation and idempotent outbox
-  separately. No automatic email matching, membership/admin assignment or signup.
-- [ ] **F08 — Configured runtime composition and readiness UI (future; not released).**
-  Refine trusted deployment inputs and truthful readiness independently of liveness.
-  Default application remains deny-all until deliberately composed.
-- [ ] **F09 — Desktop PKCE, protected storage and enrollment spike
-  (future; not released).** Refine platform/client scope; obtain explicit account,
-  tenant, application-registration and staging authorization before live work.
+  Scope object/invitation confirmation, creation and idempotent outbox separately.
+  No email matching, automatic membership/admin assignment or tenant signup.
+- [ ] **F08 — Remaining deployment/runtime readiness work (future).**
+  Production connection/TLS profile, migration runner and deployment refinement
+  remain separate; F08a does not claim production or live identity readiness.
+- [ ] **F09 — Desktop PKCE, protected storage and live enrollment spike (future).**
+  Requires separate platform/client/account/tenant/app-registration/staging scope.
   Public client has no secret; no plaintext corporate token files.
 
-Checkpoints record progress only, never authorize unreleased implementation.
+User-approved local feature-branch-chain on feat/forge-tenant-storage; no default
+branch mutation, remote, push, PR or merge. One coherent behavior/test/docs commit
+per released unit, Conventional Commits without AI attribution. Parent independent
+verification plus spot precede separately authorized commit. About 400 authored
+changed lines is advisory only: preserve full clear tests/docs, no code-golf or
+artificial file-type splits. F06 forecast 700–1100, candidate 1480 / final 1490;
+F07a forecast 1000–1600, initial snapshot 1249 / final 1366. F08a forecast 1800–2600
+additions+deletions including task consolidation/UI/full tests/docs, generated
+outputs excluded; estimate, not observed. Proposed boundary is coherent runtime/
+status behavior with tests/docs. Checkboxes track evidence, not implementation authority.
 
 ## F06 acceptance checkpoints (10)
 
@@ -78,157 +95,58 @@ Checkpoints record progress only, never authorize unreleased implementation.
   Focused tests, inherited 75-test regression, compile/dependency/whitespace checks,
   independent verification and parent spot check have observed results.
 
-## Historical F06 released edit surfaces
+## F06 retained proof and limits
 
-- src/forge/entra.py
-- tests/test_entra.py
-- pyproject.toml
-- README.md
-- docs/changes/entra-token-validation.md
-- odd/tasks/forge-identity.md
-- .venv/**
-- .local/postgres-test/**
+Six authored surfaces were src/forge/entra.py, tests/test_entra.py, pyproject.toml,
+README.md, docs/changes/entra-token-validation.md and this task; ignored .venv/**
+and .local/postgres-test/** only. API/domain/PostgreSQL/migrations/existing tests/
+harness/closed foundation/product specs protected. Parent mirror 2468/readback
+preceded source. HTTP crypto tests remain in test_entra, synthetic public JWKS,
+ephemeral RSA private keys exclusively in memory; no key file or network account.
 
-Ignored surfaces mean isolated dependency runtime and existing disposable harness
-output only. One adapter module and one test module suffice; no helper path requested.
-Protected: API/domain/PostgreSQL source, migrations, existing tests/harness, upstream,
-closed foundation task and product specs. If another path becomes necessary, stop
-and return the exact derived path before writing.
-
-## Historical F06 test-first policy and checks
-
-Unittest; ephemeral RSA keys generated inside tests, synthetic public JWKS and fake
-bounded HTTP transport. No private key file is written or committed. First verify
-compatible exact PyJWT/cryptography pins and install into existing local venv; then
-observe behavioral assertion RED against an importable minimal adapter before GREEN.
-Import failure alone is not behavioral RED. Refactor while GREEN.
-
-Commands from N:/Proyects/forge/.worktrees/tenant-storage after release:
-
-    ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_entra.py -v
-    ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_foundation.py -v
-    ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_api.py -v
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-postgres.ps1
-    ./.venv/Scripts/python.exe -m compileall -q src tests
-    ./.venv/Scripts/python.exe -m pip check
-    git diff --check
-
-Public isolated no-cache dependency acquisition only after compatible pins verified;
-no ambient index/keyring/credentials, unrelated upgrades or retry loops. Installation
-wall-time bound: 180 seconds. HTTP integration stays in test_entra with real RSA/JWKS
-validator and in-memory reader doubles; no network account or runtime composition.
-PostgreSQL uses existing pinned local image/named pipe, unique owned disposable
-container and exact-ID cleanup; no pull, ambient credentials or existing DB.
-Missing prerequisites fail, never silently skip. Independent verifier reruns
-focused/full applicable checks; parent repeats one reported command.
-Baseline known warning: TestClient/httpx deprecation, not a failed test.
-
-## Delivery, forecast and rollback
-
-User-approved local-only feature-branch-chain on existing nondefault
-feat/forge-tenant-storage. No default-branch mutation, push, PR, merge or remote work.
-F06 forecast: 700-1100 authored additions/deletions, generated files excluded.
-Full security/rotation/concurrency tests can exceed 400; preserve clarity/tests/docs,
-never code-golf or omit evidence. F07a forecast appears below; F07b-F09 remain unscoped.
-Original corrected candidate snapshot: 1480 authored additions/deletions.
-Final commit line count and identity are observed below, generated files excluded.
-One coherent F06 behavior/test/docs commit is the rollback boundary; no migration
-or stored identity change. Conventional Commit, no AI attribution.
-Functional and independent proof remain required with GLOBALOFF; no native review.
-
-## F06 writer evidence and chosen numeric policy
-
-Source release: parent full mirror observation 2468/readback confirmed.
-PyJWT[crypto]==2.15.1 + cryptography==50.0.2 public isolated dry-run/install succeeded
-on Python 3.12.14 within 180 seconds; cffi 2.1.1 / pycparser 3.0 transitively resolved.
-No project build metadata generated. Exact approved adjusted installation:
-
+Python 3.12.14; public isolated PyJWT[crypto] 2.15.1 + cryptography 50.0.2 dry-run/install
+within 180s; transitive cffi 2.1.1 / pycparser 3.0. Direct install avoided unauthorized
+project build metadata; exact approved historical command:
     ./.venv/Scripts/python.exe -m pip --isolated install --index-url https://pypi.org/simple --no-cache-dir --no-input --keyring-provider disabled --timeout 15 --retries 1 "PyJWT[crypto]==2.15.1" "cryptography==50.0.2"
 
-Observed RED: 24 methods, 62 assertion failures, no errors against importable None
-skeleton. First fixture attempt: 62 failures +2 errors because library encoder guards
-rejected malformed header/issuer before reaching validator. Fixture now signs explicit
-JSON with cryptography RSA, ephemeral private keys remain exclusively in memory.
-Initial implementation 23/24: TTL test advanced 3600s while retaining expired token;
-refreshing that test token isolates rotation and produced 24/24 GREEN.
-Official common-JWKS mixed consumer/template issuer regression observed RED
-(one operational error), then GREEN after key-level scope filtering. Expanded
-pre-independent focused proof: 36/36, including bounded transport/TLS/redirects/size/deadline,
-same/different tenant identity, guests, full allowlists, weak RSA, concurrency,
-rotation/failure cooldown, time after discovery and actual API 401/503/403/404.
+Behavioral RED: 24 methods / 62 assertion failures/no errors against importable None
+skeleton. Earlier fixture 62 failures+2 errors: PyJWT encoder rejected malformed
+header/issuer before validator; explicit JSON cryptography signing fixed fixture.
+Initial 23/24: TTL advanced 3600s with expired token; renewed token isolates rotation,
+then 24 GREEN. Common-JWKS mixed consumer/template issuer regression RED with one
+operational error; per-key scope filtering fixed it. Expanded 36 GREEN proves
+transport/TLS/redirect/size/deadline, identity/guests, allowlists/weak RSA/concurrency,
+rotation/failure cooldown/time after discovery and actual API 401/503/403/404.
 
-Chosen defaults (configurable only within enforced finite bounds):
-16 tenants /32 clients /16 scopes; scope identifier <=128; sub <=1024; scp <=4096.
-JWT ASCII <=16384 bytes (range 1024-65536); kid <=128 (1-256); each response <=262144
-bytes (1024-1048576); <=64 keys (1-128); RSA public 2048-4096 bits/exponent 65537.
-Tenant TTL 3600s (1-86400); refresh cooldown 60s (1-3600); fetch/lock/slot timeout 3s
-(0.1-10); concurrent fetch slots 2 (1-4); clock skew 60s (0-300).
-Read deadline 2x socket timeout checked before/after bounded read1; DNS follows OS
-scheduling, not a claimed end-to-end request SLA. NumericDate nonboolean finite
-0..2^53 with chronology/skew rechecked after signature. Valid unexpired cached keys
-can still work after a refresh failure; expired keys never do. Cooldown starts again
-at attempt completion, including malformed metadata or capacity/transport failure.
+Independent P2: exp/nbf/iat=10**400 reached math.isfinite before range check;
+implicit float conversion OverflowError gave API 503 rather than 401 for invalid
+.AAA signature, fetch=reader=0. Input classification defect, NOT authentication
+bypass; other independent checks passed. Added three-claim direct/API regressions:
+RED 38 methods / 6 assertion failures, then GREEN 38 by exact int/float type and range
+before math.isfinite; helper also protects numeric configuration/clock.
+Writer 113=38 Entra+13 domain+18 HTTP+44 DB, no skips / exit 0.
+Independent original 111=36+75 regressions found P2; retest 38 plus six manual
++/-10**400 cases direct None/API 401/fetch/reader 0 closed it. Parent 38 exit 0.
+compileall/pipcheck/diffcheck, UTF8/noBOM/whitespace/no persisted private keys and
+protected-surface readback passed. PostgreSQL 17.11 owned exact-ID cleanup confirmed.
+Existing TestClient/httpx deprecation remains unsilenced, not a failed test.
+README/Spanish SDD match adapter/default-deny and runtime/live limits.
 
-## Independent P2 NumericDate correction
-
-Independent verifier found exp/nbf/iat=10**400 reaches math.isfinite before range
-validation: implicit integer-to-float conversion raises OverflowError. An invalid
-.AAA signature therefore produced redacted 503 instead of required 401, with zero
-fetch/reader calls. This was input-rejection classification, NOT an auth bypass;
-parent reported all other independent checks passed.
-Added direct-validator and actual create_app regressions for each of the three claims:
-observed RED 38 methods /6 assertion failures, then GREEN 38/38.
-Correction checks exact int/float type and finite policy range BEFORE math.isfinite;
-same helper protects configured numeric limits and injected wall clock.
-Post-correction full rerun: 38 Entra +13 domain +18 HTTP +44 PostgreSQL, no skips,
-all exit 0. PostgreSQL17.11 owned container removed and exact-ID absence confirmed.
-compileall/pip check/git diff --check exit 0; warning unchanged.
-
-## Final functional closure
-
-- Writer after P2 correction: 38 Entra +13 domain +18 HTTP +44 PostgreSQL
-  =113 tests, no skips, all exit 0.
-- Independent original proof: 111 tests (36 Entra +75 unchanged regressions), plus
-  compiled/dependency/whitespace/protected-surface checks; found one concrete P2.
-- Independent retest closed P2: 38 tests pass, plus six adversarial exp/nbf/iat
-  cases using +10**400 and -10**400. Direct None and API401; fetch=reader=0;
-  protected source unchanged. No authentication bypass was observed.
-- Parent spot check: 38 Entra tests, exit 0. Functional verification complete,
-  not native approval. Gentle AI GLOBALOFF remains disabled/unmanaged.
-- PostgreSQL17.11 owned disposable container removed; exact-ID absence confirmed.
-  compileall/pip check/git diff --check and six-file UTF8/noBOM/whitespace/
-  no-persisted-private-key readback passed. Existing TestClient/httpx warning stays.
-- README and neutral-Spanish SDD match adapter/default-deny/runtime limitations.
-
-## F06 local delivery evidence
-
-Observed behavior commit: 279fef10e248d25e72bb943ff08348600d4b6231
-(feat(auth): validate Entra access tokens), existing feat/forge-tenant-storage branch.
-Exactly six approved files:1488 additions +2 deletions =1490 authored lines.
-No source bytes changed during final documentation closure or commit; source/test/
-manifest blobs match the independent accepted candidate. Protected surfaces unchanged.
-No active commit hooks; clean checkout observed immediately after behavior commit.
-Git emitted existing automatic-identity notice; no config change/amend or AI attribution.
-This small task-only follow-up records the actual hash without future self-reference.
-No push, PR, merge, remote/production/account action or Gentle AI operation.
-
-## F07a plan checkpoint and source release gate
-
-Current unit: **F07a — Bind existing Entra identities**; source released by parent.
-Writer/independent/parent closure and local commit are observed below.
-Explorer handoff 2483 and parent acceptance 2485 were read with the full
-task 2468/file. Baseline 4ab2d40c8c3a1e80cbb0106c917804fed949e881 was clean.
-Current-unit neutral-Spanish SDD: docs/changes/entra-identity-binding.md.
-
-Route: delegated direct; additive migration, trusted internal adapter, reader
-hardening and real-DB tests cross multiple non-trivial files. No unresolved product
-choice blocks this bounded design. VerifiedPrincipal is a trusted internal port,
-not proof of authentication merely by constructing its dataclass; no public
-endpoint, login wiring or runtime composition is authorized.
+Numeric policy: tenants 16 / clients 32 / scopes 16; scope<=128/sub<=1024/scp<=4096.
+JWT 16384 bytes (1024–65536), kid 128 (1–256), response 262144 (1024–1048576),
+keys 64 (1–128), public RSA 2048–4096/e65537. TTL 3600s (1–86400),
+cooldown 60s (1–3600), fetch/lock/slot 3s (0.1–10), concurrency 2 (1–4),
+skew 60s (0–300). Nonboolean finite NumericDate 0..2^53, chronology/skew rechecked
+after signature. Read deadline 2x socket checked before/after bounded read1; OS DNS
+is not an end-to-end SLA. Valid unexpired cached keys may work after refresh failure;
+expired never; cooldown restarts at attempt completion even malformed/capacity failure.
+Canonical identity is entra+exact validated tenant-v2 issuer+canonical oid;
+actual sub remains separate. Same tid/oid/different sub intentionally same identity,
+other tenant distinct; guests resource-tenant objects; no email/idp/sub fallback.
 
 ### F07a acceptance checkpoints (10; completed)
 
-- [x] B1: Additive 0002 preserves0001 and existing identity/member UUIDs; nullable
+- [x] B1: Additive 0002 preserves 0001 and existing identity/member UUIDs; nullable
   UUID tid/oid pair has explicit both-null/both-present CHECK branches.
 - [x] B2: Present pair requires entra provider, exact tenant-v2 issuer and canonical
   oid subject; unique pair and invoker write-once guard prevent clearing/rebinding
@@ -259,31 +177,200 @@ endpoint, login wiring or runtime composition is authorized.
   tests, compileall/pipcheck/diffcheck, independent verification and parent spot
   precede any authorized coherent work-unit commit.
 
-### Exact F07a surfaces
+## F07a retained proof and limits
 
-Exact surfaces released by the parent after full updated mirror/readback:
+Explorer 2483 / accepted 2485 / full mirror 2468 readback 19755 characters preceded source.
+Starting 4ab2d40c8c3a1e80cbb0106c917804fed949e881 clean. Eleven authored surfaces:
+migrations/0002_entra_identity_binding.sql, src/forge/identity_store.py,
+src/forge/postgres.py, tests/test_postgres_identity.py, tests/postgres_support.py,
+tests/test_postgres_reader.py, tests/test_postgres_api.py, tests/test_postgres_rls.py,
+README.md, docs/changes/entra-identity-binding.md and this task; ignored
+.local/postgres-test/** only. No dependency/harness-script/0001/domain/API/F06/
+manifest/closed-foundation/product-spec changes.
 
-- migrations/0002_entra_identity_binding.sql
-- src/forge/identity_store.py
+0002 nullable paired UUIDs/canonical consistency/unique pair/invoker write-once guard.
+Internal bind_existing requires an existing exact canonical identity; constructing
+VerifiedPrincipal is NOT authentication proof, only a trusted internal port.
+Separate NOLOGIN binder role/pool: identities SELECT+pair-column UPDATE, self RLS
+with local existing UUID/verified issuer/tid/oid; no raw sub/email or membership.
+Original public identity policy scoped runtime/migrator to prevent org GUCs broadening
+binder RLS; fixture explicitly adds test writer. Entra reader requires bound metadata,
+generic records preserved. Runtime detects column UPDATE/INSERT/REFERENCES grants.
+
+Meaningful real-DB RED 46 methods / 4 assertion failures/no errors: unbound Entra read
+and three column mutation grants; all inherited 44 passed. Initial GREEN 46,
+expanded 67, original 72; no further intermediate failures/skips.
+Original writer 141=72 DB(24 binding/migration+17 reader+9 DB HTTP+22 RLS)+69 offline,
+all required checks exit 0. Independent original 141 no concrete defect; parent 72,
+PostgreSQL 17.11/13.668s/exact-ID cleanup.
+Optional independent combined in-memory probe blocked 15s readiness BEFORE SQL;
+no verdict, not PASS, unknown wrapper not repeated.
+
+B9 extension: explicit final COMMIT→ROLLBACK alone is not mid-migration failure proof.
+Added test_failed_migration_rolls_back_ddl_policies_role_and_existing_data:
+fourth owned temporary DB executes exact 0002 with in-memory SELECT 1/0 before original
+COMMIT; DivisionByZero/SQLSTATE 22012/INERROR, then explicit ROLLBACK/IDLE.
+Readback: no new columns/binder role; unchanged policies/functions/generic+Entra+
+member rows/four ENABLE+FORCE RLS tables. Distinct original explicit-rollback case
+retained. Fresh and populated upgrade preserve UUIDs/null metadata, no backfill.
+Four exact-script probes run before fixture initialization; cleanup only captured
+random DB/case-created reserved roles; fixture ordered 0001/0002, no existing DB.
+Pair-column REFERENCES subtests reject runtime and binder with no table grant;
+existing malformed/partial/foreign/self/org-spoof RLS tests cover optional premise.
+Tests-only extension changed no production bytes; no new production RED needed.
+Expected deterministic SQL failure is an assertion, not unexpected failed test.
+
+Final writer 142=73 DB(25 binding/migration+17 reader+9 DB HTTP+22 RLS)+38 Entra+
+13 domain+18 HTTP, no skips/all exit 0; DB 14.420s/PG 17.11/exact-ID cleanup.
+Independent durable 73 DB+previous 69 offline=142 applicable pass.
+Parent latest 73 DB/13.492s/exact-ID cleanup. All B1–B10 completed; compile/pip/diff 0.
+Tests prove no automatic identity/membership, write-once privileged rejection,
+cross-tenant separation/concurrency/idempotency, role/session/ownership/ACL/RLS,
+bounded pool/row-lock failures, post-UPDATE rollback and same-backend timeout/context
+restoration. README/Spanish SDD agree, deployment runner/login wiring absent.
+Finite policy: migration lock 2s/statement 10s; binder acquisition 1s override(0,30],
+local lock 1s/statement 5s; fixture connect 2s/statement 5s,pool min/max 1,waiting 4,
+reconnect 1s/open 5s. Transaction restores limits; not end-to-end deployment SLA.
+
+## Observed commit boundaries
+
+| Unit | Full commit | Exact observed stats |
+|---|---|---|
+| F06 behavior: feat(auth): validate Entra access tokens | 279fef10e248d25e72bb943ff08348600d4b6231 | 6 files, +1488/-2=1490 |
+| F06 task evidence: docs(auth): record Entra validation delivery | 4ab2d40c8c3a1e80cbb0106c917804fed949e881 | 1 file, +11/-6 |
+| F07a behavior: feat(identity): persist verified Entra bindings | 8183b8dd00503dda9e504f8c7a473b9ed936b0d9 | 11 files, +1337/-29=1366 |
+| F07a task evidence: docs(identity): record persistent binding delivery | e6d7f95875693dfccea772598a41e9f269c28613 | 1 file, +24/-11 |
+
+Behavior blobs matched independently verified candidate before staging/after commits;
+F07a eight behavior/migration/test blobs unchanged across task follow-up, protected
+surfaces unchanged against 4ab2d40. Clean checkout/index observed, no mutating hooks.
+Existing Git automatic identity notice: no config edit/amend or AI attribution.
+Task-only follow-ups record actual behavior hash without future self-reference.
+No remote, native approval, account, production, F07b or live enrollment action.
+
+## F08a acceptance checkpoints (12 closed; C10 partial evidence follow-up explicit)
+
+- [x] C1: Typed immutable programmatic RuntimeConfiguration; None is explicit
+  unconfigured. No env/DSN/config-file discovery; no pool/connect/DNS/IDP fetch
+  unconfigured. Existing create_app() default-deny and /healthz semantics preserved.
+- [x] C2: Complete explicit connection fields and fixed controls reject ambient
+  libpq supplementation without global env mutation/default credentials. Presence-only
+  PG* contamination guard and loopback-only profile are parent-accepted for configured mode;
+  synthetic polluted child-env tests prove service/passfile/connection safety.
+- [x] C3: Compose real EntraTokenValidator/PostgresBootstrapReader only; optional API
+  lifespan seam; bounded pool open/wait/close off event loop, partial-startup and
+  shutdown cleanup. Failed DB startup keeps truthful status available, never fake-ready.
+- [x] C4: Catalog-only migrated 0001/0002 schema plus actual role/privilege/RLS probe,
+  no org context/business rows/counts; SELECT-only column-grant regression. Finite
+  transaction timeout, TTL/single-flight/cooldown; expired positives cannot mask outage.
+- [x] C5: Public GET /forge/v1/status strict allowlist: version/runtime/configuration/
+  storage/identity_provider/onboarding/user_access states only. runtime ready means
+  local config+DB role/schema, NOT live IDP/authentication/enrollment/admin readiness.
+- [x] C6: /status with packaged status.css/status.js runs locally without CDN/logo/
+  forms/token input/login/storage/admin controls. Exact navy/teal/copper/sand/charcoal
+  palette; English semantic, keyboard-accessible responsive UI and read-only refresh.
+- [x] C7: CSP/no-store/same-origin assets/fetch; fixed resource routes, no path traversal/
+  CORS expansion. Public/log error surfaces contain no IDs/scopes/DSNs/hosts/paths/
+  raw exceptions/business counts/PII; failure and malformed-status UI remain truthful.
+- [x] C8: Meaningful deterministic runtime and real-DB behavioral RED→GREEN/refactor;
+  real ephemeral RS256+owned PostgreSQL composed bootstrap, existing metadata/
+  membership gating unchanged. No live account, migration or binder wiring.
+- [x] C9: All 142 inherited tests plus new runtime/DB tests, compile/pip/diff pass with
+  counts/failed/skipped prerequisites recorded; owned cached Docker exact-ID cleanup.
+- [x] C10 observed: Browser skill loopback render/refresh/keyboard/360x800/error
+  redaction and exact own-PID shutdown; parent accepts this available functional
+  evidence for LOCAL operational-shell delivery, not blanket browser certification.
+- [ ] C10b follow-up evidence (not F08a implementation scope): Full browser network
+  capture, actual screen-reader announcement and transient-loading observation
+  remain unavailable/unverified; DOM/static/backend proof is complementary only.
+- [x] C11: Verify actual wheel includes three assets after separately released bounded build-tool
+  acquisition into .venv only. Parent accepted exact-pin public PyPI acquisition;
+  actual staged build remains no-index/no-build-isolation/no-deps. No runtime upgrades.
+- [x] C12: README/neutral-Spanish SDD correspond to implemented bounds/limits;
+  independent verification+parent spot before separately authorized coherent local
+  commit. Full task mirror/readback precede source; no source at plan checkpoint.
+
+### Exact F08a surfaces and protected boundaries
+
+Historical plan checkpoint wrote only:
+- odd/tasks/forge-identity.md
+- docs/changes/runtime-status.md
+
+Exact surfaces released AFTER parent mirror/readback:
+- src/forge/runtime.py
+- src/forge/api.py
 - src/forge/postgres.py
-- tests/test_postgres_identity.py
-- tests/postgres_support.py
+- src/forge/web/status.html
+- src/forge/web/status.css
+- src/forge/web/status.js
+- tests/test_runtime.py
+- tests/test_postgres_runtime.py
 - tests/test_postgres_reader.py
-- tests/test_postgres_api.py
-- tests/test_postgres_rls.py
+- pyproject.toml
 - README.md
 - odd/tasks/forge-identity.md
-- docs/changes/entra-identity-binding.md
+- docs/changes/runtime-status.md
+- .gitignore (only `/.local/runtime-test/`; parent-authorized final checkpoint)
 - .local/postgres-test/**
+- .local/runtime-test/**
+- .venv/**
 
-No new dependencies, harness-script edits, migration0001 edits, Entra/API/domain
-source changes or extra helper files. The ignored path is owned disposable harness
-output only. Stop for parent scope input if another exact path becomes necessary.
+No new runtime dependency, helper or broad folder authorization. Existing Entra/
+binder/domain/migrations/tests except listed/harness script/closed foundation/
+product specs protected. Ignored runtime paths only owned harness logs/staged package/
+wheel/server PID outputs; .venv only explicitly pinned build tools and their pinned
+build-only dependencies. No credentials/token files. Stop for exact path scope if needed.
 
-### Required verification and delivery
+### Planned contract and numeric limits
 
-Commands from N:/Proyects/forge/.worktrees/tenant-storage (released):
+Factory forge.runtime.create_runtime_app(configuration=None); explicit config only.
+No env loader or DSN. Parent-accepted local profile supplies numeric loopback host+hostaddr,
+port, dbname, user=forge_runtime, nonempty explicit password (repr excluded), fixed
+safe options/search_path/row_security/auth/transport controls, no arbitrary kwargs.
+Reject PG* presence without reading/adopting values; do not call PQconndefaults
+(which consults environment). Noarg mode does not inspect environment.
+Local SSL/GSS-disabled profile is only for owned loopback evidence, not production.
+Production TLS/remote profile deferred. Parent accepted presence-only PG* rejection
+in configured mode and this explicit loopback-only profile, without global environment
+mutation or ambient service-file access. This is not a production TLS claim.
 
+Libpq 17 source calls service lookup before defaults; supplying usual fields alone
+does not prevent PGSERVICE/PGSERVICEFILE and default service-file lookup. Empty
+service is not assumed a disable switch. Supplied nonempty password must prevent
+default passfile fallback; fixed controls and synthetic environment tests must prove
+the full contract before claiming configured readiness. Never mutate global env.
+Sources: https://www.postgresql.org/docs/17/libpq-connect.html ,
+https://www.postgresql.org/docs/17/libpq-envars.html ,
+https://raw.githubusercontent.com/postgres/postgres/REL_17_STABLE/src/interfaces/libpq/fe-connect.c .
+
+Fixed bounds (implemented and observed below): pool min 0 / max 2, max waiting 4,
+reconnect 1s, connect 2s, acquisition 1s, open-wait 5s, close 5s; probe statement 3s / lock 1s,
+cache TTL 5s and one in-flight probe, failure cooldown 5s. No periodic poll/stampede;
+expired positive cache never implies available storage. Blocking work off event loop;
+DNS/OS scheduling not falsely described as a hard request SLA. Finite startup/failure/
+cleanup tests must verify observed library behavior; record justified adjustment.
+
+Public status schema version 1.0: runtime unconfigured/checking/ready/unavailable;
+configuration missing/provided; storage not_configured/checking/ready/unavailable;
+identity_provider not_configured/configured_unverified; onboarding not_implemented;
+user_access not_evaluated. No tenant/client/identity IDs, scopes, DSNs, paths, counts
+or raw error fields. /healthz remains liveness, not readiness.
+Catalog checks establish expected table/column/type/pair constraint/trigger/RLS/
+role prerequisites without organization GUC or data query. Reader still evaluates
+every real bootstrap request and membership; readiness grants no authorization.
+
+UI palette #0B1D26/#0F6B6D/#E07A2D/#E8DCC1/#1A1A1A. Semantic headings/landmarks,
+visible keyboard focus, status live region, button disabled while refreshing,
+text-based state labels, 360x800 layout and fetch failure/stale fallback.
+Copper accent is not assumed contrast-safe body text; verify contrast.
+Fixed package resources with external local CSS/JS; CSP default-src 'none',
+script/style/connect/img 'self', base-uri/frame-ancestors/form-action/object-src 'none';
+no inline scripts/styles. no-store status/HTML/assets; no browser token storage.
+
+### Exact planned verification after release
+
+From N:/Proyects/forge/.worktrees/tenant-storage:
+    ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_runtime.py -v
     ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_entra.py -v
     ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_foundation.py -v
     ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_api.py -v
@@ -292,143 +379,214 @@ Commands from N:/Proyects/forge/.worktrees/tenant-storage (released):
     ./.venv/Scripts/python.exe -m pip check
     git diff --check
 
-The existing harness discovers test_postgres_*.py, including the new binding tests.
-First behavioral RED must demonstrate the absent binding/reader safeguard against
-real PostgreSQL, not missing-module errors. Then GREEN/refactor and full regressions.
-Baseline 113 =38 Entra+13 domain+18 HTTP+44 PostgreSQL; observed final
-count 142 includes 29 new methods. Owned pinned cached image/disposable container
-only; no pull or existing
-DB. Record actual command results, counts, failures/skips and exact-ID cleanup.
+The harness discovers test_postgres_*.py including test_postgres_runtime.py.
+Baseline 142=73 DB+38 Entra+13 domain+18 HTTP; new counts unknown. Observe behavioral
+assertion RED against an importable contract before GREEN, not import-error-only
+RED. Lifecycle/cache/concurrency/role/schema/column grants/ambient pollution/security
+headers/assets/redaction tests plus actual cryptographic composed bootstrap.
+Owned pinned cached PostgreSQL image/container only, no pull/prune/existing DB;
+exact-ID cleanup each run. Missing prerequisites do not silently skip.
 
-F07a forecast 1000–1600 authored additions/deletions including complete real-DB
-tests/docs. Local feature-branch-chain remains approved; 400 is advisory only.
-One coherent migration/binder/reader/test/docs work unit is the proposed boundary;
-no artificial file-type split or code-golf. Migration failure rollback is tested
-transactionally; destructive downgrade of persisted binding data is not authorized.
-Parent independent verification+spot check precede a separately authorized local
-Conventional Commit. Source/tests and owned-container proof are observed below;
-no dependency installation. Independent/parent closure and local commit completed;
-GLOBALOFF means disabled/unmanaged, never native approval.
+Planned offline packaging command after bounded authorized build-tool acquisition:
+    ./.venv/Scripts/python.exe -m pip --isolated wheel --no-index --no-deps --no-build-isolation --no-cache-dir --wheel-dir .local/runtime-test/wheels .local/runtime-test/package-src
+Stage exact source/manifest/README copy in authorized ignored package-src; no original
+build metadata outside allowed paths. Inspect actual wheel ZIP/importlib.resources
+for all three assets; checkout existence is not packaging proof. Initial backend
+absence remains historical, not a failed build or PASS. Acquisition is authorized
+only AFTER source release; installation/build proof is still pending.
 
-## F07a original writer evidence (141 before proof extension)
+Browser proof after source functional checks, parent/verifier with loaded browser
+skill only. Hidden owned Start-Process runs:
+    ./.venv/Scripts/python.exe -m uvicorn forge.runtime:create_runtime_app --factory --app-dir src --host 127.0.0.1 --port 8765 --no-access-log
+Capture own PID/logs under .local/runtime-test; if port busy, stop without probing/
+killing occupant. Browser skill NodeREPL bootstrap + URL-directed getForUrl,
+immediate full browser.documentation read; visit only http://127.0.0.1:8765/status.
+Observe refresh, keyboard focus/live states, narrow viewport and no external requests/
+leaked diagnostics. Report unavailable browser capability honestly; no standalone
+automation substitute. Stop only captured own PID, confirm owned server cleanup.
+Unconfigured browser run performs no account or DB probe.
 
-Parent source release followed the full updated mirror2468 and exact normalized
-readback (19755 characters). Baseline4ab2d40 remains HEAD; no commit yet.
-Writer implemented only the exact released surfaces;0001,domain,API,F06 source/
-tests,manifest,harness script,closed foundation and product specs are unchanged.
 
-Meaningful real PostgreSQL RED before source implementation:46 methods /4 assertion
-failures, no errors. Existing reader returned unbound Entra records and failed to
-reject column-only UPDATE/INSERT/REFERENCES grants; all inherited44 tests passed.
-Initial GREEN46/46; expanded binding/migration proof67/67; final DB72/72.
-No additional intermediate failures or skipped prerequisites occurred.
+### Accepted build-tool pins and planned acquisition
 
-Final exact required command results:
-- Existing powershell scripts/test-postgres.ps1:72 tests, exit0, no skips.
-  PostgreSQL17.11;24 binding/migration+17 reader+9 DB HTTP+22 RLS.
-  Exact owned-container removal/absence readback succeeded on every RED/GREEN run.
-- test_entra.py:38, exit0; test_foundation.py:13, exit0; test_api.py:18, exit0.
-- compileall -q src tests:exit0; pip check:exit0/no broken requirements;
-  git diff --check:exit0. Existing TestClient/httpx warning remains unsilenced.
-Total141 = baseline113+28 new methods. Tests prove no automatic identity/membership
-creation, privileged write-once rejection, cross-tenant separation, repeated/concurrent
-binding, role/session/ownership/effective ACL/RLS safeguards, bounded lock/pool failure,
-post-UPDATE rollback and clean same-backend context/timeout restoration.
+Official PyPI version metadata verified 2026-10-04: setuptools84.0.0 (Python>=3.10),
+wheel0.48.0 (>=3.9), build1.6.1 (>=3.10); all universal Python wheels/non-yanked,
+compatible with Python3.12.14. Build-only dependencies: packaging26.0 (>=3.8),
+pyproject-hooks1.2.0 (>=3.7), colorama0.4.6 (>=2.7 excluding3.0–3.6).
+build requires packaging>=24, pyproject_hooks and Windows colorama; wheel requires
+packaging>=24. Six pins form the complete dependency set for this Python/OS without
+optional extras. Historical pre-acquisition readback: all six absent. Actual installation proof below.
 
-Migration probes execute exact0001 and0002 scripts in three separately named owned
-ephemeral databases before fixture role initialization: fresh, populated generic+
-Entra+membership upgrade, and populated transaction rollback. Rollback probe changes
-only final COMMIT to ROLLBACK in memory, executes all DDL/grants, and verifies no new
-columns/binder role while previous rows and four ENABLE+FORCE RLS tables persist.
-Successful upgrade preserves existing rows/UUIDs with null metadata, not backfill.
-Each probe removes only its captured random DB and its case-created reserved roles.
-Fixture then applies explicit ordered0001/0002 in the owned test DB. No existing DB,
-script change, dependency acquisition, deployment runner or downgrade is involved.
+Primary metadata: https://pypi.org/pypi/setuptools/84.0.0/json ,
+https://pypi.org/pypi/wheel/0.48.0/json ,
+https://pypi.org/pypi/build/1.6.1/json ,
+https://pypi.org/pypi/packaging/26.0/json ,
+https://pypi.org/pypi/pyproject-hooks/1.2.0/json ,
+https://pypi.org/pypi/colorama/0.4.6/json .
+Earlier considered wheel0.45.1 was rejected during metadata checking: official
+metadata reports CVE-2026-24049 (fixed0.46.2). Selected0.48.0 avoids that known issue;
+no old pin installed. Current selected metadata reports no listed vulnerabilities,
+not a guarantee that none exist.
 
-Chosen finite policy: migration lock2s/statement10s; binder acquisition1s override
-(0,30], local lock1s/statement5s, fixture connect2s/statement5s and pool min/max1,
-waiting4/reconnect1s/open5s. Test separate pools prove real row-lock idempotency.
-Limits reset after transaction; they are not an end-to-end deployment SLA.
+After source release only, record existing distribution names/versions (no URLs/
+environment/credentials) and enforce they remain unchanged; build tools are additions,
+not runtime upgrades. Exact planned commands:
+    ./.venv/Scripts/python.exe -m pip --isolated install --dry-run --index-url https://pypi.org/simple --no-cache-dir --no-input --keyring-provider disabled --timeout 15 --retries 1 --only-binary=:all: --no-deps "setuptools==84.0.0" "wheel==0.48.0" "build==1.6.1" "packaging==26.0" "pyproject-hooks==1.2.0" "colorama==0.4.6"
+    ./.venv/Scripts/python.exe -m pip --isolated install --index-url https://pypi.org/simple --no-cache-dir --no-input --keyring-provider disabled --timeout 15 --retries 1 --only-binary=:all: --no-deps "setuptools==84.0.0" "wheel==0.48.0" "build==1.6.1" "packaging==26.0" "pyproject-hooks==1.2.0" "colorama==0.4.6"
+    ./.venv/Scripts/python.exe -m pip check
 
-Original public identity policy is scoped to runtime/migrator so organization GUCs
-cannot broaden binder RLS; test-only writer is explicitly included by the fixture.
-Binder self context contains existing UUID, verified issuer/tid/oid only; never
-raw JWTsub/email. The principal dataclass remains a trusted internal port, not an
-authentication proof. No endpoint or login wiring was added.
+Overall acquisition wall bound180s across dry-run/install; timeout15/retries1 per
+request, public index only/no cache/keyring/ambient credentials; no retry loop or
+unrelated upgrade. --no-deps with all six exact metadata-compatible pins prevents
+resolver drift; verify installed versions/dependency health and preserved runtime
+versions. .venv is the only installation target. Build remains isolated from network
+via the no-index staged command above, with no build isolation/dependency fetching.
 
-At the original writer checkpoint B1-B9 were observed; B10 awaited independent
-verification and parent spot. Final closure is recorded below. README/Spanish SDD describe the exact
-internal boundary and deployment/migration-runner gap. Parent owns refreshed full
-task mirror; no native approval or remote/account activity.
+### Release conditions, rollback and next step
 
-## F07a durable failed-migration proof extension
+Parent resolved the local profile/ambient guard and authorized bounded build-tool
+acquisition. Parent full mirror 2468/topic odd/forge-identity/tasks and exact
+readback preceded source release; refreshed candidate mirror remains parent-owned.
+Writer/independent/browser evidence is below; parent spot and scoped local
+delivery decision completed before commit authorization. No new product decision or credentials request assumed.
+Programmatic deployment prerequisites: external ordered 0001/0002 migration, supplied
+restricted runtime login/pool credentials, complete allowed connection controls,
+explicit Entra tenant/audience/client/scopes config and resource requestedAccessTokenVersion2.
+No migration execution, binder composition, live tenant test, PKCE/token storage,
+invitations/outbox, administration or automated membership. Status is not an admin client.
+Rollback boundary for F08a is its future coherent source/test/docs commit, no database
+mutation/downgrade. F07b/F09 remain separately scoped and unreleased.
+Engram project prometheon-forge; no authoritative session ID. Parent owns full task
+mirror; worker checkpoint memory is separate. F08a observed checks below are current; F06/F07a historical evidence is not a new
+claim of live enrollment. Parent owns refreshed full mirror.
 
-Independent required checks passed the original141 candidate with no concrete
-defect; parent spot72 DB passed on PostgreSQL17.11 (13.668s), exact-ID cleanup.
-Independent optional combined in-memory probe was blocked by a15s readiness wait
-before SQL; it supplied no verdict. No unknown wrapper was repeated.
 
-Parent requested durable failure proof within B9: an explicit ROLLBACK alone is
-not evidence of a mid-migration failure. Added one new test method,
-test_failed_migration_rolls_back_ddl_policies_role_and_existing_data. The fourth
-separately owned migration case executes the exact0002 statements with an in-memory
-SELECT1/0 inserted before original COMMIT. It observes DivisionByZero/SQLSTATE22012,
-INERROR, then explicit ROLLBACK/IDLE. Readback checks no binding columns or binder
-role, unchanged policies/functions, existing generic/Entra/member rows and four
-ENABLE+FORCE RLS tables. The original explicit rollback case remains distinct.
+## F08a writer candidate and observed proof
 
-Expanded existing runtime and binder guard regressions with REFERENCES granted
-to both pair columns; no table REFERENCES grant, both guards reject. Existing
-durable self-only/malformed/partial/foreign/org-spoofing binder-RLS tests already
-cover that optional premise. Production migration/adapter/reader bytes are unchanged.
+Source release followed parent full updated mirror2468/exact normalized readback
+of the accepted30892-character plan and Spanish SDD. HEAD remains
+e6d7f95875693dfccea772598a41e9f269c28613, no commit. Thirteen authored surfaces
+match release; no extra helper/runtime dependency/harness/migration/domain/binder/F06
+edits. Parent later authorized only `/.local/runtime-test/` in .gitignore because
+staged wheel/log outputs were otherwise untracked; existing patterns preserved.
+Fourteen authored files now include that mechanical output-scope correction.
 
-Writer follow-up using only the existing harness:73 DB (25 binding/migration+
-17 reader+9 DB HTTP+22 RLS), PostgreSQL17.11,14.420s, exit0/no skips and exact-ID
-cleanup. Unchanged38 Entra+13 domain+18 HTTP passed; total142, previous141 retained.
-compileall/pipcheck/diffcheck exit0. This tests-only proof improvement needs no new
-production behavior RED; the deterministic SQL failure itself is asserted, not
-misreported as an unexpected test failure. That writer checkpoint awaited focused
-independent/new-test parent spot; both are now observed in final closure below.
+Behavioral RED: six runtime methods/26 assertions, no errors against importable
+default-deny skeleton; owned DB76 methods/two assertions, all inherited73 passed,
+exact-ID cleanup. Initial GREEN6 runtime+76 DB. Password fixture initially encoded
+literal backslash-x00 rather than NUL; corrected before GREEN, not a production fix.
 
-## F07a final functional closure and local delivery
+Expanded proof retained intermediate failures honestly:
+- Non-escalated ignored-log redirection denied before tests; scoped escalation
+  succeeded, no skipped prerequisite.
+- Test-string quoting gave one import SyntaxError; fixture corrected.
+- Expanded21 runtime then one test-double error: replacing os.environ interfered
+  with FastAPI OTEL getenv. Replaced with runtime guard-call assertion; configured
+  synthetic PG pollution runs only in child envs, no global env mutation.
+- Expanded87 DB: two assertion failures because uncommitted trigger/function DDL
+  was invisible to the probe's other connection; one attempted pair-type DDL
+  blocked by policy dependency. Corrected fixtures commit owned DDL with exact
+  finally restoration and alter independent slug type. Subsequent87 GREEN.
+- Entra38 passed in an early command whose accidental trailing './' shell token
+  failed; final exact Entra command passed exit0. Not misreported as a test failure.
 
-Writer142 =73 DB+38 Entra+13 domain+18 HTTP, all required checks exit0/no skips.
-Independent original141 passed with no concrete defect; durable focused73 DB
-plus previous69 offline =142 applicable checks passed. Parent latest73 DB spot
-passed on PostgreSQL17.11 in13.492s; exact-ID owned-container cleanup confirmed.
-All B1-B10 acceptance criteria are observed. Functional proof is not native
-approval: GLOBALOFF remains disabled/unmanaged, without Gentle operations.
+Final required writer checks, no skips:
+- test_runtime.py25, test_entra.py38, test_foundation.py13, test_api.py18: exit0.
+- Unchanged scripts/test-postgres.ps1:87 DB, PostgreSQL17.11,14.064s, exit0;
+ 25 binding/migration+18 reader+9 DB HTTP+22 RLS+13 runtime. Owned cached image/
+ exact-ID cleanup confirmed on every RED/GREEN/expanded/final harness run.
+- Total181 =142 baseline+25 runtime+14 DB additions.
+- compileall, pip check and git diff --check: exit0. Existing TestClient/httpx
+ deprecation and Git LF/CRLF/global-ignore permission warnings remain unsilenced.
+ No ambient configuration/permission changes to hide warnings.
 
-Optional independent pre-SQL readiness block is retained above as historical
-unavailable proof, not PASS. New durable tests independently prove failure rollback
-and paired REFERENCES guards; no production correction was needed. Behavior,
-tests and docs form one coherent local-only work unit on feat/forge-tenant-storage.
-Parent authorized feat(identity): persist verified Entra bindings for exactly the
-eleven authored surfaces. Actual commit identity/stats are recorded below; no
-remote action, F07b source, deployment runner or live enrollment.
+Six build-tool pins dry-run/install exit0,13.625s total under180s; all prior
+distribution versions preserved. Actual client libpq18.4 (180004), server17.11;
+controls parsed using supplied make_conninfo only and exercised via real SCRAM
+runtime connections. Clients below18 fail closed rather than silently losing controls.
+Explicit host=hostaddr canonical loopback, port1..65535, DB identifier1..63,
+password nonempty/<=4096 UTF8 bytes/no control/surrogate, fixed role forge_runtime.
+PG* names-only rejection occurs before configured pool creation AND on connect.
+No default credential/service/passfile/cert access, environment clearing or runtime
+account discovery. Primary current-client evidence:
+https://www.postgresql.org/docs/18/libpq-connect.html and
+https://raw.githubusercontent.com/postgres/postgres/REL_18_STABLE/src/interfaces/libpq/fe-connect.c .
 
-## F07a observed local delivery evidence
+Observed policy: poolmin0/max2, waiting4/workers2, connect2s/acquisition1s,
+open-wait5s/close5s/reconnect1s, query3s/lock1s, cacheTTL5s/single-flight/completion
+failure cooldown5s. Lifespan/probe threads differ from event-loop thread. Startup/
+constructor failure stays publicly unavailable; cleanup/rollback/connection errors
+are redacted, cleanup failure observable. Pool repr/warnings do not expose DSN,
+host/password/database/raw libpq diagnostics; no global logging mutation.
+Catalog-only probe checks role/column grants/RLS,17 column shapes, exact pair CHECK,
+pair unique keys/enabled invoker trigger/helper/policy/FK prerequisites and absent
+business context; not full policy-function-body or migration-byte attestation.
+Committed schema damage, empty business tables, column-only grants, dirty pool/
+context, positive-cache expiry/outage/recovery and cleanup are tested.
 
-Behavior commit:8183b8dd00503dda9e504f8c7a473b9ed936b0d9
-(feat(identity): persist verified Entra bindings), existing local feature branch.
-Exactly eleven approved files:1337 additions+29 deletions =1366 authored lines;
-generated/ignored outputs excluded. Eight behavior/migration/test blobs match the
-independent verified candidate before staging and after commit. No mutating hooks;
-clean checkout observed immediately after behavior commit. Protected surfaces
-remain unchanged against starting4ab2d40. No remote action or AI attribution.
-Git emitted the existing automatic-identity notice; no config edit/amend.
-This small task-only follow-up records the actual behavior hash/stats; parent owns
-the final full task mirror/readback. F07b-F09 remain pending, not released.
+Real ephemeral RSA+fake public JWKS with actual composed runtime/owned PostgreSQL:
+readiness makes zero IDP calls; invalidJWT401; valid-unbound404; explicit test-only
+metadata binding permits200; foreign404, owned suspended403, revoked404. Status
+still configured_unverified/not_implemented/not_evaluated; no login/binder wiring
+or automatic identity/member creation. No persisted private keys/credential files.
 
-## Recovery and next step
+Actual offline staged wheel succeeded. First approved planned command lacked
+--no-cache-dir and pip reported a default local AppData wheel-cache entry; unexpected
+build artifact outside intended staging, no network/dependency/account. Parent
+notified; no out-of-scope cache inspection/deletion performed. Final command adds
+--no-cache-dir and child-only TMP/TEMP under .local/runtime-test/tmp, preserving
+global environment. Final ephemeral cache/build metadata stays in ignored staging.
+Final prometheon_forge-0.1.0-py3-none-any.whl:
+SHA256362da36402fb759af76eca231bccfba6b1b9ac3226aa895bbeba9f7456fe0364.
+ZIP assets exactly match source: HTML2308/CSS2290/JS2588 bytes.
+Fresh child imports forge directly from wheel (not checkout), reads all resources
+via importlib.resources and serves three routes+unconfigured status exit0; no wheel
+install/download. Test caches/private keys not included. Runtime versions preserved.
 
-Engram project prometheon-forge; no authoritative session ID, omit session_id.
-Parent owns final full mirror topic odd/forge-identity/tasks and readback.
-Parent owns refreshed final full mirror/readback after local delivery evidence.
-F07a functional closure and local work-unit commit completed; actual Git
-hash/stats are recorded above. F07b remains unreleased.
-The eleven authored paths match released scope; ignored local logs are not delivery.
-F07b creation/invitations/provisioning remains future and requires separate scoping.
-Explicit persistent tid/oid linkage is required before live enrollment.
-F08 runtime composition/readiness UI and F09 desktop PKCE/protected storage/live
-enrollment stay pending. Preserve closed foundation proof and current branch chain.
+README/neutral-Spanish SDD describe actual local runtime and production gaps.
+C6/C7 static/HTTP/contrast and observed browser behavior have evidence; C10 retains
+capability limits rather than a blanket PASS; C10b explicitly remains follow-up.
+C12 independent focused retest/parent spot and local commit authorization completed. Writer launched no server/browser and makes no native approval claim.
+
+
+### Independent finding, bounded correction and browser evidence
+
+Original independent181+wheel passed, but controlled synthetic global tracer
+confirmed P1: FastAPI0.142.2 default native telemetry captured raw query token/
+identity markers and endpoint names through unconfigured/status requests.
+Parent authorized only shared-factory correction and durable regressions; no UI
+redesign. create_app now supplies typed TelemetryConfig with tracing/metrics/logs/
+operation_spans/auto_configure allFalse. Automatic setup alone would not stop
+existing global providers. No host-global provider/environment/logging changes;
+external middleware/host instrumentation is outside this native guarantee.
+
+Meaningful RED28 runtime methods/4 assertion failures (three new methods; shared
+factory subtests count twice),59 controlled provider calls; no errors. Child-only
+positive-control trace/meter/logger providers have no SDK/exporters/network;
+OTEL child environment and configuration/export-discovery hook prove native
+setup cannot activate. GREEN28 and corrected full184 =28runtime+87DB+38Entra+
+13domain+18HTTP, no skips; DB14.770s/server17.11/exact-ID cleanup. compileall,
+pipcheck,diffcheck exit0. Logs telemetry-red/green.log and *-corrected.log under
+.local/runtime-test. No dependency changes or additional source paths.
+
+Corrected staged offline wheel command unchanged, exact source API and three
+static assets ZIP byte-matches; fresh wheel import/resources/four HTTP routes exit0.
+Current SHA256 8e46e0e1d6174c3535201b78f1e018896f6c49697c3a74c7d63da667d16c93bc;
+previous362da364... wheel hash remains historical before API correction.
+
+Parent-reported browser actor proof: actual unconfigured render; keyboard Tab
+skip-link/Refresh and Enter;360x800 without overflow; live attributes; server-stop
+Refresh shows fixed safe unavailable, clears other fields and re-enables button.
+Own PID15480 stopped twice/tab closed. No blocking visual defect.
+Limits: transient loading too fast (source evidence only), actual screen-reader
+announcement unverified, browser performance/network capture unavailable.
+DOM-local assets plus deterministic static fetch constraints/backend adapter and
+native-telemetry isolation complement but do not equal full browser zero-outbound
+capture. Failure focus falls to body, nonblocking observation; no requested UI fix.
+Independent P1 retest closed: original synthetic positive control now zero spans/
+attributes/export-discovery, global providers unchanged;28runtime+18API passed and
+previous138 other proof applicable, total184. Corrected actual wheel checked.
+Parent spot28 passed10.292s; parent visually inspected mobile screenshot, no issue.
+Parent accepts LOCAL operational-shell delivery with C10 observed closed and C10b
+follow-up limits explicit, not production readiness or full accessibility/network
+certification. Coherent local commit authorized; no further source changes.

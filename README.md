@@ -2,8 +2,10 @@
 
 An organization-aware agent platform with executable domain contracts and a
 **default-deny HTTP bootstrap**. Scoped PostgreSQL storage, strict Entra v2 token
-adapters and explicit existing-identity binding have local/offline proof. Runtime composition, live corporate enrollment,
-desktop sign-in, effective capabilities and client UI are not integrated.
+adapters, explicit existing-identity binding and opt-in local runtime composition
+have local/offline proof. A read-only runtime status screen is available; live
+corporate enrollment, desktop sign-in, administration and effective capabilities
+are not integrated.
 
 ## Local setup and checks
 
@@ -58,7 +60,7 @@ See `docs/sprints.md`, `docs/changes/foundation.md`,
 `docs/changes/api-bootstrap.md` and `odd/tasks/forge-foundation.md`.
 The HTTP unit passed local, independent and parent functional checks (31 tests).
 Local commit evidence is recorded in the task document. No native review approval
-is claimed. UI verification is N/A because no executable screen exists.
+is claimed. That historical HTTP unit had no screen; current F08a status UI checks are separate.
 
 Starlette 1.7.0 emits an httpx TestClient deprecation warning; the pinned test extra
 currently passes the entire suite. Do not silence this warning or add unapproved
@@ -158,7 +160,7 @@ oid GUID: subject means the Forge provider principal, NOT raw OIDC sub.
 This intentionally links one tenant object across client-specific subjects without
 joining objects from different tenants or guest home identity providers.
 F07a provides the internal bind-existing boundary below; explicit authorized
-binding and future composition/onboarding remain necessary before real enrollment.
+binding and future onboarding remain necessary before real enrollment.
 
 Defaults: 16 tenant/32 client/16 scope entries, 16 KiB JWT, 128-character kid,
 256 KiB discovery/JWKS response, 64 keys, 1-hour tenant cache, 60-second refresh
@@ -175,8 +177,8 @@ Scopes, audience, tenant, issuer, authorized client and real fixed-RS256 signatu
 must all match; ID/Graph/app-only tokens never replace a Forge delegated access token.
 The resource registration later needs requestedAccessTokenVersion=2.
 The default factory remains unconfigured/deny-all; /healthz is still liveness only.
-No tenant enrollment, runtime readiness UI, PKCE client, refresh-token storage,
-provisioning, production or staging account activity is implemented here.
+No tenant enrollment, PKCE client, refresh-token storage, provisioning, production
+or staging account activity is implemented by F06. F08a status composition is below.
 
 See docs/changes/entra-token-validation.md and odd/tasks/forge-identity.md.
 
@@ -223,8 +225,9 @@ its own self policy. The policy-test writer is explicitly added by tests only.
 not implement deployment orchestration, migration history/version tracking or
 safe downgrade of already persisted bindings. Run migrations only through a
 trusted administrator in a dedicated Forge database with reserved roles;
-deployment migration runner, onboarding/invitations/provisioning (F07b), runtime
-composition, UI, PKCE/protected storage and live enrollment remain pending.
+deployment migration runner, onboarding/invitations/provisioning (F07b), production
+TLS, PKCE/protected storage and live enrollment remain pending; F08a local status
+composition is described below.
 
 Writer follow-up proof: 73 PostgreSQL tests (25 binding/migration,17 reader,9 DB HTTP,22 RLS)
 plus unchanged38 Entra+13 domain+18 HTTP =142, no skips. Real PostgreSQL17.11
@@ -240,3 +243,91 @@ by its15s readiness wait, not a defect verdict; see task history. No native appr
 (GLOBALOFF).
 
 See `docs/changes/entra-identity-binding.md` and `odd/tasks/forge-identity.md`.
+
+
+## Explicit local runtime and read-only status (F08a)
+
+Run the unconfigured, zero-storage/IDP-network status shell:
+    ./.venv/Scripts/python.exe -m uvicorn forge.runtime:create_runtime_app --factory --app-dir src --host 127.0.0.1 --port 8765 --no-access-log
+
+Open /status on that own loopback server. Local packaged HTML/CSS/JS have no CDN,
+login, token input/storage, user administration or access controls. /forge/v1/status
+publishes only seven fixed state fields; /healthz remains process liveness.
+Unconfigured runtime does not inspect PG environment names, construct a pool or
+validator, connect, resolve DNS or fetch signing metadata. Every token still rejects.
+Stop only your own server after local checks.
+
+Trusted deployment code may deliberately construct:
+    from forge.entra import EntraConfiguration
+    from forge.runtime import LocalDatabaseConfiguration, RuntimeConfiguration, create_runtime_app
+
+    app = create_runtime_app(RuntimeConfiguration(
+        entra=EntraConfiguration(
+            allowed_tenants=provided_tenant_guids, audience=provided_api_guid,
+            allowed_clients=provided_public_client_guids,
+            required_scopes=provided_delegated_scopes),
+        database=LocalDatabaseConfiguration(
+            host="127.0.0.1", port=provided_port, dbname=provided_database_name,
+            password=provided_runtime_password),
+    ))
+
+The provided variables above are explicit trusted values, NOT environment loaders
+or default credentials. Only numeric canonical loopback, a bounded identifier DB
+name, valid explicit port and nonempty bounded password are accepted. The database
+role must be exactly forge_runtime, separately provisioned as restricted LOGIN.
+Migrations 0001/0002 are applied externally by a trusted administrator; this factory
+does not run migrations or bind/create identities or memberships.
+
+Configured mode rejects presence of any PG* variable without reading its value,
+both before pool creation and on connections, rather than letting libpq discover
+services/password files. It never clears global environment state. Explicit password,
+host/hostaddr, database/user, options, client encoding, auth and transport controls
+are supplied. Supported linked client is libpq18+ (observed18.4 from psycopg-binary),
+distinct from owned test server17.11. Fixed SCRAM-only auth, sslcertmode/channel
+binding/SSL/GSS/load-balancing disabled and numeric host apply to this LOCAL profile
+only; production TLS/remote profiles are not implemented.
+
+The application owns an idle/autocommit sync pool min0/max2, maxwaiting4/workers2,
+reconnect1s, connect2s, acquisition1s, open/wait5s and close5s. Lifespan and blocking
+readiness work are off the event loop. Partial failures clean up; cleanup errors
+are redacted and observable, not silently reported as success. Connection/rollback
+exceptions and pool connection repr are redacted without global logging changes.
+Queries use statement3s/lock1s. CacheTTL5s, single-flight refresh and completion-based
+failure cooldown5s prevent probe floods; a positive result is valid only until TTL.
+These finite library bounds are not a hard OS/DNS/request SLA.
+
+Readiness checks actual restricted role/column privileges/RLS and catalog structure
+for0001/0002, including nullable UUID pair, exact pair CHECK, uniqueness, enabled
+invoker trigger, policy/helper prerequisites and selected-revision FK. No business
+rows/counts or organization context are queried. This structural probe is not a
+complete migration-byte/policy-body audit or a deployment migration-history runner.
+Every bootstrap still independently validates its token and reloads membership.
+Ready means local config+storage role/schema only: identity_provider stays
+configured_unverified, onboarding not_implemented, user_access not_evaluated.
+It does not establish live Entra connectivity, enrollment, admin readiness or access.
+
+All runtime routes receive no-store, restrictive same-origin CSP, nosniff and
+no-referrer headers. Fixed assets render fixed English labels with semantic
+landmarks/live status, keyboard focus and responsive layout; unexpected status/fetch
+failure cannot render raw errors or preserve a stale "ready" label.
+The neutral-Spanish design and task record exact scope/proof/pending steps:
+docs/changes/runtime-status.md and odd/tasks/forge-identity.md.
+
+    ./.venv/Scripts/python.exe -m unittest discover -s tests -p test_runtime.py -v
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/test-postgres.ps1
+
+Build tools are development-only, not new runtime dependencies. Explicit setuptools
+backend/package-data includes the three assets. The staged offline wheel command
+uses --no-index --no-deps --no-build-isolation --no-cache-dir under ignored
+.local/runtime-test; ZIP/importlib.resources proof is recorded in the task.
+Both API factories explicitly disable native FastAPI tracing, metrics, logs,
+operation spans and environment auto-configuration. Existing global telemetry
+providers are neither inherited nor modified; raw query/validation input is not
+sent to those providers by Forge native instrumentation. External middleware or
+host instrumentation is outside this guarantee.
+
+Available browser functional proof is accepted for this LOCAL operational shell;
+full network capture, actual screen-reader announcement and transient-loading
+certification remain explicit follow-up evidence, not delivery claims. Independent
+telemetry correction retest and parent spot passed. No live accounts, production, binder/login
+wiring, F07b invitations/outbox or F09 PKCE/protected storage/enrollment are implemented.
