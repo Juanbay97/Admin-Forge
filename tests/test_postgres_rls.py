@@ -163,7 +163,7 @@ class PostgresIsolationTests(unittest.TestCase):
             policies = conn.execute("SELECT count(*) FROM pg_policy WHERE polrelid IN "
                 "(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
                 "WHERE n.nspname='forge') AND polqual IS NOT NULL AND polwithcheck IS NOT NULL").fetchone()[0]
-            self.assertEqual(policies, 4)
+            self.assertEqual(policies, 5)
 
     def test_force_rls_applies_to_migration_owner_and_helpers_are_invokers(self):
         with connect() as conn:
@@ -196,7 +196,7 @@ class PostgresIsolationTests(unittest.TestCase):
     def test_identity_uniqueness_and_nonempty_components(self):
         with connect() as conn:
             with self.assertRaises(psycopg.errors.UniqueViolation), conn.transaction():
-                conn.execute('INSERT INTO forge.identities VALUES (%s,%s,%s,%s)',
+                conn.execute('INSERT INTO forge.identities (id,provider,issuer,subject) VALUES (%s,%s,%s,%s)',
                              (UUID(int=99), 'test', 'issuer', 'alice'))
             for column in ('provider', 'issuer', 'subject'):
                 with self.subTest(column=column):

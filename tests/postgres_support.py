@@ -63,25 +63,144 @@ def rows(conn, table):
         sql.Identifier(table))).fetchall()
 
 
+
+def migration_probe(*, populated=False, rollback=False, failure=False):
+    """Exact migration scripts against a separate DB inside this owned cluster.
+
+    Invoked before shared fixture roles exist. Drop only the created DB and its
+    reserved roles; never an existing deployment. Each case owns a random name.
+    """
+    from uuid import uuid4
+    name = 'forge_migration_' + uuid4().hex
+    evidence = None
+    failure_state = None
+    with connect() as admin:
+        admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
+    try:
+        kwargs = settings()
+        kwargs['dbname'] = name
+        with psycopg.connect(**kwargs) as conn:
+            conn.execute((ROOT / 'migrations/0001_bootstrap.sql').read_text('utf-8'))
+            generic, entra = UUID(int=801), UUID(int=802)
+            tid, oid = UUID(int=803), UUID(int=804)
+            if populated:
+                with conn.transaction():
+                    conn.execute('INSERT INTO forge.identities (id,provider,issuer,subject) '
+                                 'VALUES (%s,%s,%s,%s),(%s,%s,%s,%s)',
+                                 (generic, 'test', 'issuer', 'existing', entra, 'entra',
+                                  'https://login.microsoftonline.com/' + str(tid) + '/v2.0', str(oid)))
+                    conn.execute('INSERT INTO forge.organizations VALUES (%s,%s,%s,true,1)',
+                                 (ORG_A, 'upgrade', 'Upgrade'))
+                    conn.execute('INSERT INTO forge.configuration_revisions VALUES (%s,1)', (ORG_A,))
+                    conn.execute('INSERT INTO forge.memberships VALUES (%s,%s,%s,%s)',
+                                 (ORG_A, MEMBER_A, entra, 'active'))
+            before = {table: conn.execute(sql.SQL('SELECT * FROM forge.{} ORDER BY 1').format(
+                sql.Identifier(table))).fetchall() for table in TABLES}
+            policy_sql = (
+                "SELECT p.polname,p.polrelid,pg_get_expr(p.polqual,p.polrelid),"
+                "pg_get_expr(p.polwithcheck,p.polrelid),p.polroles FROM pg_policy p "
+                "JOIN pg_class c ON c.oid=p.polrelid "
+                "JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='forge' "
+                "ORDER BY p.polname,p.polrelid")
+            function_sql = (
+                "SELECT p.proname,p.proowner,p.prosecdef,p.proacl::text FROM pg_proc p "
+                "JOIN pg_namespace n ON n.oid=p.pronamespace "
+                "WHERE n.nspname='forge' ORDER BY p.proname")
+            policies_before = conn.execute(policy_sql).fetchall()
+            functions_before = conn.execute(function_sql).fetchall()
+            migration = (ROOT / 'migrations/0002_entra_identity_binding.sql').read_text('utf-8')
+            if rollback or failure:
+                if not migration.endswith('COMMIT;\n'):
+                    raise RuntimeError('Unexpected migration transaction boundary')
+                if rollback:
+                    # Explicit rollback is distinct from a failed transaction.
+                    migration = migration[:-len('COMMIT;\n')] + 'ROLLBACK;\n'
+                else:
+                    # All original DDL/grants execute; fail before original COMMIT.
+                    migration = migration[:-len('COMMIT;\n')] + 'SELECT 1 / 0;\nCOMMIT;\n'
+            if failure:
+                try:
+                    conn.execute(migration)
+                except psycopg.errors.DivisionByZero as error:
+                    aborted = conn.info.transaction_status is psycopg.pq.TransactionStatus.INERROR
+                    failure_state = (error.sqlstate, aborted)
+                    if failure_state != ('22012', True):
+                        raise RuntimeError('Expected migration failure was not observed')
+                    conn.execute('ROLLBACK')
+                    if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                        raise RuntimeError('Failed migration rollback did not restore idle state')
+                else:
+                    raise RuntimeError('Injected migration failure did not occur')
+            else:
+                conn.execute(migration)
+            reverted = rollback or failure
+            if reverted:
+                if (conn.execute(policy_sql).fetchall() != policies_before
+                    or conn.execute(function_sql).fetchall() != functions_before):
+                    raise RuntimeError('Migration rollback changed policies or functions')
+            columns = conn.execute("SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema='forge' AND table_name='identities' "
+                "AND column_name IN ('entra_tenant_id','entra_object_id')").fetchall()
+            if len(columns) != (0 if reverted else 2):
+                raise RuntimeError('Migration column proof failed')
+            for table in TABLES:
+                after = conn.execute(sql.SQL('SELECT * FROM forge.{} ORDER BY 1').format(
+                    sql.Identifier(table))).fetchall()
+                expected = ([row + (None, None) for row in before[table]]
+                            if table == 'identities' and not reverted else before[table])
+                if after != expected:
+                    raise RuntimeError('Migration changed existing records')
+            role = conn.execute("SELECT count(*) FROM pg_roles WHERE rolname='forge_identity_binder'").fetchone()[0]
+            if role != (0 if reverted else 1):
+                raise RuntimeError('Migration role rollback proof failed')
+            rls = conn.execute("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+                "WHERE n.nspname='forge' AND c.relkind='r' AND c.relrowsecurity AND c.relforcerowsecurity").fetchone()[0]
+            if rls != 4:
+                raise RuntimeError('Migration RLS proof failed')
+            evidence = (len(columns), len(before['identities']), len(before['memberships']), rls, role)
+            if failure:
+                evidence += failure_state + (conn.info.transaction_status is psycopg.pq.TransactionStatus.IDLE,)
+    finally:
+        with connect() as admin:
+            admin.execute(sql.SQL('DROP DATABASE {}').format(sql.Identifier(name)))
+            # These roles were created only by this case in the owned ephemeral cluster.
+            for role in ('forge_identity_binder', 'forge_runtime', 'forge_migrator'):
+                admin.execute(sql.SQL('DROP ROLE IF EXISTS {}').format(sql.Identifier(role)))
+    return evidence
+
+
 class DatabaseFixture:
     # Only this owned harness process shares initialization, never external DB state.
     _credentials = None
+    migration_evidence = None
 
     def __init__(self):
         if self._credentials is not None:
-            self.runtime_password, self.writer_password = self._credentials
+            self.runtime_password, self.writer_password, self.binder_password = self._credentials
             return
         wait_ready()
+        DatabaseFixture.migration_evidence = (
+            migration_probe(),
+            migration_probe(populated=True),
+            migration_probe(populated=True, rollback=True),
+            migration_probe(populated=True, failure=True),
+        )
         self.runtime_password = secrets.token_urlsafe(32)
         self.writer_password = secrets.token_urlsafe(32)
+        self.binder_password = secrets.token_urlsafe(32)
         with connect() as conn:
-            conn.execute((ROOT / 'migrations/0001_bootstrap.sql').read_text('utf-8'))
+            for migration in ('0001_bootstrap.sql', '0002_entra_identity_binding.sql'):
+                conn.execute((ROOT / 'migrations' / migration).read_text('utf-8'))
+            conn.execute(sql.SQL('ALTER ROLE forge_identity_binder LOGIN PASSWORD {}').format(
+                sql.Literal(self.binder_password)))
             # The harness alone provisions LOGIN and a restricted policy-test writer.
             conn.execute(sql.SQL('ALTER ROLE forge_runtime LOGIN PASSWORD {}').format(
                 sql.Literal(self.runtime_password)))
             conn.execute(sql.SQL('CREATE ROLE forge_test_writer LOGIN PASSWORD {} '
                 'NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION').format(
                 sql.Literal(self.writer_password)))
+            conn.execute('ALTER POLICY identity_scope ON forge.identities '
+                         'TO forge_runtime, forge_migrator, forge_test_writer')
             conn.execute('GRANT CONNECT ON DATABASE forge_test TO forge_test_writer')
             conn.execute('GRANT USAGE ON SCHEMA forge TO forge_test_writer')
             conn.execute('GRANT SELECT ON ALL TABLES IN SCHEMA forge TO forge_test_writer')
@@ -90,7 +209,7 @@ class DatabaseFixture:
             conn.execute('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA forge TO forge_test_writer')
             version = conn.execute('SHOW server_version').fetchone()[0]
             print('Real PostgreSQL server:', version)
-        DatabaseFixture._credentials = (self.runtime_password, self.writer_password)
+        DatabaseFixture._credentials = (self.runtime_password, self.writer_password, self.binder_password)
         self.reset()
 
     def pool(self, *, user='forge_runtime', pool_class=None, connection_class=psycopg.Connection, **overrides):
@@ -99,6 +218,8 @@ class DatabaseFixture:
         kwargs['user'] = user
         if user == 'forge_runtime':
             kwargs['password'] = self.runtime_password
+        elif user == 'forge_identity_binder':
+            kwargs['password'] = self.binder_password
         elif user == 'forge_test_writer':
             kwargs['password'] = self.writer_password
         kwargs.update(overrides)
@@ -119,12 +240,15 @@ class DatabaseFixture:
     def writer(self):
         return connect('forge_test_writer', self.writer_password)
 
+    def binder(self):
+        return connect('forge_identity_binder', self.binder_password)
+
     def reset(self):
         with connect() as conn, conn.transaction():
             conn.execute('TRUNCATE forge.organizations, forge.identities CASCADE')
             for identity, subject in ((ALICE, 'alice'), (BOB, 'bob'), (CAROL, 'carol'),
                                       (SUSPENDED, 'suspended'), (ARCHIVED, 'archived')):
-                conn.execute('INSERT INTO forge.identities VALUES (%s,%s,%s,%s)',
+                conn.execute('INSERT INTO forge.identities (id,provider,issuer,subject) VALUES (%s,%s,%s,%s)',
                              (identity, 'test', 'issuer', subject))
             for org, slug, revision in ((ORG_A, 'org-a', 1), (ORG_B, 'org-b', 2)):
                 conn.execute('INSERT INTO forge.organizations VALUES (%s,%s,%s,true,%s)',

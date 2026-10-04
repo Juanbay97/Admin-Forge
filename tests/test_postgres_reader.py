@@ -57,6 +57,56 @@ class PostgresReaderTests(unittest.TestCase):
                 self.assertEqual(rows(conn, table), [])
             return conn.info.backend_pid
 
+    def test_unbound_entra_identity_cannot_bootstrap(self):
+        tenant, oid = str(UUID(int=101)), str(UUID(int=102))
+        issuer = 'https://login.microsoftonline.com/' + tenant + '/v2.0'
+        with connect() as conn:
+            conn.execute('UPDATE forge.identities SET provider=%s,issuer=%s,subject=%s WHERE id=%s',
+                         ('entra', issuer, oid, UUID(int=11)))
+        self.assertIsNone(self.reader.read(AuthenticatedIdentity('entra', issuer, oid), str(ORG_A)))
+        self.assert_clean()
+
+    def test_column_only_mutation_grants_reject_runtime(self):
+        for privilege, columns in (('UPDATE', 'subject'), ('INSERT', 'subject'),
+                                  ('REFERENCES', 'subject'),
+                                  ('REFERENCES', 'entra_tenant_id,entra_object_id')):
+            with self.subTest(privilege=privilege, columns=columns), connect() as conn:
+                conn.execute('GRANT ' + privilege + '(' + columns + ') ON forge.identities TO forge_runtime')
+                try:
+                    self.assertFalse(conn.execute(
+                        "SELECT has_table_privilege('forge_runtime','forge.identities',%s)",
+                        (privilege,)).fetchone()[0])
+                    with self.assertRaisesRegex(RuntimeError, 'runtime role'):
+                        self.reader.read(ALICE, str(ORG_A))
+                finally:
+                    conn.execute('REVOKE ' + privilege + '(' + columns + ') ON forge.identities FROM forge_runtime')
+        self.assert_clean()
+
+    def test_bound_entra_identity_retains_membership_and_revocation_checks(self):
+        from forge.entra import VerifiedPrincipal
+        from forge.identity_store import PostgresIdentityBinder
+        tid, oid = str(UUID(int=101)), str(UUID(int=102))
+        principal = VerifiedPrincipal('guest-or-client-sub', tid, oid,
+            'https://login.microsoftonline.com/' + tid + '/v2.0')
+        with connect() as conn:
+            conn.execute('UPDATE forge.identities SET provider=%s,issuer=%s,subject=%s WHERE id=%s',
+                         ('entra', principal.issuer, oid, UUID(int=11)))
+        self.assertIsNone(self.reader.read(principal.identity, str(ORG_A)))
+        binder_pool = self.db.pool(user='forge_identity_binder')
+        self.addCleanup(binder_pool.close, timeout=5)
+        self.assertIsNotNone(PostgresIdentityBinder(binder_pool).bind_existing(UUID(int=11), principal))
+        data = self.reader.read(principal.identity, str(ORG_A))
+        self.assertEqual(data.membership.id, str(MEMBER_A))
+        self.assertIsNone(self.reader.read(principal.identity, str(ORG_B)))
+        with connect() as conn:
+            conn.execute("UPDATE forge.memberships SET status='suspended' WHERE id=%s", (MEMBER_A,))
+        self.assertIs(self.reader.read(principal.identity, str(ORG_A)).membership.status,
+                      MembershipStatus.SUSPENDED)
+        with connect() as conn:
+            conn.execute('DELETE FROM forge.memberships WHERE id=%s', (MEMBER_A,))
+        self.assertIsNone(self.reader.read(principal.identity, str(ORG_A)))
+        self.assert_clean()
+
     def test_maps_existing_immutable_records_and_exact_selected_revision(self):
         data = self.reader.read(ALICE, str(ORG_A))
         self.assertIsInstance(data, BootstrapRecords)

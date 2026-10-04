@@ -1,8 +1,8 @@
 # Prometheon Forge
 
 An organization-aware agent platform with executable domain contracts and a
-**default-deny HTTP bootstrap**. Scoped PostgreSQL storage and strict Entra v2 token
-adapters have local/offline proof. Runtime composition, live corporate enrollment,
+**default-deny HTTP bootstrap**. Scoped PostgreSQL storage, strict Entra v2 token
+adapters and explicit existing-identity binding have local/offline proof. Runtime composition, live corporate enrollment,
 desktop sign-in, effective capabilities and client UI are not integrated.
 
 ## Local setup and checks
@@ -133,7 +133,7 @@ validation live only under tests and are never imported by the runtime reader.
 Runtime pins: psycopg/binary 3.3.6 and psycopg-pool 3.3.3; httpx is test-only.
 The owned harness runs all `test_postgres_*.py` modules in one child process, not
 only RLS. Direct DB discovery without explicit owned-harness configuration fails
-clearly (currently unittest exit 5 with three setup errors and zero tests), not skip.
+clearly (currently unittest exit 5 with four setup errors and zero tests), not skip.
 Real size-one pool tests cover same backend reuse after success/error, concurrent
 serialization, fresh revocation/configuration, role misconfiguration and DB HTTP.
 
@@ -157,7 +157,8 @@ Domain identity is provider entra + exact validated tenant-v2 issuer + canonical
 oid GUID: subject means the Forge provider principal, NOT raw OIDC sub.
 This intentionally links one tenant object across client-specific subjects without
 joining objects from different tenants or guest home identity providers.
-F07 must persist explicit tid/oid binding before real enrollment.
+F07a provides the internal bind-existing boundary below; explicit authorized
+binding and future composition/onboarding remain necessary before real enrollment.
 
 Defaults: 16 tenant/32 client/16 scope entries, 16 KiB JWT, 128-character kid,
 256 KiB discovery/JWKS response, 64 keys, 1-hour tenant cache, 60-second refresh
@@ -183,3 +184,59 @@ F06 functional closure: writer 113 tests (38 Entra +13 domain +18 HTTP +44 DB);
 independent original 111 plus P2 retest (38 and six oversized-date cases); parent
 38-test spot check. The NumericDate P2 is closed; no live sign-in or native approval.
 Local delivery evidence is recorded in odd/tasks/forge-identity.md.
+
+## Explicit persistent Entra binding (F07a)
+
+The additive `migrations/0002_entra_identity_binding.sql` follows the unchanged
+0001 bootstrap. Nullable UUID `entra_tenant_id`/`entra_object_id` must be absent
+together or present together with exact canonical Entra provider/issuer/subject.
+An explicit unique pair and SECURITY INVOKER write-once trigger protect bound
+metadata and identity fields. Existing generic identities and membership UUIDs
+are unchanged; existing Entra rows are not automatically backfilled.
+
+`forge.identity_store.PostgresIdentityBinder` exposes only
+`bind_existing(existing_identity_uuid, verified_principal)`. It returns an immutable
+`IdentityBinding` or None for an absent/mismatched identity; operational failures are
+typed/redacted `IdentityBindingUnavailable`. It never inserts or relinks identities,
+creates memberships, grants access, or matches email/raw sub. Repeated same-pair
+bindings are idempotent, including concurrent calls. Guest objects remain scoped
+to their resource tenant. Constructing VerifiedPrincipal is NOT authentication:
+the trusted internal caller must validate the token and separately authorize
+selection of the existing identity UUID.
+
+A separate externally managed idle/autocommit pool must use
+`forge_identity_binder`, not forge_runtime. The migration creates that restricted
+NOLOGIN role with SELECT on identities and column UPDATE on the pair only;
+credentials/LOGIN and pool lifecycle belong to future trusted composition.
+Role/session/ownership/grant/RLS guards run on each borrow. Self-only RLS uses
+transaction-local identity/principal context, not invented organization membership.
+Acquisition defaults to1s within (0,30]; local lock1s/statement5s bounds are restored
+on transaction exit. No public binder endpoint, bind-on-login or bind-on-read.
+
+The reader now requires coherent persisted metadata for Entra only, still enforces
+organization/membership/configuration checks, and rejects effective column-level
+mutation privileges as well as table grants. Binding alone cannot create access.
+The original identity policy is scoped to runtime/migrator roles; the binder has
+its own self policy. The policy-test writer is explicitly added by tests only.
+
+0002 uses a transaction, lock_timeout2s and statement_timeout10s. These bounds do
+not implement deployment orchestration, migration history/version tracking or
+safe downgrade of already persisted bindings. Run migrations only through a
+trusted administrator in a dedicated Forge database with reserved roles;
+deployment migration runner, onboarding/invitations/provisioning (F07b), runtime
+composition, UI, PKCE/protected storage and live enrollment remain pending.
+
+Writer follow-up proof: 73 PostgreSQL tests (25 binding/migration,17 reader,9 DB HTTP,22 RLS)
+plus unchanged38 Entra+13 domain+18 HTTP =142, no skips. Real PostgreSQL17.11
+fresh/populated upgrades, explicit rollback and an actual injected pre-COMMIT SQL
+failure/aborted-transaction rollback used separately owned temporary databases in
+the disposable cluster. Failed-migration readback preserves rows/RLS/policies and
+leaves no new columns or binder role. No harness-script changes or dependencies.
+HTTP binding tests use a test-only trusted identity port and real DB reader;
+F06 continues to prove actual JWT crypto separately. Independent142 applicable
+checks and parent73 DB spot passed. Local work-unit commit is authorized; actual
+evidence is recorded in the task. Optional independent probe was blocked before SQL
+by its15s readiness wait, not a defect verdict; see task history. No native approval
+(GLOBALOFF).
+
+See `docs/changes/entra-identity-binding.md` and `odd/tasks/forge-identity.md`.

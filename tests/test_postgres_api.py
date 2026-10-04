@@ -56,6 +56,38 @@ class PostgresBootstrapHttpTests(unittest.TestCase):
                         'password=', 'issuer', str(MEMBER_A)):
             self.assertNotIn(private, response.text)
 
+    def test_entra_binding_gates_real_reader_without_automatic_access(self):
+        from forge.entra import VerifiedPrincipal
+        from forge.identity_store import PostgresIdentityBinder
+        tid, oid = str(UUID(int=101)), str(UUID(int=102))
+        principal = VerifiedPrincipal('synthetic-trusted-port', tid, oid,
+            'https://login.microsoftonline.com/' + tid + '/v2.0')
+        with connect() as conn:
+            conn.execute('UPDATE forge.identities SET provider=%s,issuer=%s,subject=%s WHERE id=%s',
+                         ('entra', principal.issuer, oid, UUID(int=11)))
+        class EntraPort:
+            # Test-only trusted identity port; JWT crypto is independently covered by F06.
+            def validate(self, token):
+                return principal.identity if token == 'synthetic' else None
+        client = TestClient(create_app(EntraPort(), self.reader))
+        self.addCleanup(client.close)
+        self.assert_error(self.get(token='synthetic', client=client), 404, 'NOT_FOUND')
+        binder_pool = self.db.pool(user='forge_identity_binder')
+        self.addCleanup(binder_pool.close, timeout=5)
+        self.assertIsNotNone(PostgresIdentityBinder(binder_pool).bind_existing(UUID(int=11), principal))
+        response = self.get(token='synthetic', client=client)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['membership'], {'id': str(MEMBER_A)})
+        for private in (tid, oid, principal.sub, principal.issuer, 'entra_tenant_id'):
+            self.assertNotIn(private, response.text)
+        self.assert_error(self.get(token='synthetic', org=ORG_B, client=client), 404, 'NOT_FOUND')
+        with connect() as conn:
+            conn.execute("UPDATE forge.memberships SET status='suspended' WHERE id=%s", (MEMBER_A,))
+        self.assert_error(self.get(token='synthetic', client=client), 403, 'MEMBERSHIP_SUSPENDED')
+        with connect() as conn:
+            conn.execute('DELETE FROM forge.memberships WHERE id=%s', (MEMBER_A,))
+        self.assert_error(self.get(token='synthetic', client=client), 404, 'NOT_FOUND')
+
     def test_real_bootstrap_exact_public_projection_for_two_organizations(self):
         for token, org, revision in (('alice', ORG_A, 1), ('bob', ORG_B, 2)):
             with self.subTest(token=token):

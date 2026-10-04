@@ -38,7 +38,8 @@ SELECT current_user = 'forge_runtime' AND session_user = current_user
         JOIN pg_catalog.pg_namespace AS n ON n.oid = t.relnamespace
         WHERE n.nspname = 'forge' AND t.relkind = 'r'
           AND (NOT has_table_privilege(current_user,t.oid,'SELECT')
-               OR has_table_privilege(current_user,t.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')))
+               OR has_table_privilege(current_user,t.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+               OR has_any_column_privilege(current_user,t.oid,'INSERT,UPDATE,REFERENCES')))
 FROM pg_catalog.pg_roles AS r WHERE r.rolname = current_user
 """
 
@@ -53,6 +54,10 @@ JOIN forge.organizations AS o ON o.id = m.organization_id
 JOIN forge.configuration_revisions AS c
   ON c.organization_id = o.id AND c.revision = o.selected_config_revision
 WHERE i.provider = %s AND i.issuer = %s AND i.subject = %s AND o.id = %s
+  AND (i.provider <> 'entra' OR (i.entra_tenant_id IS NOT NULL
+       AND i.entra_object_id IS NOT NULL
+       AND i.issuer = 'https://login.microsoftonline.com/' || i.entra_tenant_id::text || '/v2.0'
+       AND i.subject = i.entra_object_id::text))
   AND m.status IN ('active', 'suspended')
 """
 
