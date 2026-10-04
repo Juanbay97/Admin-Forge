@@ -2,14 +2,15 @@
 
 ## Current decision and next action
 
-Prepare F05a in `N:/Proyects/forge/.worktrees/tenant-storage`, branch
+F05a is functionally complete and committed in the isolated checkout
+`N:/Proyects/forge/.worktrees/tenant-storage`, branch
 `feat/forge-tenant-storage`, from `1e2592193e29d87e0becb6d704c2913768ae5f8b`.
 F04 remains functionally verified and locally committed, not integrated. The user
 selected choice 2 for its native review: `declined_this_candidate`, target
 `da5a138a`; this is not approval. Preserve the API checkout and frozen original.
 Parent read both full documents, refreshed/read back mirror 2374 and explicitly
 released F05a. Writer, independent verification and parent spot check pass; local
-commit is authorized below. F05a native review remains pending, not approved.
+commit is recorded below. F05a native review remains pending, not approved.
 F05b is not implemented. Parent owns post-commit mirror/native assessment.
 
 ## Authorized outcome and boundaries
@@ -52,7 +53,7 @@ These are ordered delivery increments, not calendar commitments. S1 is NOT compl
 - [x] F02 — Pure-domain trusted identity/membership authorization and allowlisted bootstrap. Observed RED then GREEN; tests/docs in `4281b990f90ba9708e2ec82caf1fdf7b9c390bfb`. Route: delegated (multi-file behavior).
 - [ ] F03 — Historical independent verification and parent spot check passed, but native review did not complete. No approved verdict or receipt is claimed; retain this historical gap without restarting old authority.
 - [x] F04 — Bounded FastAPI bootstrap transport. Route: delegated (new transport, HTTP tests, dependency metadata and accompanying spec). See seven acceptance checkpoints below. Self-verification, independent verification and parent spot check passed; local commit recorded below. Native review is NOT approved.
-- [ ] F05a — Minimal PostgreSQL migration and genuine RLS/role/constraint proof. Route: delegated (multi-file SQL, local harness and integration tests). Implemented with observed real DB RED/GREEN and writer checks; independent and parent verification passed; local commit authorized and pending. No runtime database reader.
+- [x] F05a — Minimal PostgreSQL migration and genuine RLS/role/constraint proof. Route: delegated (multi-file SQL, local harness and integration tests). Implemented with observed real DB RED/GREEN and writer checks; independent and parent verification passed; local behavior commit recorded below. No runtime database reader.
 - [ ] F05b — Synchronous pooled bootstrap reader and database-backed HTTP proof. Route: delegated (adapter, pool and HTTP integration tests). Pending separate unit after F05a; no Entra, UI or wider product schema.
 
 ## F04 acceptance checkpoints
@@ -403,6 +404,24 @@ review is pending and parent-owned; F04 remains explicitly declined and the orig
 review remains stopped. F05b pooled reader/DB-backed HTTP, Entra and UI stay pending.
 
 Parent authorized the coherent ten-file local work-unit commit on
-`feat/forge-tenant-storage`, followed by a task-only evidence commit. No push/PR/
+`feat/forge-tenant-storage`, followed by a small documentation evidence commit. No push/PR/
 merge or native lifecycle operation is authorized for this worker. Actual commit
 identities and counts will be recorded only after Git reports them.
+## F05a local commit evidence
+
+Behavior/tests/spec: `e346a1edb21785de4723bff879089124819ec020`
+(`feat(storage): enforce PostgreSQL tenant isolation`), observed on
+`feat/forge-tenant-storage`. Exactly ten authorized authored files; no ignored venv,
+local Docker config, generated credentials or logs staged. Cached whitespace and
+sensible secret-literal scan passed; existing Git identity used without override,
+Conventional Commit without attribution. Commit hooks made no candidate-file changes.
+Numstat: 1049 additions, 17 deletions, 1066 authored lines. This final commit count
+supersedes the earlier 1046-line writer snapshot; accepted local feature-branch-chain
+continues without code-golf. F05a functional completion includes independent and
+parent proof above. F05a native review remains pending, NOT approved; F04's review
+is declined and original frozen review stopped. No native operation/push/PR/merge.
+
+This evidence follow-up records the observed behavior hash without a self-referential
+future hash. Its identity and final clean checkout proof are returned to the parent.
+Next: parent refreshes the full task mirror and performs native candidate assessment;
+F05b reader/DB-backed HTTP, Entra and real UI remain pending, not silently included.

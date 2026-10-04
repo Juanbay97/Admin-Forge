@@ -1,7 +1,7 @@
 # SDD: migración mínima de bootstrap y prueba PostgreSQL/RLS
 
 Estado: F05a implementado y verificado por el writer con PostgreSQL real;
-verificación independiente y spot check correctos; commit local autorizado pendiente.
+verificación independiente y spot check correctos; commit local registrado en el task.
 Revisión nativa F05a pendiente, no aprobada. F05b será otro corte. Este documento
 concreta PF-01, PF-02 y PF-10 sin implementar su esquema completo ni afirmar
 multicliente antes de observar pruebas reales con dos organizaciones.
@@ -174,7 +174,7 @@ exclusiva del fixture local. RLS conserva el límite de confianza descrito arrib
 Verificación independiente: 22 DB + 13 dominio + 18 HTTP, pip check y whitespace;
 roles/RLS/WITH CHECK/constraints y cleanup inspeccionados y correctos. Parent repitió
 el arnés: 22/22, exit 0, PostgreSQL 17.11 y ausencia del contenedor confirmada.
-Commit local autorizado; parent mantiene espejo y evaluación/revisión nativa pendientes.
+Commit local registrado en el task; parent mantiene espejo y evaluación/revisión nativa pendientes.
 F05b lector/pool/HTTP, Entra, UI y producción siguen pendientes. Referencias de
 semántica: [PostgreSQL RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html)
 y [transacciones psycopg](https://www.psycopg.org/psycopg3/docs/basic/transactions.html).

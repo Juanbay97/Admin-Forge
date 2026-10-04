@@ -89,6 +89,7 @@ regressions unchanged. It is not a runtime DB reader or DB-backed HTTP integrati
 F05b remains pending. Migration is one-shot for a pristine dedicated Forge DB with
 reserved roles, not an upgrade runner for shared/production databases. Default API
 still denies all real tokens. Independent verification and parent spot check passed;
-local commit is authorized. F05a native review remains pending, not approved.
+local commit evidence is recorded in the task. F05a native review remains pending,
+not approved.
 See `docs/changes/postgres-bootstrap.md` and `odd/tasks/forge-foundation.md` for
 exact pins, recovery failures, command results and remaining scope.
