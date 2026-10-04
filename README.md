@@ -92,8 +92,8 @@ reserved roles, not an upgrade runner for shared/production databases. Default A
 still denies all real tokens. F05a independent verification and parent spot check passed;
 F05a local commit evidence is recorded in the task. F05b writer and independent
 checks passed (44 DB +13 foundation +18 HTTP); parent repeated all 44 DB tests with
-PostgreSQL 17.11 and confirmed owned-container cleanup. Local commit is authorized;
-its observed evidence is recorded in the task after Git completes.
+PostgreSQL 17.11 and confirmed owned-container cleanup. The coherent local behavior commit completed;
+its observed identity and authored count are recorded in the task.
 GentleAI verification is explicitly disabled (GLOBALOFF): ordinary checks only,
 disabled/unmanaged, no native approval.
 See `docs/changes/postgres-bootstrap.md` and `odd/tasks/forge-foundation.md` for

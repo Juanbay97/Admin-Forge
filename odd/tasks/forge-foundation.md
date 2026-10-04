@@ -11,11 +11,11 @@ unchanged; they do not block ordinary authorized development.
 F05a is committed and functionally verified. F05b reader/DB-backed HTTP is
 **functionally complete**: writer, independent verification and parent spot check
 passed. Parent read both preparation docs/full mirror 2374, released F05b and now
-authorized the coherent local work-unit commit. Record its actual identity after
-Git succeeds, then parent refreshes/readbacks the consolidated-task mirror.
+authorized the coherent local work-unit commit, now observed and recorded below.
+Next: parent refreshes/readbacks the consolidated-task mirror, then scopes S2.
 
 Active checkout: `N:/Proyects/forge/.worktrees/tenant-storage`, branch
-`feat/forge-tenant-storage`, HEAD/base for F05b
+`feat/forge-tenant-storage`, branch point/base for F05b
 `f79ad38ceda4588f3da7b6d69bfc79e860a3b070`. Preserve original and API checkouts.
 
 ## Authorized outcome and boundaries
@@ -59,7 +59,7 @@ production remain unimplemented. Parent owns formal sprint closure and next scop
 - [ ] F03 — Historical independent/parent checks passed, native original review stopped without completion or approved receipt. Preserve historical gap, never restart old authority automatically.
 - [x] F04 — Delegated default-deny FastAPI bootstrap transport; seven checkpoints below passed with writer/independent/parent proof and local commit. Native candidate explicitly declined, not approved.
 - [x] F05a — Delegated minimal migration, real RLS/role/constraint proof and harness; seven checkpoints passed with real RED→GREEN, independent/parent checks and local commit. No native approval.
-- [x] F05b — Delegated synchronous pooled reader and real DB-backed HTTP; functionally complete with writer/independent/parent checks. Local commit authorized; identity recorded after Git succeeds. No broader authentication/UI/schema.
+- [x] F05b — Delegated synchronous pooled reader and real DB-backed HTTP; functionally complete with writer/independent/parent checks. Local behavior commit observed below; final parent mirror follows. No broader authentication/UI/schema.
 
 ## Delivery strategy, commits and rollback
 
@@ -76,7 +76,7 @@ Slices: foundation F01/F02, API F04, PostgreSQL/RLS F05a, pooled reader F05b. No
 | F04 evidence / F05a branch point | `1e2592193e29d87e0becb6d704c2913768ae5f8b` | Documentation evidence |
 | F05a behavior | `e346a1edb21785de4723bff879089124819ec020`, feat(storage): enforce PostgreSQL tenant isolation | 1049 additions +17 deletions =1066; 10 files |
 | F05a evidence / F05b base | `f79ad38ceda4588f3da7b6d69bfc79e860a3b070` | Documentation evidence |
-| F05b | Uncommitted writer candidate | Forecast 550–800; final count in evidence below |
+| F05b behavior | `279905eae2113c40749d5ac6fa9358cdce1b85d8`, feat(storage): connect scoped bootstrap reader | 944 additions +398 deletions =1342; 9 files |
 
 Conventional commits only, no AI attribution/Co-Authored-By. Existing Git identity,
 no global configuration changes. Prior commits staged only approved authored files;
@@ -168,7 +168,7 @@ by exact ID/readback. Setup/diagnostic failures are not fabricated behavioral RE
 - [x] F05b.4 — Injected managed sync pool, bounded one borrow, idle/autocommit guard before SQL/outer transaction; live restricted-role guard, parameterized local four-GUC context, one fully qualified joined snapshot, exact identity/UUID and frozen mapping. No persistent SET/cache/DSN/pool ownership/extra public keys.
 - [x] F05b.5 — Mapping/full-triple/hostile values/crossed/missing/archived denials, own suspended record vs foreign denial, inactive org, fresh membership revocation/config revision; existing API yields owned 403/foreign 404/inactive 404.
 - [x] F05b.6 — Real size-one same PID A→B→absence/error clears GUC/rows after commit/rollback; concurrent reads serialize. Admin/super/bypass/owner/inheritance, dirty/non-autocommit, closed/exhausted pool reject. DB HTTP validates default auth/allowlist/worker/redacted 503/recovery; managed pool remains caller-owned.
-- [ ] F05b.7 — Writer and independent 44 DB +13 domain +18 HTTP, pip check/whitespace pass; parent 44 DB repeat/cleanup passed. Local commit authorized, awaiting actual hash below; parent final mirror follows. GLOBALOFF disabled/unmanaged, no native review.
+- [x] F05b.7 — Writer and independent 44 DB +13 domain +18 HTTP, pip check/whitespace pass; parent 44 DB repeat/cleanup passed. Local behavior commit observed below; parent final mirror follows. GLOBALOFF disabled/unmanaged, no native review.
 
 ## F05b released exact edit surfaces
 
@@ -257,7 +257,7 @@ cleared for the child and restored; no password/DSN logging or credential/sessio
   removed by exact ID and absence confirmed. Final whitespace/count follow below.
 
 Writer checkpoint above preceded independent/parent verification. Their observed
-results are recorded below; local commit is now explicitly authorized. No GentleAI
+results and observed local commit are recorded below. No GentleAI
 operation or remote action occurred.
 
 Final writer snapshot: 1327 authored additions plus deletions across nine approved
@@ -277,6 +277,21 @@ This completes functional verification, not native approval. GLOBALOFF remains
 explicitly disabled/unmanaged. Parent authorized the exact nine-file local behavior
 commit and a small documentation evidence follow-up; no push/PR/merge/source edits.
 
+## F05b local commit evidence
+
+Behavior/tests/spec: `279905eae2113c40749d5ac6fa9358cdce1b85d8`
+(`feat(storage): connect scoped bootstrap reader`), observed on the named branch.
+Exactly nine approved authored files; 944 additions +398 deletions =1342 authored
+lines, superseding the earlier 1327 writer snapshot. Cached whitespace and
+credential-shaped literal scan passed; ignored venv/local config/logs excluded.
+Existing Git identity resolved (automatic-identity notice, no override/config
+change/amend); no AI attribution. Commit hooks changed no candidate bytes. Clean
+checkout observed after behavior commit. Functional proof is complete;
+GLOBALOFF disabled/unmanaged, not native approval. No push/PR/merge.
+
+This small docs follow-up records the real behavior hash without a self-referential
+future hash; its identity and final clean status are returned to parent for the mirror.
+
 ## Recovery and next step
 
 Engram project `prometheon-forge`; no authoritative session ID, omit session_id.
@@ -287,7 +302,7 @@ historical narratives for readability; earlier full content remains recoverable 
 Engram and ignored local backup. F05b memory evidence: 2451 pins, 2452 clean RED,
 2453 implementation, 2454 no-harness/ACL lessons. No manufactured approval.
 
-Next: record actual local commit identities, then parent mirrors/readbacks this
-full consolidated task before planning the next bounded feature.
+Next: parent mirrors/readbacks this full consolidated task and observed commit
+identities, then plans the next bounded feature.
 After observed closure, plan S2 corporate sign-in/client spike against product specs;
 do not silently expand F05b. Preserve all current state if any required check blocks.

@@ -3,7 +3,7 @@
 Estado: F05a implementado y verificado por el writer con PostgreSQL real;
 verificación independiente y spot check correctos; commit local registrado en el task.
 La revisión nativa F05a no fue aprobada. F05b está funcionalmente completo: writer, verificación independiente y spot check
-correctos. Commit local autorizado; evidencia observada se registra en el task. Este documento
+correctos. Commit local completado; identidad y conteo observados registrados en el task. Este documento
 concreta PF-01, PF-02 y PF-10 sin implementar su esquema completo ni afirmar
 multicliente antes de observar pruebas reales con dos organizaciones.
 
@@ -182,7 +182,7 @@ y [transacciones psycopg](https://www.psycopg.org/psycopg3/docs/basic/transactio
 
 ## F05b: lector sincrónico y HTTP con PostgreSQL real
 
-Funcionalmente completo en este checkout; commit local autorizado por parent. Parent leyó/espejó ambos documentos
+Funcionalmente completo y comprometido localmente en este checkout. Parent leyó/espejó ambos documentos
 completos (2374) y liberó la lista exacta. El usuario deshabilitó la verificación
 GentleAI: GLOBALOFF, tests ordinarios y verificación independiente, disabled/unmanaged;
 no hubo evaluación, revisión, consentimiento nuevo ni reactivación. El historial se
@@ -248,8 +248,8 @@ pasaron. No se actualizó Python global ni se descargó imagen.
 Los comandos exactos, paths autorizados, checkpoint final y verificación pendiente
 quedan en el task único. Parent confirmó verificación independiente: 44 DB +13 dominio +18 HTTP, pip check
 y whitespace, sin defectos accionables. Repitió los 44 DB: exit 0, PostgreSQL 17.11
-y cleanup confirmado. Autorizó el commit local; el hash real se registra en el task
-solo después de observar Git. Parent actualizará el espejo completo después.
+y cleanup confirmado. Autorizó el commit local, que terminó correctamente; el task registra su hash
+y numstat observados. Parent actualizará el espejo completo después.
 Estas pruebas no certifican identidad corporativa ni una UI todavía inexistente.
 
 Fuentes: [pool psycopg](https://www.psycopg.org/psycopg3/docs/advanced/pool.html),
