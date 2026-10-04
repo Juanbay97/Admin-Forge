@@ -2,37 +2,40 @@
 
 ## Current decision and next action
 
-F05a is functionally complete and committed in the isolated checkout
-`N:/Proyects/forge/.worktrees/tenant-storage`, branch
-`feat/forge-tenant-storage`, from `1e2592193e29d87e0becb6d704c2913768ae5f8b`.
-F04 remains functionally verified and locally committed, not integrated. The user
-selected choice 2 for its native review: `declined_this_candidate`, target
-`da5a138a`; this is not approval. Preserve the API checkout and frozen original.
-Parent read both full documents, refreshed/read back mirror 2374 and explicitly
-released F05a. Writer, independent verification and parent spot check pass; local
-commit is recorded below. F05a native review remains pending, not approved.
-F05b is not implemented. Parent owns post-commit mirror/native assessment.
+**GentleAI verification is disabled by explicit user request: parent observed GLOBALOFF.**
+Current work uses available ordinary tests, independent verification and parent spot
+checks only: disabled/unmanaged, not native approval. Never assess, start, retry,
+request review consent or reactivate review. Historical review records below remain
+unchanged; they do not block ordinary authorized development.
+
+F05a is committed and functionally verified. F05b reader/DB-backed HTTP is
+**functionally complete**: writer, independent verification and parent spot check
+passed. Parent read both preparation docs/full mirror 2374, released F05b and now
+authorized the coherent local work-unit commit. Record its actual identity after
+Git succeeds, then parent refreshes/readbacks the consolidated-task mirror.
+
+Active checkout: `N:/Proyects/forge/.worktrees/tenant-storage`, branch
+`feat/forge-tenant-storage`, HEAD/base for F05b
+`f79ad38ceda4588f3da7b6d69bfc79e860a3b070`. Preserve original and API checkouts.
 
 ## Authorized outcome and boundaries
 
-Build the generic Prometheon Forge MVP incrementally, using ODD and small SDD
-change specs where useful. Preserve the functioning hotel deployment, credentials,
-upstream snapshots and the original workspace checkpoint. No remote operations,
-credential/session reuse, spending, production migration, push, PR or merge.
+Build generic Prometheon Forge MVP incrementally using ODD and small SDD change specs.
+Source of truth: PF-00–PF-12 in external `outputs/prometheon-forge/specs/`; retain
+OpenYak agent core and OmniRoute routing, Python/FastAPI control plane and PostgreSQL.
+Historical 'Promtheon Forge' own-agent-loop memory names a different absent directory,
+not implementation evidence for this project. Preserve functioning hotel deployment,
+credentials, upstream snapshots and original workspace checkpoint.
 
-Product root: `N:/Proyects/forge`. Its original checkout has a frozen native review
-whose bound operation failed with `operation_timeout`; the user chose to stop that
-review. Do not edit, abandon, retry, reset or otherwise mutate that checkout or its
-review authority. The isolated F04 branch does not approve or close the old review.
-Workers must not invoke or toggle the native review lifecycle.
+No remote operations, ambient credentials/sessions, spending, production migration,
+production composition, push, PR, merge, destructive recovery or unrelated checkout
+writes. Product root `N:/Proyects/forge` has a stopped original frozen review after
+operation_timeout; do not edit/abandon/retry/reset its authority. New worktree does
+not approve/close it. Test validators are synthetic only under tests; runtime default
+accepts no tokens. No Entra/client UI/product-wide schema or invented capabilities
+in the current slice. Workers never invoke or toggle native review.
 
-Source of truth: PF-00 through PF-12 under external
-`outputs/prometheon-forge/specs/`. Retain OpenYak agent core and OmniRoute routing;
-implement Python/FastAPI control plane, with PostgreSQL/RLS as a later separate
-proof. Historical 'Promtheon Forge' own-agent-loop memory describes a different
-MVP whose recorded directory is absent; it is not implementation evidence here.
-
-## Sprint plan
+## Sprint roadmap
 
 | Sprint | Outcome | Exit condition |
 |---|---|---|
@@ -44,180 +47,153 @@ MVP whose recorded directory is absent; it is not implementation evidence here.
 | S6 | Skills and audit | Draft backup distinct from reviewed publication; grants/restore and redacted events |
 | S7 | Packaging and pilot | Signed Windows updater, restore drill and two-organization pilot checks |
 
-These are ordered delivery increments, not calendar commitments. S1 is NOT complete.
+Ordered delivery increments, not calendar commitments. F05b functional checks
+passed; local delivery evidence is recorded below. Corporate login, real UI and
+production remain unimplemented. Parent owns formal sprint closure and next scope.
 
 ## Work units and observed status
 
-- [x] F00 — Read-only explorer mapped specs/upstreams; historical implementation absent locally. Route: delegated (repository mapping).
-- [x] F01 — Isolated repository, sprint plan and foundation change spec. Parent readback/mirror completed before implementation. Route: delegated (preparation and multi-file documents). Included in `4281b990f90ba9708e2ec82caf1fdf7b9c390bfb`.
-- [x] F02 — Pure-domain trusted identity/membership authorization and allowlisted bootstrap. Observed RED then GREEN; tests/docs in `4281b990f90ba9708e2ec82caf1fdf7b9c390bfb`. Route: delegated (multi-file behavior).
-- [ ] F03 — Historical independent verification and parent spot check passed, but native review did not complete. No approved verdict or receipt is claimed; retain this historical gap without restarting old authority.
-- [x] F04 — Bounded FastAPI bootstrap transport. Route: delegated (new transport, HTTP tests, dependency metadata and accompanying spec). See seven acceptance checkpoints below. Self-verification, independent verification and parent spot check passed; local commit recorded below. Native review is NOT approved.
-- [x] F05a — Minimal PostgreSQL migration and genuine RLS/role/constraint proof. Route: delegated (multi-file SQL, local harness and integration tests). Implemented with observed real DB RED/GREEN and writer checks; independent and parent verification passed; local behavior commit recorded below. No runtime database reader.
-- [ ] F05b — Synchronous pooled bootstrap reader and database-backed HTTP proof. Route: delegated (adapter, pool and HTTP integration tests). Pending separate unit after F05a; no Entra, UI or wider product schema.
+- [x] F00 — Read-only delegated exploration mapped specs/upstreams; historical implementation absent locally.
+- [x] F01 — Isolated repository, sprint plan and foundation spec; parent full readback/mirror before source. Delegated multi-file docs; included in foundation commit below.
+- [x] F02 — Trusted identity/membership authorization and allowlisted bootstrap; delegated behavior, observed RED→GREEN, tests/docs in foundation commit.
+- [ ] F03 — Historical independent/parent checks passed, native original review stopped without completion or approved receipt. Preserve historical gap, never restart old authority automatically.
+- [x] F04 — Delegated default-deny FastAPI bootstrap transport; seven checkpoints below passed with writer/independent/parent proof and local commit. Native candidate explicitly declined, not approved.
+- [x] F05a — Delegated minimal migration, real RLS/role/constraint proof and harness; seven checkpoints passed with real RED→GREEN, independent/parent checks and local commit. No native approval.
+- [x] F05b — Delegated synchronous pooled reader and real DB-backed HTTP; functionally complete with writer/independent/parent checks. Local commit authorized; identity recorded after Git succeeds. No broader authentication/UI/schema.
 
-## F04 acceptance checkpoints
+## Delivery strategy, commits and rollback
 
-- [x] F04.1 — Parent reads this document and `docs/changes/api-bootstrap.md`, mirrors the full task document under `odd/forge-foundation/tasks`, and explicitly releases the source-write gate.
-- [x] F04.2 — Resolve compatible exact FastAPI/uvicorn runtime and httpx test pins in a worktree-local virtual environment. Do not alter bundled Codex Python or add pytest. Record dependency/runner evidence; unavailable dependencies are a blocker, not RED.
-- [x] F04.3 — Observe meaningful failing HTTP tests against an importable stub before implementation. The HTTP contract covers auth before organization lookup, missing/malformed/rejected auth, spoofed identity headers/cookies, UUID query validation and default-deny configuration.
-- [x] F04.4 — Implement injected trusted token-validator and scoped bootstrap-reader ports with production default accepting no bearer token. Read fresh data per request, verify identity and all organization IDs before revealing owned suspended membership, and reuse the existing domain allowlist unchanged. No runtime fixtures or fake-auth environment switch.
-- [x] F04.5 — Observe passing HTTP tests for allowed projection/no secrets, missing/inconsistent/wrong-identity and cross-organization records (including foreign suspended membership), live suspension reread, secret-rich provider exceptions, PF-10 envelopes and OpenAPI security/response contracts. Health is process-only liveness; capabilities beyond the domain subset remain deferred.
-- [x] F04.6 — Entire unittest suite GREEN, compileall, pip check, whitespace check and loopback-only uvicorn smoke are observed and recorded. UI: N/A (no screen). Writer, independent and parent checks passed. Native review was explicitly declined for this candidate, not approved.
-- [x] F04.7 — One coherent behavior/tests/spec work-unit commit on `feat/forge-api-bootstrap`, after parent authorization. Record commit identity, exact results and authored lines. Local feature-branch-chain only; no push/PR/merge. Do not infer native review completion from functional verification or Git commit.
+User-approved **feature-branch-chain, local only**. Keep tests and docs with coherent
+behavior; no push/PR/merge authorized. Advisory 400 authored-line heuristic is not a
+cap: do not compress code, omit tests, delete explanations or split by file type.
+Slices: foundation F01/F02, API F04, PostgreSQL/RLS F05a, pooled reader F05b. No PRs exist.
 
-## F04 exact checks and runtime evidence
+| Boundary | Identity and purpose | Observed authored lines |
+|---|---|---|
+| Root | `5aa398bf80c44083a7f9ef7ac1066a33bd4cf9e9` | Baseline |
+| F01/F02 | `4281b990f90ba9708e2ec82caf1fdf7b9c390bfb`, feat(auth): authorize organization bootstrap | 434 additions, 0 deletions; 9 files |
+| F04 behavior | `34009c465aca6a64e67479d144755f024262a004`, feat(api): expose authorized bootstrap transport | 841 additions +104 deletions =945; 8 files |
+| F04 evidence / F05a branch point | `1e2592193e29d87e0becb6d704c2913768ae5f8b` | Documentation evidence |
+| F05a behavior | `e346a1edb21785de4723bff879089124819ec020`, feat(storage): enforce PostgreSQL tenant isolation | 1049 additions +17 deletions =1066; 10 files |
+| F05a evidence / F05b base | `f79ad38ceda4588f3da7b6d69bfc79e860a3b070` | Documentation evidence |
+| F05b | Uncommitted writer candidate | Forecast 550–800; final count in evidence below |
 
-Run from the isolated worktree after dependency resolution, using its own Python:
+Conventional commits only, no AI attribution/Co-Authored-By. Existing Git identity,
+no global configuration changes. Prior commits staged only approved authored files;
+ignored venv/config/credentials/logs stayed out; hooks did not mutate candidate bytes.
+Historical preliminary snapshots (F04 933, F05a 1046) are superseded by commit counts.
 
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_api.py -v
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe -m compileall -q src tests
-.\.venv\Scripts\python.exe -m pip check
-git diff --check
-.\.venv\Scripts\python.exe -m uvicorn forge.api:create_app --factory --app-dir src --host 127.0.0.1 --port 8765
+Rollback F04 removes its API/tests/deps/spec without foundation or upstream changes.
+Rollback F05a removes only migration/harness/tests/test deps/docs, preserving F04 and
+frozen original; no production data. Rollback F05b removes reader/new DB-HTTP/tests
+and its support/harness/runtime-dependency/docs changes, preserving F05a migration/RLS
+and F04 API/domain. No changed bytes in original/API checkout are authorized.
+
+## Preserved foundation/API proof and review history
+
+F02 Python 3.12.14: 13-method RED/23 NotImplementedError subcase errors, then
+13/13 GREEN +compileall. Independent 13 tests/26 adversarial checks (all 16 org-ID
+combinations, identity/status denial/secret exclusion); parent 13/13. Git relocation
+lost empty metadata directories; parent restored them and existing author identity.
+
+F04 pins: FastAPI 0.142.2/uvicorn 0.54.0/httpx 0.28.1; resolved Starlette 1.7.0/
+Pydantic 2.13.5 compatible. Stub RED: 18 methods, 55 assertion failures +1 missing OpenAPI
+error, exit 1; GREEN 31/31, compileall/pipcheck/untracked-whitespace pass. Owned localhost
+uvicorn: /healthz 200, default bootstrap 401 +Bearer; stopped. Independent/parent pass.
+Expected 18 error UUIDs versus 17 unique observed was diagnostic count mismatch, not
+behavior error. Starlette warns httpx TestClient deprecated; current pins work only.
+
+Original native review: frozen then operation_timeout, user stopped it. F04 choice 2:
+action declined, consent declined_this_candidate, target `da5a138a`, not approval.
+F05a review never completed before GLOBALOFF. No approved receipt; no restarting
+old authority. Current ordinary checks/delivery disabled/unmanaged. Long details
+retained in Engram 2374 (full task), 2437 (F05a recovery), 2442 (F05a finalization), 2448–2449
+(F05b planning), specs/Git. Consolidation removes repeated narratives, not stable IDs,
+commit hashes/proof/constraints. Unit/API proof never certified auth, DB or real UI.
+
+## F04 acceptance checkpoints (completed historical behavior)
+
+- [x] F04.1 — Parent full task/spec readback, Engram mirror and explicit source-write release observed.
+- [x] F04.2 — Isolated exact FastAPI/uvicorn runtime and httpx test pins resolved; imports/pip check passed; no global runtime or pytest change.
+- [x] F04.3 — Meaningful importable-stub HTTP RED observed, including auth before org validation, malformed/rejected/spoofed auth and OpenAPI/default-deny.
+- [x] F04.4 — Trusted injected sync validator/reader ports, fresh consistent identity/org checks before owned-suspension disclosure, existing domain allowlist unchanged; no runtime fixture identity.
+- [x] F04.5 — Public projection, wrong/foreign/inconsistent records, live suspension/config, operational/validation redaction, PF-10 envelopes and OpenAPI/security GREEN.
+- [x] F04.6 — 31/31, compileall/pip check/whitespace and owned-loopback smoke passed; independent/parent checks passed. UI N/A; native review declined, not approved.
+- [x] F04.7 — Coherent local behavior/tests/spec commit 34009c465aca6a64e67479d144755f024262a004 on feat/forge-api-bootstrap; count/rollback recorded; no push/PR/merge.
+
+## F05a acceptance checkpoints (completed historical behavior)
+
+- [x] F05a.1 — Parent full task/PostgreSQL-spec readback, mirror and explicit F05a release observed; separate from historical F04 gate.
+- [x] F05a.2 — Narrow artifact ignores before creation; isolated venv/compatible driver pin and actual official image digest resolved; setup failures not labeled RED.
+- [x] F05a.3 — Real connected four-table/grants scaffold RED exposed missing RLS across two orgs/multiple subjects; not import/image/engine failure.
+- [x] F05a.4 — Only identities/orgs/memberships/config revisions; full identity triple uniqueness, nonempty/status/positive constraints, org-scoped keys and deferrable composite selected-config FK.
+- [x] F05a.5 — Nonowner SELECT-only runtime; ENABLE/FORCE, self/full-org scope, nonrecursive invoker policies; owned suspension internally visible, archived/foreign hidden. No org-only authorization.
+- [x] F05a.6 — 22/22 real role/grant/owner/RLS/constraint proof, independent USING/WITH CHECK with FK-valid test writer, malformed/missing context and same-PID commit/rollback cleanup; error details private.
+- [x] F05a.7 — 22 DB +13 domain +18 HTTP, compileall/pip check/whitespace, owned cleanup, independent and parent checks passed; local commit recorded. Native approval not claimed.
+
+## F05a PostgreSQL evidence and recovered failures
+
+One-shot migration for pristine dedicated Forge cluster/DB with reserved roles, not
+shared/production/upgrade/replay runner. Only four bootstrap tables; composite
+selected-config FK deferrable. Nonowner SELECT runtime; FORCE/ENABLE/nonrecursive
+invoker RLS. Own suspension readable, archived/foreign hidden. Fixture alone provides
+LOGIN/password and restricted writer. RLS never authenticates or prevents compromised
+app SQL overwriting GUCs; FK errors private. Application authorization still required.
+
+Initial isolated PyPI: JSONDecodeError Unterminated string (line 1, column 481448,
+char 481447), no install/DB/RED. Generator also FileNotFoundError: scripts directory
+not created first. Parent authorized one no-cache recovery (timeout 30/retries 1,
+180 seconds): driver/binary 3.3.6 installed. JSON cause unproven, not evidence of cache
+corruption. Directory created separately; harness regenerated. One authorized image
+pull within 6 min pinned actual official digest:
+`postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652`.
+Actual PostgreSQL 17.11 (Debian 17.11-1.pgdg12+2); normal runs --pull=never.
+
+Connected no-RLS scaffold RED: 21 methods, 109 assertion failures +1 missing-policy
+error; GREEN 21/21 then 22/22 including owner-FORCE/invoker and FK-valid USING/WITH CHECK
+INSERT/UPDATE. Runtime DML/DDL/role/grants/constraints and same-PID commit/rollback
+cleanup pass. Existing 13+18, compileall/pipcheck/whitespace pass; independent 22+13+18
+and parent full DB repeat pass. Owned cleanup/absence confirmed.
+
+Harness corrections: ID captured before start for failure cleanup; tmpfs in
+HostConfig.Tmpfs, not Mounts (which must be empty); expected post-rm stderr under
+PowerShell 5.1 requires restored bounded error handling. Every owned container removed
+by exact ID/readback. Setup/diagnostic failures are not fabricated behavioral RED.
+
+## F05b acceptance checkpoints and observed writer status
+
+- [x] F05b.1 — Parent read both full docs, refreshed/readback mirror 2374 and explicitly released these exact paths on 2026-10-04; commit authorization remains parent-owned.
+- [x] F05b.2 — Single bounded isolated/no-cache official PyPI install: pool 3.3.3 +existing driver/binary 3.3.6, imports/pip check pass. Both runtime; httpx test-only; no blind retry or unrelated upgrade.
+- [x] F05b.3 — Importable-stub real connected RED, then 44/44 GREEN; existing 22 RLS unchanged. One owned fixture initialization per child, reset/test, in-memory credentials, closed test pools; all three DB modules mandatory.
+- [x] F05b.4 — Injected managed sync pool, bounded one borrow, idle/autocommit guard before SQL/outer transaction; live restricted-role guard, parameterized local four-GUC context, one fully qualified joined snapshot, exact identity/UUID and frozen mapping. No persistent SET/cache/DSN/pool ownership/extra public keys.
+- [x] F05b.5 — Mapping/full-triple/hostile values/crossed/missing/archived denials, own suspended record vs foreign denial, inactive org, fresh membership revocation/config revision; existing API yields owned 403/foreign 404/inactive 404.
+- [x] F05b.6 — Real size-one same PID A→B→absence/error clears GUC/rows after commit/rollback; concurrent reads serialize. Admin/super/bypass/owner/inheritance, dirty/non-autocommit, closed/exhausted pool reject. DB HTTP validates default auth/allowlist/worker/redacted 503/recovery; managed pool remains caller-owned.
+- [ ] F05b.7 — Writer and independent 44 DB +13 domain +18 HTTP, pip check/whitespace pass; parent 44 DB repeat/cleanup passed. Local commit authorized, awaiting actual hash below; parent final mirror follows. GLOBALOFF disabled/unmanaged, no native review.
+
+## F05b released exact edit surfaces
+
+New authored files only at the three named reader/test paths; other entries already
+exist. Parent derives/releases surfaces; stop if any additional path/schema edit is
+necessary. No changes to foundation.py, api.py, existing domain/API/RLS tests,
+migration, image pin or ignore rules. Ignored artifacts never staged.
+
+```text
+src/forge/postgres.py
+tests/test_postgres_reader.py
+tests/test_postgres_api.py
+tests/postgres_support.py
+scripts/test-postgres.ps1
+pyproject.toml
+README.md
+docs/changes/postgres-bootstrap.md
+odd/tasks/forge-foundation.md
+.venv/**
+.local/postgres-test/**
 ```
 
-First command supplies observed RED against the stub, then GREEN. In the last
-command, verify `GET http://127.0.0.1:8765/healthz` returns process-liveness 200 and
-`GET http://127.0.0.1:8765/forge/v1/bootstrap?organization_id=00000000-0000-0000-0000-000000000001`
-with no Authorization returns structured 401 plus `WWW-Authenticate: Bearer`.
-Stop the local server afterward. Parent spot check reruns the full unittest command.
-Check untracked authored files for whitespace too; `git diff --check` alone does not
-cover untracked files. Writer results below are observed F04 proof; parent/independent results are recorded below.
+## Exact available checks and local runtime boundary
 
-## Delivery strategy and rollback
-
-User-approved feature-branch-chain, local only. Baseline/root commit:
-`5aa398bf80c44083a7f9ef7ac1066a33bd4cf9e9`. F01/F02 commit and isolated branch point:
-`4281b990f90ba9708e2ec82caf1fdf7b9c390bfb` (`feat(auth): authorize organization bootstrap`).
-Its observed Git numstat is 434 additions, 0 deletions across nine authored files.
-F04 original forecast: approximately 500–750 authored added/deleted lines including
-transport, HTTP tests, dependency metadata and documentation. Actual authored count
-will be recorded after the final documentation snapshot; do not hide any overage.
-The coherent security/transport contract can exceed the advisory 400-line budget;
-do not omit tests, compress code or split by file type. F04 is its own local chain
-slice after the foundation branch point. Future PR boundaries remain uncreated.
-
-F04 rollback removes only its API module, HTTP tests, dependency additions and change
-spec/tracking evidence; the committed foundation, upstream snapshots and frozen
-original checkout remain intact. Conventional commits only; no AI attribution.
-
-## Historical evidence retained (not fresh F04 proof)
-
-On 2026-10-03 Python 3.12.14 at
-`C:/Users/JuanpabloBayona/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe`
-ran foundation RED: 13 methods with 23 `NotImplementedError` subcase errors;
-GREEN: 13 methods passed; compileall exit 0. Standard-library unittest avoided the
-then-unavailable pytest and needed no downloads. This dependency-free exception
-applies to F02, not to the proposed HTTP transport.
-
-Independent verification ran 13 unit tests plus 26 adversarial checks, including
-all 16 two-organization ID combinations, identity/status denials, secret exclusion
-and response independence. Parent reran 13/13 tests, exit 0. Writer checked
-whitespace in all nine authored files. Runtime/UI: N/A for that pure-domain unit.
-
-Git relocation originally lost empty metadata directories; parent restored them.
-Author identity subsequently resolved via `git var GIT_AUTHOR_IDENT`; no identity
-override or global configuration mutation was made. Foundation plan/spec/source
-were committed together, contrary to the earlier stale unchecked F01/F02 rows.
-
-Earlier native review preflight required intended-untracked selection before Git
-tracking; no START/consent/reviewer/approval existed then. Later parent evidence
-records RDD on (global), frozen review and `operation_timeout`, not completion.
-These are different historical checkpoints; neither is a current approval.
-Progressive real UI testing remains required as screens appear; unit tests alone
-are not UI certification and cannot guarantee zero errors.
-
-## Memory and next step
-
-Engram project: `prometheon-forge`. No authoritative runtime session ID was provided;
-omit `session_id`. Parent owns readback/mirror under `odd/forge-foundation/tasks`.
-F04 parent readback/full mirror of preparation completed (observation 2374); its source
-gate was released. F05a parent readback/full mirror completed; its gate was explicitly released.
-Independent verification and parent spot check passed; parent authorized local
-commits. No native review operation was performed by the writer.
-
-## F04 writer evidence — 2026-10-03
-
-- Worktree-local venv imports succeeded; official PyPI resolution: FastAPI 0.142.2,
-  uvicorn 0.54.0, httpx 0.28.1; metadata pins match installed versions. Starlette 1.7.0
-  and Pydantic 2.13.5 resolved compatibly; no broken requirements.
-- RED against importable no-route FastAPI stub: 18 HTTP methods, 55 assertion
-  failures plus one absent OpenAPI path error; exit 1. Dependencies had imported
-  successfully before RED, so this is a missing-behavior failure, not environment.
-- GREEN: 18/18 HTTP methods; entire suite 31/31 (18 HTTP + 13 unchanged domain), exit 0.
-  Tests include all 16 organization combinations and sync-port worker-pool execution.
-- `compileall -q src tests`: exit 0; isolated `pip check`: exit 0.
-- Loopback-only owned uvicorn: `/healthz` 200, default bootstrap 401 structured
-  `UNAUTHENTICATED` plus Bearer challenge. Owned process terminated afterward.
-- Starlette warns that httpx TestClient support is deprecated; compatibility is
-  observed for the installed pins, not guaranteed for future dependencies.
-- Domain source/tests unchanged. UI N/A. Independent verifier and parent spot check
-  passed; local behavior commit observed. Final writer whitespace checks are recorded below.
-
-Final writer rerun: full suite 31/31, compileall and pip check exit 0;
-`git diff --check` exit 0; all eight authored files (including untracked) have
-zero trailing-whitespace lines. Foundation source/tests diff is empty.
-Writer-finalization snapshot: 933 authored additions plus deletions against the branch point,
-including tracked documentation churn and all three new files; no generated files.
-This exceeds the 500–750 forecast because reconciled historical tracking and
-complete HTTP/security tests accompany the transport; no code-golf or artificial
-file-type split. User-approved feature-branch-chain remains local only.
-
-## F04 independent and parent verification
-
-Parent-provided independent verification passed: full 31-test suite and pip check;
-malformed/duplicate authorization, invalid query before lookup, live configuration
-revision, owned suspension 403/foreign 404, secret-rich operational failures and
-response-validation redaction, and OpenAPI. All 17 observed error UUIDs were unique;
-the diagnostic script's expected count of 18 was a harness expectation mismatch,
-not an implementation failure. Parent reran all 31 tests: exit 0.
-Original checkout was independently confirmed clean. This is functional proof,
-not native review approval. Local commit success is observed below. DB/RLS, Entra integration and real UI
-remain unimplemented. Native review was explicitly declined for this candidate, not approved.
-
-## F04 local commit evidence
-
-Behavior/tests/spec: `34009c465aca6a64e67479d144755f024262a004`
-(`feat(api): expose authorized bootstrap transport`), observed on
-`feat/forge-api-bootstrap`. Exactly eight approved files staged; `.venv` excluded.
-Cached whitespace check passed. Numstat: 841 additions, 104 deletions, 945 authored
-lines; this final precommit count supersedes the earlier 933-line writer snapshot.
-No push, PR, merge or native review action occurred. Native review was explicitly declined for this candidate, NOT
-approved; original F03 remains incomplete and DB/RLS/Entra/UI are still pending.
-
-This documentation-only evidence follow-up records the observed behavior hash,
-without trying to store its own future hash. Its identity and final clean checkout
-proof are supplied in the worker handoff for the parent recovery mirror.
-Next: parent refreshes the full task mirror and releases only the bounded F05a unit;
-no unfinished F04 functional check is hidden by the commit.
-
-## F04 review disposition and F05 preparation
-
-F04 behavior `34009c465aca6a64e67479d144755f024262a004` and tracking
-`1e2592193e29d87e0becb6d704c2913768ae5f8b` are inherited by this new checkout.
-Git readback confirms the named branch/base; no source, dependency or container
-operation occurred in this planning turn. The parent's user choice 2 returned
-`action: declined`, `consent: declined_this_candidate`, target `da5a138a`.
-Earlier pending-review statements describe their historical checkpoints only.
-No approved receipt exists; F03's stopped original review remains untouched.
-The existing 31 tests were proven for F04, not rerun as PostgreSQL evidence here.
-
-## F05a acceptance checkpoints
-
-- [x] F05a.1 — Parent reads this task and `docs/changes/postgres-bootstrap.md`, mirrors the complete updated task under `odd/forge-foundation/tasks`, then explicitly releases implementation. Do not confuse observation 2374's F04 gate with this gate.
-- [x] F05a.2 — Add the narrow local-artifact ignore before creating artifacts. Create a worktree-local venv from bundled Python, resolve exact compatible `psycopg[binary]` test pin through public PyPI, and pin the actual digest resolved once from official `postgres:17-bookworm`. Record versions/digest, never credentials. Missing dependency/image is blocked, not RED.
-- [x] F05a.3 — Build runnable real-PostgreSQL tests with two organizations and multiple validated subjects; observe meaningful RED against a basic schema/grants scaffold without RLS. The database must connect and the failing assertions must expose missing behavior, not import/engine/image failures.
-- [x] F05a.4 — Implement only identities, organizations, memberships and configuration_revisions. Unique nonempty provider/issuer/subject; unique org/identity and org/membership ID; constrained status; positive composite org/revision key; selected organization config uses a deferrable composite org/revision FK. No product-wide tables or secret payloads.
-- [x] F05a.5 — Separate migration owner from nonowner SELECT-only runtime, enable and FORCE RLS, and prove self-identity plus org/validated-identity scope. Organization/configuration require an owned nonarchived membership; org GUC alone never authorizes. Owned suspended membership stays internally readable for F04's later 403; archived and foreign rows stay hidden. Keep policies nonrecursive.
-- [x] F05a.6 — Observe GREEN for unfiltered runtime SELECT, missing/partial/empty/malformed context, crossed scope pairs, identity uniqueness and cross-org composite FK denial; inspect runtime role attributes, ownership, memberships and schema grants. Prove DML/DDL denials separately from USING/WITH CHECK via a restricted test-only writer. Parameterized set_config(..., true) must use an outer transaction; actual same-backend PID reuse after commit and rollback must have no prior context/rows. Keep FK diagnostics private; RLS never replaces application authorization or prevents malicious app SQL overwriting GUCs.
-- [x] F05a.7 — Existing 31 pure-domain/HTTP tests pass, mandatory real-DB suite passes, compileall/pip check/whitespace pass, exact owned container cleanup is observed. Independent verification and parent spot check are parent-owned. Record every failed/skipped/pending check; parent owns work-unit commit and any candidate review. No source/DB/HTTP adapter completion claim from planning.
-
-## F05a proposed exact checks
-
-Run from this worktree after implementation; these commands are planned, not run:
+From the active checkout with its own venv:
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p test_foundation.py -v
@@ -228,200 +204,90 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-postgres.
 git diff --check
 ```
 
-The first two commands are the existing 13+18 tests, not DB isolation proof.
-The PowerShell script is the mandatory real-PostgreSQL suite: create its owned
-container, inject ephemeral test connection settings only into its child, run
-`.\.venv\Scripts\python.exe -m unittest discover -s tests -p test_postgres_rls.py -v`,
-then clean up in finally. Direct DB invocation without explicit harness settings
-must fail loudly, never skip. Broad unittest discovery will include the DB suite
-and must not be advertised as a dependency-free run after this unit.
-No pytest, SQLite or mocked database may substitute for tenant-isolation proof.
+DB-free counts are 13 foundation +18 API. Harness child discovers
+`-m unittest discover -s tests -p test_postgres_*.py -v`: 22 RLS +14 reader +8 DB HTTP.
+Direct same discovery without explicit owned harness must fail, never skip; observed
+exit 5 with three setup errors, zero tests. Check untracked authored whitespace too.
+No pytest/SQLite/mock database substitutes for real tenant-isolation proof. Runtime
+F05b proof is actual DB/pool behind HTTP TestClient; real client UI is N/A.
 
-## F05a released implementation edit surfaces
+Bundled initial Python path:
+`C:/Users/JuanpabloBayona/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe`.
+Runtime pins: FastAPI 0.142.2, uvicorn 0.54.0, psycopg/binary 3.3.6, pool 3.3.3;
+httpx 0.28.1 test-only. No global Python changes. Driver/pool public resolution uses
+--isolated --no-cache-dir, timeout 30/retries 1, one bounded 180-second attempt.
 
-The released bounded writer may touch only these exact repository-relative files:
+Harness uses absolute Docker binary
+`C:/Program Files/Docker/Docker/resources/bin/docker.exe`, explicit local
+`npipe:////./pipe/docker_engine`, private empty Docker config under ignored
+`.local/postgres-test/`, cached digest and --pull=never. No new image pull authorized.
+Fresh owned name/credentials, dynamic 127.0.0.1-only port, tmpfs data only, no host
+mount/persistent volume. Capture exact ID, finally rm only that ID and its storage,
+then confirm absence; no prune/resource scanning. Ambient Docker/libpq settings are
+cleared for the child and restored; no password/DSN logging or credential/session reuse.
 
-```text
-.gitignore
-pyproject.toml
-migrations/0001_bootstrap.sql
-tests/postgres_support.py
-tests/test_postgres_rls.py
-scripts/test-postgres.ps1
-scripts/postgres-image.txt
-README.md
-docs/changes/postgres-bootstrap.md
-odd/tasks/forge-foundation.md
-```
+## F05b writer evidence — 2026-10-04
 
-New files are authorized only at those listed paths. No F04/domain source edits,
-Entra, pooled reader, production migration or other checkout changes belong here.
-Parent also explicitly allowed ignored ephemeral `.venv/**` and
-`.local/postgres-test/**`; never stage those artifacts. README was added to keep
-the explicit DB-free/mandatory DB test commands accurate.
+- Pool 3.3.3 isolated/no-cache public install succeeded within 180 seconds; imports
+  confirm driver/binary 3.3.6, pip check passes. Runtime metadata pins are coherent;
+  no unrelated upgrade or image pull.
+- Importable stub returning None, real DB ready: clean RED 44 methods, 19 assertion
+  failures +6 missing-record errors, exit 1; all 22 RLS tests still pass. First RED
+  attempt had 20 failures/109 errors because new ownership-test cleanup lost runtime
+  SELECT ACL. Restore SELECT grants after restoring owner; clean RED then precedes
+  reader implementation. This was a test-side isolation error, not failing RLS.
+- GREEN 44/44 (14 reader +8 DB HTTP +22 RLS), no skips, PostgreSQL 17.11. Size-one
+  same PID A→B→absence/error; transaction GUCs and unfiltered rows cleared after
+  success/rollback. Actual division-by-zero after GUC setup rolls back; next read
+  works on same backend. Two concurrent workers serialize without scope leakage.
+- Reader maps existing frozen records, reads exact triple/selected revision, rejects
+  dirty transaction/non-autocommit/admin/superuser/bypass/owner/inherited-role and
+  closed/exhausted pool; externally managed pool stays open after normal reads.
+  Acquisition finite positive <=30 seconds; composition owns connection/statement
+  timeouts and pool open/wait/close. No session-persistent SET, cache or ambient DSN.
+- DB HTTP: unchanged public allowlist, fresh config/revocation, owned 403/foreign 404,
+  inactive organization 404, auth/default-deny before org errors, worker thread and
+  private marker redacted 503 after actual SQL failure; following request recovers.
+  Test-only probes/validator never imported by runtime. No auth/UI/production claims.
+- Existing 13 domain +18 HTTP, compileall, pip check passed. No-harness negative
+  genuinely fails exit 5; first shell expectation of exit 1 was incorrect and reported
+  failure. Diagnostics confirm required fail-not-skip; not an implementation error.
+- Owned fixture migration initializes once per child, credentials shared only in
+  memory; fresh data per test, pools closed in cleanup. Every created container
+  removed by exact ID and absence confirmed. Final whitespace/count follow below.
 
-## F05a local harness and delivery boundary
+Writer checkpoint above preceded independent/parent verification. Their observed
+results are recorded below; local commit is now explicitly authorized. No GentleAI
+operation or remote action occurred.
 
-Use `C:/Program Files/Docker/Docker/resources/bin/docker.exe` with explicit
-`npipe:////./pipe/docker_engine` and a private empty Docker config beneath ignored
-`.local/postgres-test/`; do not read ambient Docker contexts/auth/config. The
-explorer observed Desktop 4.41.2 / engine 28.1.1 linux/amd64; this is readiness
-history, not a test run. Only the public official PostgreSQL image may be
-resolved/pulled once; record its immutable digest in `scripts/postgres-image.txt`.
-Default harness uses `--pull=never`; missing image fails with a clear local action.
+Final writer snapshot: 1327 authored additions plus deletions across nine approved
+files (generated/ignored artifacts excluded). The 550–800 forecast was exceeded by
+full real security/pool/HTTP tests and recovery-doc consolidation; no code/test golf.
+Final DB rerun 44/44, exit 0; compileall/pip check/git diff --check exit 0, all nine
+files including untracked whitespace clean, protected source/RLS/migration paths
+unchanged. Task consolidated from ~38 KB to ~20 KB while preserving 21 checkpoints,
+all work-unit IDs, commit hashes, proof/failures, seven sprints and exact commands.
 
-Each run owns a randomly named disposable container, fresh random credentials,
-and dynamic `127.0.0.1`-only port. No host bind mounts, persistent volumes, existing
-container/database/volume inspection or reuse. Capture the exact created ID and
-remove only that ID in finally (including its own anonymous storage); no prune,
-unknown-resource deletion or logging passwords/DSNs. Use only this worktree's
-venv from the bundled Python path recorded above, never the global runtime.
-Public PyPI resolution is isolated; no ambient credential/session reuse or spend.
+## F05b independent and parent verification
 
-Forecast: F05a approximately 900–1400 authored additions plus deletions including
-migration (~180–280), test/support (~400–600), harness/pin (~140–220), metadata and
-docs/tracking (~180–300). This is an estimate, not a line cap. Security proofs and
-readable cleanup take priority over the advisory 400-line budget. Keep tests with
-behavior; no code-golf, deleted explanations or artificial file-type split.
-F05b is a separate later behavior slice, approximately 450–750 authored lines;
-re-estimate from actual adapter scope before writing. Approved local
-feature-branch-chain remains the delivery strategy; no PR/push/merge is authorized.
-Rollback removes only this unit's migration/harness/tests/test pin and its docs
-updates, preserving F04 and the frozen original; no production data exists here.
+Parent supplied independent PASS: 44 DB +13 foundation +18 HTTP, pip check and
+whitespace; no actionable defects. Parent repeated the full real DB harness:
+44/44, exit 0, PostgreSQL 17.11 and exact owned-container cleanup/absence confirmed.
+This completes functional verification, not native approval. GLOBALOFF remains
+explicitly disabled/unmanaged. Parent authorized the exact nine-file local behavior
+commit and a small documentation evidence follow-up; no push/PR/merge/source edits.
 
-## F05b deferred acceptance
+## Recovery and next step
 
-After F05a proof, derive and authorize a separate exact edit surface for a
-synchronous pooled reader implementing F04's injected port. One borrowed
-connection and one outer transaction per read; parameterized transaction-local
-context; fresh database membership/configuration every request; return existing
-immutable domain records and public projection without expanding the contract.
-Prove real DB-backed HTTP allowed/foreign/archived/suspended results, live
-suspension/configuration rereads, secret-rich operational redaction, worker-thread
-execution and pooled connection cleanup. It remains pending and is not enabled by
-F05a. No UI, corporate login, production wiring or persistent resources yet.
+Engram project `prometheon-forge`; no authoritative session ID, omit session_id.
+Parent owns full mirror topic `odd/forge-foundation/tasks`, observation 2374. Read
+actual task plus full observation and reconcile on resume; never use newest global
+memory as active feature evidence. Current consolidated task supersedes duplicate
+historical narratives for readability; earlier full content remains recoverable in
+Engram and ignored local backup. F05b memory evidence: 2451 pins, 2452 clean RED,
+2453 implementation, 2454 no-harness/ACL lessons. No manufactured approval.
 
-## Historical preparation status
-
-F05 adds two pending work units with seven F05a acceptance checkpoints. Planning
-readback/whitespace is the only applicable check in this turn; implementation,
-dependency resolution, image pull, containers, RED/GREEN, commit and native review
-have not run. Parent full mirror and explicit release are the next action.
-## Historical F05a partial checkpoint — prerequisite/setup failure
-
-Parent released F05a after complete readback/mirror 2374 and added README plus
-ignored `.venv/**` and `.local/postgres-test/**` to the exact edit surface. F05b
-stays pending. This turn did not commit, review, touch src/forge or alter existing
-foundation/API tests or any other checkout.
-
-Observed failure: isolated public PyPI dependency resolution exited 1 while parsing
-an index JSON response: `JSONDecodeError: Unterminated string starting at line 1
-column 481448 (char 481447)`. Psycopg 3.3.6 metadata was selected, but installation
-and exact compatible pin were not established. This is an environment/prerequisite
-failure, NOT a meaningful RED test. No blind retry occurred.
-
-The queued official image pull was never reached because the dependency command
-threw first. No digest, PostgreSQL version, container, database or cleanup claim
-exists. No container/resources were created or inspected. Worktree-local venv and
-private empty Docker config exist only beneath ignored authorized directories.
-
-Partial writes: `.gitignore` adds only `.local/postgres-test/`; migration has the
-basic four-table/grant scaffold with NO RLS yet; support/test files are unverified
-provisional artifacts. Scaffold generator then failed with FileNotFoundError for
-`scripts/test-postgres.ps1` because the scripts directory was queued after
-prerequisites rather than created first. Harness and image pin therefore do not
-exist. This setup failure is NOT RED. Preserve partial state for bounded recovery.
-README now separates the existing 13+18 patterns and discloses mandatory DB tests
-are incomplete. No install/container/source retry, tests, compileall or functional
-proof followed either failure. All F05a checks except parent release remain pending.
-
-Next: parent decides bounded prerequisite recovery; first establish a successful
-isolated dependency resolution, explicitly create the authorized scripts directory,
-inspect/correct provisional scaffold bytes, and only then execute the one allowed
-image pull, real scaffold RED and complete migration GREEN. No source completion,
-native approval or multiclient isolation is claimed.
-## F05a recovered implementation and writer proof
-
-The parent mirrored the partial checkpoint, then authorized exactly one bounded
-no-cache public-PyPI recovery with timeout 30/retries 1 and a 180-second process
-limit. Recovery exited 0; imports and pip check passed. The earlier malformed
-index response's cause is unproven; success after no-cache is not proof of cache
-corruption. Scripts directory was created independently and provisional artifacts
-were regenerated/validated before database execution. No broader upgrade occurred.
-
-Versions: psycopg and psycopg-binary 3.3.6 (exact test-extra pin); existing FastAPI
-0.142.2, uvicorn 0.54.0, httpx 0.28.1. The original single official image pull exited
-0 within its six-minute bound. Actual pin in `scripts/postgres-image.txt`:
-`postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652`.
-Real server: PostgreSQL 17.11 (Debian 17.11-1.pgdg12+2). No normal-run pull occurs.
-
-- RED: connected real four-table/grants scaffold without RLS; 21 methods, 109
-  assertion failures plus one missing-policy error, exit 1. Unfiltered cross-tenant
-  exposure and missing policy enforcement caused failures; dependencies and DB
-  were ready. Missing policy error is behavior incompleteness, not setup RED.
-- Initial GREEN: 21/21 methods, exit 0. Adding real owner-FORCE/invoker and tmpfs
-  assertions produced one harness-only metadata failure before the final DB test
-  run; that container was removed and exact-ID absence confirmed.
-- Final GREEN: 22/22 methods, exit 0, including real USING and WITH CHECK INSERT/
-  UPDATE controls, valid FK contexts, role/schema restrictions, nonrecursive scope,
-  malformed/missing/partial context, suspended/archived handling and same physical
-  backend PID after commit/rollback. All four tables ENABLE/FORCE; helpers invoker.
-- Existing regressions: 13/13 foundation plus 18/18 HTTP, exit 0; no source/test
-  changes to those modules. Default API remains deny-all; no DB reader is wired.
-- `compileall -q src tests` and isolated venv `pip check`: exit 0. Direct DB suite
-  without explicit owned harness fails exit 1 with a clear required-harness error;
-  it never silently skips. This negative check is not an isolation RED result.
-- `git diff --check` and whitespace in all ten authored files: passed. Parent still
-  owns independent verification, spot check, full mirror and commit; no native
-  review operation or commit ran in this worker.
-
-Harness corrections: Docker create returns/captures the exact ID before start,
-so start failure still has an owned cleanup target. PowerShell 5.1's expected
-No-such-container stderr must not terminate the cleanup readback; temporary error
-handling is restored. Docker tmpfs is in HostConfig.Tmpfs, ordinary Mounts must be
-empty. The final harness verifies only the owned container's single rw data tmpfs
-and loopback binding. All created containers were removed by exact ID; no lingering
-owned resource, persistent volume or host bind mount remains. Ambient Docker/libpq
-settings are cleared for the child and restored; passwords/DSNs are not logged.
-
-This is a one-shot migration for a pristine dedicated Forge database/cluster with
-reserved role names, not a production/replay migration runner. Schema/global DB
-privilege changes must not be applied to an unrelated shared database. Local test
-LOGIN/password provisioning and restricted writer grants exist only in fixtures.
-F05b pooled reader, DB-backed HTTP, Entra, UI and production remain pending.
-Final writer snapshot: 1046 authored additions plus deletions; generated artifacts excluded.
-The writer checkpoint above preceded independent verification. Parent subsequently
-supplied the independent and spot-check evidence below and authorized local commit.
-## F05a independent verification and parent spot check
-
-Parent reported independent verification PASS: 22 real-DB methods plus 13 foundation
-and 18 HTTP, pip check and whitespace; roles, RLS, WITH CHECK and constraints were
-inspected and proved. Exact owned-container cleanup and absence were confirmed.
-Parent then reran `powershell.exe -NoProfile -ExecutionPolicy Bypass -File
-.\scripts\test-postgres.ps1`: 22/22, exit 0, PostgreSQL 17.11 and cleanup confirmed.
-This is observed functional completion, not native review approval. F05a native
-review is pending and parent-owned; F04 remains explicitly declined and the original
-review remains stopped. F05b pooled reader/DB-backed HTTP, Entra and UI stay pending.
-
-Parent authorized the coherent ten-file local work-unit commit on
-`feat/forge-tenant-storage`, followed by a small documentation evidence commit. No push/PR/
-merge or native lifecycle operation is authorized for this worker. Actual commit
-identities and counts will be recorded only after Git reports them.
-## F05a local commit evidence
-
-Behavior/tests/spec: `e346a1edb21785de4723bff879089124819ec020`
-(`feat(storage): enforce PostgreSQL tenant isolation`), observed on
-`feat/forge-tenant-storage`. Exactly ten authorized authored files; no ignored venv,
-local Docker config, generated credentials or logs staged. Cached whitespace and
-sensible secret-literal scan passed; existing Git identity used without override,
-Conventional Commit without attribution. Commit hooks made no candidate-file changes.
-Numstat: 1049 additions, 17 deletions, 1066 authored lines. This final commit count
-supersedes the earlier 1046-line writer snapshot; accepted local feature-branch-chain
-continues without code-golf. F05a functional completion includes independent and
-parent proof above. F05a native review remains pending, NOT approved; F04's review
-is declined and original frozen review stopped. No native operation/push/PR/merge.
-
-This evidence follow-up records the observed behavior hash without a self-referential
-future hash. Its identity and final clean checkout proof are returned to the parent.
-Next: parent refreshes the full task mirror and performs native candidate assessment;
-F05b reader/DB-backed HTTP, Entra and real UI remain pending, not silently included.
+Next: record actual local commit identities, then parent mirrors/readbacks this
+full consolidated task before planning the next bounded feature.
+After observed closure, plan S2 corporate sign-in/client spike against product specs;
+do not silently expand F05b. Preserve all current state if any required check blocks.

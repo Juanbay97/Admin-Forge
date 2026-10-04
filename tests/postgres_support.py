@@ -64,7 +64,13 @@ def rows(conn, table):
 
 
 class DatabaseFixture:
+    # Only this owned harness process shares initialization, never external DB state.
+    _credentials = None
+
     def __init__(self):
+        if self._credentials is not None:
+            self.runtime_password, self.writer_password = self._credentials
+            return
         wait_ready()
         self.runtime_password = secrets.token_urlsafe(32)
         self.writer_password = secrets.token_urlsafe(32)
@@ -84,7 +90,28 @@ class DatabaseFixture:
             conn.execute('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA forge TO forge_test_writer')
             version = conn.execute('SHOW server_version').fetchone()[0]
             print('Real PostgreSQL server:', version)
+        DatabaseFixture._credentials = (self.runtime_password, self.writer_password)
         self.reset()
+
+    def pool(self, *, user='forge_runtime', pool_class=None, connection_class=psycopg.Connection, **overrides):
+        from psycopg_pool import ConnectionPool
+        kwargs = settings()
+        kwargs['user'] = user
+        if user == 'forge_runtime':
+            kwargs['password'] = self.runtime_password
+        elif user == 'forge_test_writer':
+            kwargs['password'] = self.writer_password
+        kwargs.update(overrides)
+        pool = (pool_class or ConnectionPool)(
+            conninfo='', kwargs=kwargs, connection_class=connection_class, min_size=1, max_size=1,
+            timeout=1, max_waiting=4, reconnect_timeout=1, open=False,
+        )
+        try:
+            pool.open(wait=True, timeout=5)
+        except Exception:
+            pool.close(timeout=5)
+            raise
+        return pool
 
     def runtime(self):
         return connect('forge_runtime', self.runtime_password)
@@ -111,3 +138,43 @@ class DatabaseFixture:
                 (ORG_A, UUID(int=25), ARCHIVED, 'archived')):
                 conn.execute('INSERT INTO forge.memberships VALUES (%s,%s,%s,%s)',
                              (org, mid, identity, status))
+
+
+# Faults/probes below wrap real connections, never substitute a database or auth.
+SECRET_MARKER = 'PRIVATE_DSN_PASSWORD_TOKEN_MARKER'
+
+
+class ProbeCursor(psycopg.Cursor):
+    def execute(self, query, params=None, **kwargs):
+        if 'FROM forge.identities AS i' in str(query):
+            from threading import get_ident
+            conn = self.connection
+            conn.data_threads.append(get_ident())
+            conn.observed_context = tuple(conn.execute(
+                'SELECT current_setting(%s,true)', ('forge.' + key,)
+            ).fetchone()[0] for key in KEYS)
+            mode, conn.fail_data = conn.fail_data, None
+            if mode:
+                try:
+                    super().execute('SELECT 1 / 0')  # Real server failure after GUCs.
+                except psycopg.errors.DivisionByZero:
+                    if mode == 'secret':
+                        raise RuntimeError(SECRET_MARKER) from None
+                    raise
+        return super().execute(query, params, **kwargs)
+
+
+class ProbeConnection(psycopg.Connection):
+    fail_data = None
+    observed_context = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_threads = []
+
+    def cursor(self, name='', *, binary=False, row_factory=None,
+               scrollable=None, withhold=False):
+        if name or binary or scrollable is not None or withhold:
+            return super().cursor(name, binary=binary, row_factory=row_factory,
+                                  scrollable=scrollable, withhold=withhold)
+        return ProbeCursor(self, row_factory=row_factory)

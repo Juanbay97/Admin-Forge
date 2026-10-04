@@ -63,7 +63,7 @@ try {
     [Environment]::SetEnvironmentVariable('FORGE_PG_PASSWORD', $Password, 'Process')
     Push-Location $Root
     try {
-        & $Python -m unittest discover -s tests -p test_postgres_rls.py -v
+        & $Python -m unittest discover -s tests -p test_postgres_*.py -v
         $Result = $LASTEXITCODE
     } finally { Pop-Location }
 } finally {

@@ -2,7 +2,8 @@
 
 Estado: F05a implementado y verificado por el writer con PostgreSQL real;
 verificación independiente y spot check correctos; commit local registrado en el task.
-Revisión nativa F05a pendiente, no aprobada. F05b será otro corte. Este documento
+La revisión nativa F05a no fue aprobada. F05b está funcionalmente completo: writer, verificación independiente y spot check
+correctos. Commit local autorizado; evidencia observada se registra en el task. Este documento
 concreta PF-01, PF-02 y PF-10 sin implementar su esquema completo ni afirmar
 multicliente antes de observar pruebas reales con dos organizaciones.
 
@@ -141,7 +142,7 @@ RLS y no verificados. La escritura del arnés falló porque su directorio todav�
 existía. Se conservó el estado y se detuvo la ejecución, sin reintentos ciegos.
 Estos fallos de preparación no prueban rechazo de aislamiento. Recuperación y
 verificación quedan pendientes; F05b, integración HTTP y producción siguen fuera.
-## Evidencia local recuperada
+## Historial F05a: evidencia local recuperada
 
 Una recuperación PyPI pública aislada, sin cache, con timeout 30/retries 1 y límite
 180 segundos completó dependencias: psycopg y binary 3.3.6, pin exacto en extra de
@@ -178,3 +179,79 @@ Commit local registrado en el task; parent mantiene espejo y evaluación/revisi�
 F05b lector/pool/HTTP, Entra, UI y producción siguen pendientes. Referencias de
 semántica: [PostgreSQL RLS](https://www.postgresql.org/docs/17/ddl-rowsecurity.html)
 y [transacciones psycopg](https://www.psycopg.org/psycopg3/docs/basic/transactions.html).
+
+## F05b: lector sincrónico y HTTP con PostgreSQL real
+
+Funcionalmente completo en este checkout; commit local autorizado por parent. Parent leyó/espejó ambos documentos
+completos (2374) y liberó la lista exacta. El usuario deshabilitó la verificación
+GentleAI: GLOBALOFF, tests ordinarios y verificación independiente, disabled/unmanaged;
+no hubo evaluación, revisión, consentimiento nuevo ni reactivación. El historial se
+conserva sin afirmar aprobación.
+
+El lector recibe un pool sincrónico administrado externamente. No consulta DSN,
+variables de entorno ni fixtures; tampoco abre/cierra el pool ajeno. Cada read valida
+UUID e identidad exacta provider/issuer/subject, toma una conexión idle con autocommit
+y adquisición finita (default 1 s, configurable hasta 30 s), rechaza transacciones ya
+abiertas y usa una única transacción externa. La revisión viva de rol exige
+forge_runtime sin poderes elevados, membresías, propiedad o grants de escritura;
+ENABLE/FORCE y row_security también deben estar activos. Los cuatro GUC se fijan con
+parámetros y alcance local. Una consulta JOIN obtiene un snapshot coherente de
+identidad, membresía, organización y revisión seleccionada sin ampliar la respuesta.
+
+| Resultado interno | Transporte existente |
+|---|---|
+| Filas inexistentes, archivadas o identidad/organización ajena | None y 404 |
+| Organización inactiva | Registros internos; API 404 antes de suspensión |
+| Membresía propia suspendida con contexto consistente | API 403 |
+| Fallo operacional del lector/pool/DB o rol elevado | API 503 redactado |
+
+La composición confiable administra apertura/wait/cierre, credenciales y timeouts
+DB de conexión/statement. El lector no instala políticas persistentes de sesión ni
+corrige silenciosamente un pool incorrecto. La aplicación default sigue deny-all;
+validador sintético y probes/fallos existen solo en tests. No se modificaron el
+transporte, dominio, migración, RLS tests o pin de imagen. No hay Entra, UI, nueva
+migración, wiring de producción ni recursos persistentes.
+
+Dependencias runtime verificadas: psycopg y binary 3.3.6, psycopg-pool 3.3.3; httpx
+permanece test-only. Una resolución pública PyPI --isolated --no-cache-dir,
+timeout 30/retries 1 y límite 180 segundos terminó correctamente; imports y pip check
+pasaron. No se actualizó Python global ni se descargó imagen.
+
+## Evidencia F05b del writer — 2026-10-04
+
+- RED significativo contra stub importable que devolvía None, con DB real conectable:
+  44 métodos, 19 fallos de assertions y 6 errores por registros ausentes, exit 1.
+  Los 22 RLS existentes pasaron. Primer intento estaba contaminado por un test de
+  ownership que no restauraba ACL SELECT: 20 fallos/109 errores; se corrigió el
+  cleanup del test y se repitió RED antes de implementar. No era falla de RLS/driver.
+- GREEN: 44/44, sin skips; 14 lector + 8 HTTP con DB + 22 RLS. Servidor PostgreSQL
+  17.11. Pool real tamaño uno conserva PID en A→B→ausencia y después de error SQL
+  real; GUC y filas RLS desaparecen tras commit/rollback. Dos threads concurrentes
+  se serializan sin cruzar datos. Revocación/configuración se releen frescas.
+- Rol administrador/superuser/bypass/propietario/membresía heredada se rechaza;
+  transacción sucia/autocommit false y pool cerrado/agotado fallan acotadamente.
+  El pool externo permanece abierto después de reads. HTTP verifica allowlist,
+  default-deny, worker thread, suspensión propia 403/ajena 404, organización inactiva
+  404 y error SQL con marcador privado convertido a 503; siguiente request recupera.
+- Regresiones: 13 dominio + 18 HTTP GREEN; compileall y pip check correctos.
+  Discovery DB sin arnés falla explícitamente: 0 tests, 3 errores setup, exit 5,
+  sin skip. La primera assertion del comando esperaba exit 1 y falló; la prueba
+  requerida estaba funcionando. Se verificaron los diagnósticos y el exit real.
+- Fixture one-shot se inicializa una vez por proceso hijo propio; credenciales
+  efímeras compartidas solo en memoria, reset por test y pools cerrados en cleanup.
+  Restaurar owner puede eliminar ACL del propietario temporal: el test devuelve
+  explícitamente SELECT a runtime/escritor antes de las siguientes suites.
+- Cada contenedor se eliminó por ID exacto y se confirmó su ausencia. --pull=never,
+  imagen digest, loopback/tmpfs y configuración Docker vacía permanecen iguales.
+  No consulta de recursos ajenos, datos persistentes, push, PR, merge o revisión.
+
+Los comandos exactos, paths autorizados, checkpoint final y verificación pendiente
+quedan en el task único. Parent confirmó verificación independiente: 44 DB +13 dominio +18 HTTP, pip check
+y whitespace, sin defectos accionables. Repitió los 44 DB: exit 0, PostgreSQL 17.11
+y cleanup confirmado. Autorizó el commit local; el hash real se registra en el task
+solo después de observar Git. Parent actualizará el espejo completo después.
+Estas pruebas no certifican identidad corporativa ni una UI todavía inexistente.
+
+Fuentes: [pool psycopg](https://www.psycopg.org/psycopg3/docs/advanced/pool.html),
+[transacciones psycopg](https://www.psycopg.org/psycopg3/docs/basic/transactions.html)
+y [publicación PyPI del pool](https://pypi.org/project/psycopg-pool/).

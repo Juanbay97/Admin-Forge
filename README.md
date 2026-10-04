@@ -84,12 +84,54 @@ Each run creates a unique owned container with loopback-only dynamic port and tm
 then removes only its captured ID/storage in finally. Passwords are random/in-memory.
 Missing dependencies/image/harness settings fail clearly; no network auto-recovery.
 
-Observed local proof: PostgreSQL 17.11, real RLS RED then 22/22 GREEN, existing 31
-regressions unchanged. It is not a runtime DB reader or DB-backed HTTP integration;
-F05b remains pending. Migration is one-shot for a pristine dedicated Forge DB with
+Observed local proof: PostgreSQL 17.11, F05a RLS RED then 22/22 GREEN; F05b
+reader-stub RED then 44/44 DB GREEN (22 RLS, 14 reader, 8 DB-backed HTTP), plus
+13 foundation and 18 HTTP regressions unchanged. Migration is one-shot for a
+pristine dedicated Forge DB with
 reserved roles, not an upgrade runner for shared/production databases. Default API
-still denies all real tokens. Independent verification and parent spot check passed;
-local commit evidence is recorded in the task. F05a native review remains pending,
-not approved.
+still denies all real tokens. F05a independent verification and parent spot check passed;
+F05a local commit evidence is recorded in the task. F05b writer and independent
+checks passed (44 DB +13 foundation +18 HTTP); parent repeated all 44 DB tests with
+PostgreSQL 17.11 and confirmed owned-container cleanup. Local commit is authorized;
+its observed evidence is recorded in the task after Git completes.
+GentleAI verification is explicitly disabled (GLOBALOFF): ordinary checks only,
+disabled/unmanaged, no native approval.
 See `docs/changes/postgres-bootstrap.md` and `odd/tasks/forge-foundation.md` for
 exact pins, recovery failures, command results and remaining scope.
+
+## PostgreSQL bootstrap reader
+
+`forge.postgres.PostgresBootstrapReader` implements the existing synchronous port.
+Composition injects an externally managed `psycopg_pool.ConnectionPool`; the reader
+never reads a DSN/environment, provisions credentials, opens or closes that pool.
+Connections must be idle and `autocommit=True`, use the migration's SELECT-only
+`forge_runtime` role and have bounded connection/statement timeouts set by the
+trusted deployment. The reader checks live role attributes/ownership/RLS/grants,
+uses one outer transaction, parameterized transaction-local identity/org settings
+and one joined snapshot. It rejects dirty transactions rather than using savepoints.
+Acquisition defaults to one second and permits a finite override in (0, 30].
+
+```python
+from forge.api import create_app
+from forge.postgres import PostgresBootstrapReader
+
+# Trusted composition supplies an already configured/opened pool and real validator.
+app = create_app(
+    token_validator=corporate_validator,
+    bootstrap_reader=PostgresBootstrapReader(managed_pool),
+)
+```
+
+Composition owns pool open/wait/close and credentials; this example does not supply
+corporate sign-in or production wiring. The default app still rejects every token.
+Records are reread for every request; archived/foreign/missing context stays 404,
+owned suspension is 403 only after existing consistency checks, operational failures
+remain redacted 503. Public bootstrap fields are unchanged. Test fixtures/synthetic
+validation live only under tests and are never imported by the runtime reader.
+
+Runtime pins: psycopg/binary 3.3.6 and psycopg-pool 3.3.3; httpx is test-only.
+The owned harness runs all `test_postgres_*.py` modules in one child process, not
+only RLS. Direct DB discovery without explicit owned-harness configuration fails
+clearly (currently unittest exit 5 with three setup errors and zero tests), not skip.
+Real size-one pool tests cover same backend reuse after success/error, concurrent
+serialization, fresh revocation/configuration, role misconfiguration and DB HTTP.
