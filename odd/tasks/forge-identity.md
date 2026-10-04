@@ -3,11 +3,11 @@
 ## Current outcome and release gate
 
 F07a functional closure passed: writer142, independent142 applicable checks and
-parent73 DB spot. Local coherent behavior/test/docs commit is parent-authorized;
-actual identity/stats are recorded below after creation. No onboarding/login wiring.
+parent73 DB spot. Local coherent behavior/test/docs commit8183b8d completed;
+actual identity/stats are recorded below. No onboarding/login wiring.
 Source release followed parent full mirror2468/exact readback.
 F06 completed: writer 113, independent/P2 retest and parent spot passed; actual
-commits and historical proof remain below. Current baseline is 4ab2d40.
+commits and historical proof remain below. F07a starting baseline was4ab2d40.
 No live tenant enrollment, desktop sign-in, UI or runtime composition is enabled.
 Gentle AI review GLOBALOFF: disabled/unmanaged, no calls or consent prompt.
 
@@ -34,7 +34,7 @@ This is historical evidence, not a new run or proof of Entra.
 - [x] **F07a — Bind existing Entra identities (functional closure complete).**
   Add explicit immutable tid/oid metadata, restricted internal binder and Entra-only
   reader gating. Accepted design2485/source release; writer/independent142 and
-  parent73 passed. Coherent local commit authorized; actual evidence below.
+  parent73 passed. Coherent local commit8183b8d completed; actual evidence below.
   Route: delegated direct; migration, adapter and real-DB tests are non-trivial.
 - [ ] **F07b — Creation, invitations and provisioning (future; not released).**
   Refine object/invitation confirmation, identity creation and idempotent outbox
@@ -215,7 +215,7 @@ No push, PR, merge, remote/production/account action or Gentle AI operation.
 ## F07a plan checkpoint and source release gate
 
 Current unit: **F07a — Bind existing Entra identities**; source released by parent.
-Writer/independent/parent closure is observed below; local commit authorized.
+Writer/independent/parent closure and local commit are observed below.
 Explorer handoff 2483 and parent acceptance 2485 were read with the full
 task 2468/file. Baseline 4ab2d40c8c3a1e80cbb0106c917804fed949e881 was clean.
 Current-unit neutral-Spanish SDD: docs/changes/entra-identity-binding.md.
@@ -307,7 +307,7 @@ no artificial file-type split or code-golf. Migration failure rollback is tested
 transactionally; destructive downgrade of persisted binding data is not authorized.
 Parent independent verification+spot check precede a separately authorized local
 Conventional Commit. Source/tests and owned-container proof are observed below;
-no dependency installation. Independent/parent closure passed; local commit authorized;
+no dependency installation. Independent/parent closure and local commit completed;
 GLOBALOFF means disabled/unmanaged, never native approval.
 
 ## F07a original writer evidence (141 before proof extension)
@@ -390,7 +390,7 @@ production behavior RED; the deterministic SQL failure itself is asserted, not
 misreported as an unexpected test failure. That writer checkpoint awaited focused
 independent/new-test parent spot; both are now observed in final closure below.
 
-## F07a final functional closure and local delivery authorization
+## F07a final functional closure and local delivery
 
 Writer142 =73 DB+38 Entra+13 domain+18 HTTP, all required checks exit0/no skips.
 Independent original141 passed with no concrete defect; durable focused73 DB
@@ -404,16 +404,29 @@ unavailable proof, not PASS. New durable tests independently prove failure rollb
 and paired REFERENCES guards; no production correction was needed. Behavior,
 tests and docs form one coherent local-only work unit on feat/forge-tenant-storage.
 Parent authorized feat(identity): persist verified Entra bindings for exactly the
-eleven authored surfaces. Actual commit identity/stats will be recorded after Git
-creates it; no remote action, F07b source, deployment runner or live enrollment.
+eleven authored surfaces. Actual commit identity/stats are recorded below; no
+remote action, F07b source, deployment runner or live enrollment.
+
+## F07a observed local delivery evidence
+
+Behavior commit:8183b8dd00503dda9e504f8c7a473b9ed936b0d9
+(feat(identity): persist verified Entra bindings), existing local feature branch.
+Exactly eleven approved files:1337 additions+29 deletions =1366 authored lines;
+generated/ignored outputs excluded. Eight behavior/migration/test blobs match the
+independent verified candidate before staging and after commit. No mutating hooks;
+clean checkout observed immediately after behavior commit. Protected surfaces
+remain unchanged against starting4ab2d40. No remote action or AI attribution.
+Git emitted the existing automatic-identity notice; no config edit/amend.
+This small task-only follow-up records the actual behavior hash/stats; parent owns
+the final full task mirror/readback. F07b-F09 remain pending, not released.
 
 ## Recovery and next step
 
 Engram project prometheon-forge; no authoritative session ID, omit session_id.
 Parent owns final full mirror topic odd/forge-identity/tasks and readback.
 Parent owns refreshed final full mirror/readback after local delivery evidence.
-F07a functional closure and local work-unit commit are authorized; actual Git
-hash/stats are recorded after creation. F07b remains unreleased.
+F07a functional closure and local work-unit commit completed; actual Git
+hash/stats are recorded above. F07b remains unreleased.
 The eleven authored paths match released scope; ignored local logs are not delivery.
 F07b creation/invitations/provisioning remains future and requires separate scoping.
 Explicit persistent tid/oid linkage is required before live enrollment.
