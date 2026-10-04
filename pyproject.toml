@@ -9,6 +9,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["httpx==0.28.1"]
+test = ["httpx==0.28.1", "psycopg[binary]==3.3.6"]
 
 # Tests use standard-library unittest; httpx powers the in-process HTTP client.
