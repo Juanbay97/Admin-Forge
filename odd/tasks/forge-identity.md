@@ -7,7 +7,8 @@ with explicit UI evidence limits.** Writer184, independent original181 plus focu
 28runtime+18API correction retest (138 other applicable proof), corrected wheel,
 and parent28 spot passed. Parent accepted available browser functional proof, not
 full network/screen-reader/loading certification. C10b remains follow-up evidence;
-F07b/F09 remain unfinished. Coherent local commit authorized; identity recorded below.
+F07b/F09 remain unfinished. Local behavior commit211b501383ea048d4691d5b591acce3b6ddefbb0
+completed; identity and exact stats recorded below.
 Parent full mirror2468/readback preceded source; refreshed mirror is parent-owned.
 No server/browser launched by this writer. Exact released scope is below.
 Gentle GLOBALOFF: disabled/unmanaged, no calls, consent or native approval.
@@ -240,6 +241,7 @@ reconnect 1s/open 5s. Transaction restores limits; not end-to-end deployment SLA
 | F06 task evidence: docs(auth): record Entra validation delivery | 4ab2d40c8c3a1e80cbb0106c917804fed949e881 | 1 file, +11/-6 |
 | F07a behavior: feat(identity): persist verified Entra bindings | 8183b8dd00503dda9e504f8c7a473b9ed936b0d9 | 11 files, +1337/-29=1366 |
 | F07a task evidence: docs(identity): record persistent binding delivery | e6d7f95875693dfccea772598a41e9f269c28613 | 1 file, +24/-11 |
+| F08a behavior: feat(runtime): compose explicit service status | 211b501383ea048d4691d5b591acce3b6ddefbb0 | 14 files, +2254/-356=2610 |
 
 Behavior blobs matched independently verified candidate before staging/after commits;
 F07a eight behavior/migration/test blobs unchanged across task follow-up, protected
@@ -454,14 +456,14 @@ restricted runtime login/pool credentials, complete allowed connection controls,
 explicit Entra tenant/audience/client/scopes config and resource requestedAccessTokenVersion2.
 No migration execution, binder composition, live tenant test, PKCE/token storage,
 invitations/outbox, administration or automated membership. Status is not an admin client.
-Rollback boundary for F08a is its future coherent source/test/docs commit, no database
+Rollback boundary for F08a is behavior commit211b501383ea048d4691d5b591acce3b6ddefbb0; no database
 mutation/downgrade. F07b/F09 remain separately scoped and unreleased.
 Engram project prometheon-forge; no authoritative session ID. Parent owns full task
 mirror; worker checkpoint memory is separate. F08a observed checks below are current; F06/F07a historical evidence is not a new
 claim of live enrollment. Parent owns refreshed full mirror.
 
 
-## F08a writer candidate and observed proof
+## Historical F08a writer candidate and observed proof
 
 Source release followed parent full updated mirror2468/exact normalized readback
 of the accepted30892-character plan and Spanish SDD. HEAD remains
@@ -590,3 +592,19 @@ Parent spot28 passed10.292s; parent visually inspected mobile screenshot, no iss
 Parent accepts LOCAL operational-shell delivery with C10 observed closed and C10b
 follow-up limits explicit, not production readiness or full accessibility/network
 certification. Coherent local commit authorized; no further source changes.
+
+
+### F08a actual local commit proof
+
+Parent-authorized behavior commit211b501383ea048d4691d5b591acce3b6ddefbb0,
+feat(runtime): compose explicit service status, exactly14 files+2254/-356=2610.
+Ten verified source/test/manifest blob identities matched before staging and in
+commit/worktree afterward; no .local/.venv outputs staged. diff/check passed;
+clean git porcelain observed immediately after behavior commit. Conventional
+message has no AI attribution. Historical e6d7f95 baseline now replaced by this
+local work-unit boundary; task-only evidence follow-up does not change source.
+Running authored count through behavior:5518=1490+17+1366+35+2610 across recorded
+F06/F07a/F08a behavior/evidence commits; generated outputs excluded, authorized
+feature-branch chain unchanged. No remote publication/native approval.
+C10b evidence, F07b/F09 and deployment/liveEntra/production readiness remain pending.
+Parent refreshes full task mirror after final readback; worker memory is separate.
