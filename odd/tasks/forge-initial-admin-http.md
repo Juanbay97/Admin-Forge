@@ -5,8 +5,8 @@
 F07b2a-http exposes the existing authenticated initial-only designation service
 through an explicitly injected HTTP adapter. Parent refreshed/read back the full
 parent and child mirrors and released implementation. The local candidate has
-passed writer and independent checks. Parent spot check passed and local work-unit
-commit authorization was granted; actual commit identity is recorded after creation.
+passed writer and independent checks. Parent spot check passed; the authorized
+local work-unit commit is recorded below. H1-H4 are closed for this HTTP unit only.
 
 Parent: odd/tasks/forge-administration.md (Engram 2534).
 Baseline: 6a15710d30ae64b15051d8467747ab063794d0f2 on feat/forge-tenant-storage
@@ -47,7 +47,7 @@ ordinary field/path validation; do not promise syntax-error precedence for malfo
   add parent child link, persist full child mirror and read back before release.
   Route: delegated direct, preparation for API/security writes exceeds mechanical work.
   Evidence: clean baseline HEAD observed; structural documentation readback only.
-  Commit: pending separate parent authorization.
+  Commit: 9539d621bc67b839772336f004f6b529c87b1a1f (shared coherent work unit).
 - [x] H2 — Implement adapter with meaningful test-first HTTP proof.
   Route: delegated direct, API plus two non-trivial new test files.
   Observe assertion-based RED against current importable API before API edits.
@@ -61,7 +61,7 @@ ordinary field/path validation; do not promise syntax-error precedence for malfo
   and transactional failure with no partial write. Preserve old tests and fixtures.
   Run all commands below, offline wheel/fresh-import if existing tooling permits,
   document exact counts, failures, skips, cleanup and protected-path evidence.
-- [ ] H4 — Reconcile README/SDD/task proof and return verified local candidate.
+- [x] H4 — Reconcile README/SDD/task proof and return verified local candidate.
   Route: delegated direct; parent independent verification and one spot check.
   No commit until separately authorized; then record exact hash/stats in this task.
   No push, PR, merge, deployment, overall F07b or product completion.
@@ -114,9 +114,9 @@ artificial file-type split. Existing local feature-branch-chain strategy continu
 One coherent adapter/test/docs work unit, separately authorized commit after checks.
 Rollback is removal of this adapter/test/docs unit, not prior service/migrations.
 Expected verification cost: a few local minutes, no external spending.
-Current proof: writer and independent candidate checks passed; local commit authorized.
-Next: create the coherent work-unit commit and record its identity in a task-only follow-up.
-H4 remains unchecked until the authorized commit is observed; no remote/deployment operation.
+Current proof: writer, independent and parent spot passed; local commit observed.
+Next: parent refreshes its full administration mirror and selects separately scoped work.
+H4 is closed for this adapter only; no remote/deployment operation.
 Child mirror: topic odd/forge-initial-admin-http/tasks, full file content plus locator.
 
 ## Observed writer candidate evidence
@@ -189,3 +189,29 @@ task-only actual-identity record. Existing feature-branch-chain strategy applies
 the approximately 900-line security/verification unit is not artificially split.
 Only seven approved authored paths may be staged. No .local artifacts or AI
 attribution, push, PR, merge, public exposure or UI completion claim.
+
+## Local work-unit delivery
+
+Behavior commit: 9539d621bc67b839772336f004f6b529c87b1a1f.
+Message: feat(admin): expose initial administrator designation endpoint.
+Exactly seven approved authored paths, +922/-4 (926 authored changed lines).
+All seven staged blobs matched the worktree before commit; API and both new test
+SHA256 values matched independent verification. Clean worktree observed immediately
+after the behavior commit. This task-only follow-up records the observed identity
+and H4 closure without altering behavior, tests or historical parent content.
+
+The initial staging command could not create index.lock despite turn Git metadata
+permission. Narrow approved escalation staged only the exact paths and committed;
+no ownership/configuration changes or broad cleanup. Git's automatic committer
+identity warning was retained without global identity edits or amend.
+
+Rollback boundary is the exact adapter/test/docs behavior unit above, not prior
+service or migrations. Independent 296 tests and parent 21-HTTP spot remain the
+verification of record; documentation-only closure adds structural readback.
+No source-mutating hooks or verified-byte drift observed. RDD remains OFF,
+disabled/unmanaged; no native approval, push, PR, merge, deployment or UI claim.
+
+A raw commit/worktree byte comparison initially failed on inherited CRLF/LF
+normalization. All three verified raw SHA256 values stayed exact; Git clean-filter
+object equality and explicit CRLF-to-LF readback confirmed committed correspondence.
+No source bytes, EOL configuration or hooks were changed to satisfy that check.
