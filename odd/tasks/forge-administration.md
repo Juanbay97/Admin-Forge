@@ -2,7 +2,7 @@
 
 ## Current outcome and gate
 
-**F07b1 is locally committed; F07b2a passed independent verification and parent spot; local work-unit delivery is authorized.**
+**F07b1 and F07b2a are locally committed; initial-only internal designation delivery is closed.**
 Parent released source after full mirror2534 normalized readback matched; baseline
 96e29200460df7b6f3f220c24f7f3064bac5ab71. User-confirmed central first designation
 (memory2549; technical2553/explorer2550) is implemented internally, not self-signup.
@@ -37,7 +37,7 @@ One closed unit and one current plan checkpoint; future slices remain unreleased
   Route: delegated direct; migration/security/readiness plus multiple non-trivial
   source/test files require a bounded writer and independent verification.
 - [ ] **F07b2 — Central designation and future member administration.**
-  - [ ] **F07b2a — Authenticated initial-only designation (writer verified; delivery gate pending).**
+  - [x] **F07b2a — Authenticated initial-only designation (locally committed).**
     Real Entra operator validation, deployment-owned authorization and one atomic
     existing-member grant/revision/audit-outbox transaction; E1–E12 below.
     Route: delegated direct; security/migration/transaction plus multiple source
@@ -423,7 +423,7 @@ policy-count checks deliberately without weakening existing checks or querying r
 No service/pool/operator wiring added to runtime or HTTP; readiness is storage metadata,
 not evidence that live operator configuration or admin UI exists.
 
-### Acceptance (E1–E11 writer-observed; E12 delivery gate pending)
+### Acceptance (E1–E12 observed; F07b2a local delivery closed)
 
 - [x] E1: Actual RS256 token validation each attempt, exact deployment operator→actor
   and org→targettenant configuration; empty/missing/invalid/unauthorized deny before DB.
@@ -448,7 +448,7 @@ not evidence that live operator configuration or admin UI exists.
   plus new applicable tests, compileall/pipcheck/diffcheck, no silent skips.
 - [x] E11: Offline existing-tools wheel exactnewmodules/currentpostgres/staticassets,
   fresh import/resources proof, audit0004 source separately; no deps/install/network.
-- [ ] E12: README/neutralSpanishSDD/task correspondence, full parent mirror/readback
+- [x] E12: README/neutralSpanishSDD/task correspondence, full parent mirror/readback
   before source; independent verification+parent spot before separate local commit
   authorization; actual commit/hash/stats and clean/protected-source proof afterward.
 
@@ -574,4 +574,24 @@ HTTP/UI/consumer/recovery/last-admin/member lifecycle stay separately scoped.
  C10b limits remain. README/neutral-Spanish SDD describe authority/privileges/pending
  publication and no admin-ready claim. Parent owns full mirror. Independent266+wheel passed without concrete defect;
  parent147DB30.482s/17.11 exact-ID cleanup passed. E12 commit/hash/stats/clean and
- protected-candidate confirmation are recorded in local delivery below.
+ protected-candidate confirmation are observed in local delivery below.
+
+
+### F07b2a local work-unit delivery
+
+Behavior commit885a940bcac4e87d8748069db32d3c01906478d3:
+`feat(admin): designate initial organization administrator`.
+Exact12 approved paths,2090 additions/27 deletions (2117 authored changed lines).
+Independent266 tests + exact11module/3asset wheel/protected37/probes passed without
+concrete defect; parent147DB30.482s, server17.11 exact-ID cleanup passed. All staged
+blobs matched current files and behavior commit; nine verified behavior/test/migration
+SHA256 values unchanged, no mutating hook drift. Behavior commit had clean status.
+This small task-only follow-up records the actual hash/closure; parent receives
+its own final hash and clean/protected readback separately. No source bytes changed.
+Local feature-branch-chain strategy remains approved;400 advisory, no artificial
+file-type split/code-golf. Rollback boundary is this exact work unit, not old
+migrations/domain/API/authentication; DB recovery/downgrade policy is NOT provided.
+E12/F07b2a close only internal initial designation. F07b2b/F07b3/F07b overall andF09
+remain unfinished: no HTTP/UI/live operator wiring, publication/provisioning,
+removal/recovery/last-admin assumption. Parent full mirror refresh follows readback.
+Gentle remains disabled/unmanaged, no native approval; no remote/push/PR/merge.
