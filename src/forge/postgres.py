@@ -23,11 +23,11 @@ SELECT current_user = 'forge_runtime' AND session_user = current_user
         SELECT 1 FROM pg_catalog.pg_class AS t
         JOIN pg_catalog.pg_namespace AS n ON n.oid = t.relnamespace
         WHERE n.nspname = 'forge' AND t.relowner = r.oid)
-    AND (SELECT count(*) = 4 AND bool_and(t.relrowsecurity AND t.relforcerowsecurity)
+    AND (SELECT count(*) = 5 AND bool_and(t.relrowsecurity AND t.relforcerowsecurity)
         FROM pg_catalog.pg_class AS t
         JOIN pg_catalog.pg_namespace AS n ON n.oid = t.relnamespace
         WHERE n.nspname = 'forge' AND t.relkind = 'r'
-          AND t.relname IN ('identities','organizations','memberships','configuration_revisions'))
+          AND t.relname IN ('identities','organizations','memberships','configuration_revisions','membership_roles'))
     AND NOT has_schema_privilege(current_user, 'forge', 'CREATE')
     AND NOT has_schema_privilege(current_user, 'public', 'CREATE')
     AND NOT has_database_privilege(current_user, current_database(), 'CREATE')
@@ -225,6 +225,84 @@ SELECT NOT EXISTS (
 """
 
 
+# Exact new metadata is checked separately so all existing schema proof stays intact.
+_AUTHORIZATION_SCHEMA = """
+WITH expected(table_name,column_name,type_name) AS (
+    VALUES ('memberships','revision','int8'),
+           ('membership_roles','organization_id','uuid'),
+           ('membership_roles','membership_id','uuid'),('membership_roles','role','text')
+)
+SELECT NOT EXISTS (
+    SELECT 1 FROM expected e
+    LEFT JOIN pg_namespace n ON n.nspname='forge'
+    LEFT JOIN pg_class t ON t.relnamespace=n.oid AND t.relname=e.table_name
+    LEFT JOIN pg_attribute a ON a.attrelid=t.oid AND a.attname=e.column_name
+    LEFT JOIN pg_type y ON y.oid=a.atttypid
+    WHERE a.attnum IS NULL OR a.attisdropped OR NOT a.attnotnull OR y.typname<>e.type_name
+) AND EXISTS (
+    SELECT 1 FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid=d.adrelid AND a.attnum=d.adnum
+    WHERE d.adrelid='forge.memberships'::regclass AND a.attname='revision'
+      AND pg_get_expr(d.adbin,d.adrelid)='1'
+) AND EXISTS (
+    SELECT 1 FROM pg_constraint c WHERE c.conrelid='forge.memberships'::regclass
+      AND c.conname='membership_revision_positive' AND c.contype='c' AND c.convalidated
+      AND regexp_replace(pg_get_expr(c.conbin,c.conrelid),'[[:space:]]','','g')='(revision>0)'
+) AND EXISTS (
+    SELECT 1 FROM pg_constraint c WHERE c.conrelid='forge.membership_roles'::regclass
+      AND c.conname='membership_roles_known' AND c.contype='c' AND c.convalidated
+      AND regexp_replace(pg_get_expr(c.conbin,c.conrelid),'[[:space:]]','','g')=%s
+) AND EXISTS (
+    SELECT 1 FROM pg_constraint c WHERE c.conrelid='forge.membership_roles'::regclass
+      AND c.conname='membership_roles_primary' AND c.contype='p'
+      AND c.conkey=ARRAY[
+        (SELECT attnum FROM pg_attribute WHERE attrelid=c.conrelid AND attname='organization_id'),
+        (SELECT attnum FROM pg_attribute WHERE attrelid=c.conrelid AND attname='membership_id'),
+        (SELECT attnum FROM pg_attribute WHERE attrelid=c.conrelid AND attname='role')]::smallint[]
+) AND EXISTS (
+    SELECT 1 FROM pg_constraint c WHERE c.conrelid='forge.membership_roles'::regclass
+      AND c.conname='membership_roles_membership' AND c.contype='f' AND c.convalidated
+      AND c.confrelid='forge.memberships'::regclass AND NOT c.condeferrable
+      AND c.confdeltype='a' AND c.confupdtype='a'
+      AND c.conkey=ARRAY[
+        (SELECT attnum FROM pg_attribute WHERE attrelid=c.conrelid AND attname='organization_id'),
+        (SELECT attnum FROM pg_attribute WHERE attrelid=c.conrelid AND attname='membership_id')]::smallint[]
+      AND c.confkey=ARRAY[
+        (SELECT attnum FROM pg_attribute WHERE attrelid=c.confrelid AND attname='organization_id'),
+        (SELECT attnum FROM pg_attribute WHERE attrelid=c.confrelid AND attname='id')]::smallint[]
+) AND EXISTS (
+    SELECT 1 FROM pg_class t WHERE t.oid='forge.membership_roles'::regclass
+      AND t.relowner=(SELECT oid FROM pg_roles WHERE rolname='forge_migrator')
+      AND NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(t.relacl,acldefault('r',t.relowner)))
+                      WHERE grantee=0)
+) AND (SELECT count(*)=1 FROM pg_policy WHERE polrelid='forge.membership_roles'::regclass)
+  AND EXISTS (
+    SELECT 1 FROM pg_policy p WHERE p.polrelid='forge.membership_roles'::regclass
+      AND p.polname='membership_role_scope' AND p.polcmd='r' AND p.polpermissive
+      AND p.polroles=ARRAY[(SELECT oid FROM pg_roles WHERE rolname='forge_runtime')]
+      AND p.polwithcheck IS NULL
+      AND regexp_replace(pg_get_expr(p.polqual,p.polrelid),'[[:space:]]','','g')=%s
+) AND NOT has_table_privilege('forge_identity_binder','forge.membership_roles',
+    'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+  AND NOT has_any_column_privilege('forge_identity_binder','forge.membership_roles',
+    'SELECT,INSERT,UPDATE,REFERENCES')
+  AND NOT has_column_privilege('forge_identity_binder','forge.memberships','revision',
+    'SELECT,INSERT,UPDATE,REFERENCES')
+"""
+_ROLE_VALUES_CHECK = """(role = ANY (ARRAY['organization_admin'::text,
+'department_manager'::text,'skill_reviewer'::text,'member'::text]))"""
+_ROLE_VALUES_CHECK = ''.join(_ROLE_VALUES_CHECK.split())
+_ROLE_SCOPE_CHECK = """((organization_id = forge.context_organization())
+AND (EXISTS ( SELECT 1 FROM ((forge.memberships m JOIN forge.organizations o
+ON ((o.id = m.organization_id))) JOIN forge.identities i ON ((i.id = m.identity_id)))
+WHERE ((m.organization_id = membership_roles.organization_id)
+AND (m.id = membership_roles.membership_id) AND (m.status = 'active'::text)
+AND o.active AND ((i.provider <> 'entra'::text) OR ((i.entra_tenant_id IS NOT NULL)
+AND (i.entra_object_id IS NOT NULL) AND (i.issuer =
+(('https://login.microsoftonline.com/'::text || (i.entra_tenant_id)::text) || '/v2.0'::text))
+AND (i.subject = (i.entra_object_id)::text)))))))"""
+_ROLE_SCOPE_CHECK = ''.join(_ROLE_SCOPE_CHECK.split())
+
+
 class PostgresReadinessProbe:
     """Restricted-role/schema metadata only; errors return false, never diagnostics."""
     def __init__(self, pool: ConnectionPool):
@@ -239,8 +317,11 @@ class PostgresReadinessProbe:
                 with conn.transaction(), conn.cursor(row_factory=tuple_row) as cursor:
                     cursor.execute("SET LOCAL statement_timeout = '3s'")
                     cursor.execute("SET LOCAL lock_timeout = '1s'")
+                    # Stabilize catalog expression rendering across supplied search paths.
+                    cursor.execute("SET LOCAL search_path = pg_catalog")
                     for query, params in ((_EMPTY_CONTEXT, None), (_ROLE_CHECK, None),
-                                          (_SCHEMA_CHECK, (_BINDING_CHECK,))):
+                                          (_SCHEMA_CHECK, (_BINDING_CHECK,)),
+                                          (_AUTHORIZATION_SCHEMA, (_ROLE_VALUES_CHECK, _ROLE_SCOPE_CHECK))):
                         cursor.execute(query, params)
                         result = cursor.fetchone()
                         if result is None or result[0] is not True:

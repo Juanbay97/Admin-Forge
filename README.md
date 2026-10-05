@@ -135,7 +135,7 @@ validation live only under tests and are never imported by the runtime reader.
 Runtime pins: psycopg/binary 3.3.6 and psycopg-pool 3.3.3; httpx is test-only.
 The owned harness runs all `test_postgres_*.py` modules in one child process, not
 only RLS. Direct DB discovery without explicit owned-harness configuration fails
-clearly (currently unittest exit 5 with four setup errors and zero tests), not skip.
+clearly when the owned harness is not configured, rather than silently skip.
 Real size-one pool tests cover same backend reuse after success/error, concurrent
 serialization, fresh revocation/configuration, role misconfiguration and DB HTTP.
 
@@ -275,7 +275,7 @@ The provided variables above are explicit trusted values, NOT environment loader
 or default credentials. Only numeric canonical loopback, a bounded identifier DB
 name, valid explicit port and nonempty bounded password are accepted. The database
 role must be exactly forge_runtime, separately provisioned as restricted LOGIN.
-Migrations 0001/0002 are applied externally by a trusted administrator; this factory
+Migrations 0001/0002/0003 are applied externally by a trusted administrator; this factory
 does not run migrations or bind/create identities or memberships.
 
 Configured mode rejects presence of any PG* variable without reading its value,
@@ -297,7 +297,7 @@ failure cooldown5s prevent probe floods; a positive result is valid only until T
 These finite library bounds are not a hard OS/DNS/request SLA.
 
 Readiness checks actual restricted role/column privileges/RLS and catalog structure
-for0001/0002, including nullable UUID pair, exact pair CHECK, uniqueness, enabled
+for0001/0002/0003, including nullable UUID pair, exact pair CHECK, uniqueness, enabled
 invoker trigger, policy/helper prerequisites and selected-revision FK. No business
 rows/counts or organization context are queried. This structural probe is not a
 complete migration-byte/policy-body audit or a deployment migration-history runner.
@@ -331,3 +331,39 @@ full network capture, actual screen-reader announcement and transient-loading
 certification remain explicit follow-up evidence, not delivery claims. Independent
 telemetry correction retest and parent spot passed. No live accounts, production, binder/login
 wiring, F07b invitations/outbox or F09 PKCE/protected storage/enrollment are implemented.
+
+
+## Internal membership authorization read model
+
+Migration0003 follows0001/0002 externally: positive membership revision default1
+and organization-scoped membership_roles with composite PK/FK, four exact role
+values and ENABLE/FORCE RLS. New role-row RLS also requires complete coherent
+persisted Entra tenant/object binding; generic providers and older policies are
+unchanged. It seeds no roles or administrator. Runtime remains
+SELECT-only on all five tables including column-grant restrictions; the identity
+binder receives no role/revision access. Runtime readiness now requires0003 and
+checks its metadata/privileges without organization context or business rows.
+No migration runner is provided; deployment must apply the ordered migrations.
+
+AuthorizationSnapshot and permits are internal trusted-data policy, not token
+validation or a reusable write capability. Only organization_admin permits exact
+members.invite/update/suspend; missing/unknown actions or any unknown mixed role
+deny. platform_operator is not an organization role. Frozen snapshots copy role
+sets without coercing their values; revision is a positive bigint observation,
+not an implemented mutation/If-Match guarantee.
+
+PostgresAuthorizationReader uses an externally owned restricted sync pool and one
+parameterized business SELECT for canonical bound Entra identity, active owned
+membership/organization, current revision and roles. No authorization cache,
+email/sub fallback, claimed JWT/request roles, HTTP endpoint or login wiring.
+Operational errors are fixed/redacted; idle-autocommit/clean-context guards and
+local search_path/statement3s/lock1s restore after each transaction; acquire1s
+(default, finite override within(0,30]). Future writes must revalidate inside the
+same audited transaction/outbox, not trust an old snapshot.
+
+Run tests/test_authorization.py and the unchanged scripts/test-postgres.ps1 owned
+harness. Exact task/proof: odd/tasks/forge-administration.md; neutral-Spanish SDD:
+docs/changes/membership-authorization.md. First-administrator designation/recovery,
+last-administrator policy, member mutations and invitations/provisioning remain
+separately scoped future work; no administrative permissions are granted here.
+F07b1 closes only this internal read model, not an administration API or bootstrap.

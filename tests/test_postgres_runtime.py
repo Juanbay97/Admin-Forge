@@ -258,5 +258,73 @@ class PostgresRuntimeTests(unittest.TestCase):
         self.assertTrue(app.state.runtime.pool.closed)
 
 
+
+    def test_new_role_table_rls_column_mutations_and_binder_grants_fail_readiness(self):
+        for privilege in ("INSERT","UPDATE","REFERENCES"):
+            with self.subTest(privilege=privilege),connect() as conn:
+                conn.execute("GRANT "+privilege+"(role) ON forge.membership_roles TO forge_runtime")
+                try:self.assertFalse(PostgresReadinessProbe(self.pool).check())
+                finally:conn.execute("REVOKE "+privilege+"(role) ON forge.membership_roles FROM forge_runtime")
+                self.assertTrue(PostgresReadinessProbe(self.pool).check())
+        for privilege in ("INSERT","UPDATE","REFERENCES"):
+            with self.subTest(column="revision",privilege=privilege),connect() as conn:
+                conn.execute("GRANT "+privilege+"(revision) ON forge.memberships TO forge_runtime")
+                try:self.assertFalse(PostgresReadinessProbe(self.pool).check())
+                finally:conn.execute("REVOKE "+privilege+"(revision) ON forge.memberships FROM forge_runtime")
+        with connect() as conn:
+            conn.execute("ALTER TABLE forge.membership_roles DISABLE ROW LEVEL SECURITY")
+            try:self.assertFalse(PostgresReadinessProbe(self.pool).check())
+            finally:conn.execute("ALTER TABLE forge.membership_roles ENABLE ROW LEVEL SECURITY")
+            conn.execute("GRANT SELECT ON forge.membership_roles TO forge_identity_binder")
+            try:self.assertFalse(PostgresReadinessProbe(self.pool).check())
+            finally:conn.execute("REVOKE SELECT ON forge.membership_roles FROM forge_identity_binder")
+        self.assertTrue(PostgresReadinessProbe(self.pool).check())
+
+    def test_new_authorization_shapes_and_policy_cannot_be_weakened(self):
+        cases=(
+            ("ALTER TABLE forge.membership_roles RENAME TO hidden_roles",
+             "ALTER TABLE forge.hidden_roles RENAME TO membership_roles"),
+            ("ALTER TABLE forge.memberships ALTER COLUMN revision DROP DEFAULT",
+             "ALTER TABLE forge.memberships ALTER COLUMN revision SET DEFAULT 1"),
+            ("ALTER TABLE forge.memberships DROP CONSTRAINT membership_revision_positive",
+             "ALTER TABLE forge.memberships ADD CONSTRAINT membership_revision_positive CHECK(revision>0)"),
+            ("ALTER TABLE forge.membership_roles DROP CONSTRAINT membership_roles_membership",
+             "ALTER TABLE forge.membership_roles ADD CONSTRAINT membership_roles_membership "
+             "FOREIGN KEY(organization_id,membership_id) REFERENCES forge.memberships(organization_id,id)"),
+            ("ALTER TABLE forge.membership_roles DROP CONSTRAINT membership_roles_known",
+             "ALTER TABLE forge.membership_roles ADD CONSTRAINT membership_roles_known CHECK "
+             "(role IN ('organization_admin','department_manager','skill_reviewer','member'))"),
+            ("ALTER POLICY membership_role_scope ON forge.membership_roles USING(true)",None),
+            ("ALTER POLICY membership_role_scope ON forge.membership_roles USING ("
+             "organization_id=forge.context_organization() AND EXISTS (SELECT 1 FROM "
+             "forge.memberships m JOIN forge.organizations o ON o.id=m.organization_id "
+             "WHERE m.organization_id=membership_roles.organization_id "
+             "AND m.id=membership_roles.membership_id AND m.status='active' AND o.active))", None),
+            ("CREATE POLICY unwanted_role_visibility ON forge.membership_roles FOR SELECT "
+             "TO forge_runtime USING(true)","DROP POLICY unwanted_role_visibility ON forge.membership_roles"),
+        )
+        with connect() as conn:
+            original=conn.execute("SELECT pg_get_expr(polqual,polrelid) FROM pg_policy "
+                "WHERE polrelid='forge.membership_roles'::regclass "
+                "AND polname='membership_role_scope'").fetchone()[0]
+            for corrupt,restore in cases:
+                with self.subTest(change=corrupt):
+                    conn.execute(corrupt)
+                    try:self.assertFalse(PostgresReadinessProbe(self.pool).check())
+                    finally:
+                        conn.execute(restore or ("ALTER POLICY membership_role_scope ON "
+                            "forge.membership_roles USING("+original+")"))
+                    self.assertTrue(PostgresReadinessProbe(self.pool).check())
+
+    def test_readiness_restores_explicit_runtime_search_path_with_five_tables(self):
+        with self.pool.connection() as conn:
+            conn.execute("SET search_path=pg_catalog,forge")
+            before=conn.execute("SHOW search_path").fetchone()
+        self.assertTrue(PostgresReadinessProbe(self.pool).check())
+        with self.pool.connection() as conn:
+            self.assertEqual(conn.execute("SHOW search_path").fetchone(),before)
+            conn.execute("RESET search_path")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -155,7 +155,7 @@ class PostgresIsolationTests(unittest.TestCase):
             metadata = conn.execute("SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity,"
                                     "pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n "
                                     "ON n.oid=c.relnamespace WHERE n.nspname='forge' AND c.relkind='r'").fetchall()
-            self.assertEqual(len(metadata), 4)
+            self.assertEqual(len(metadata), 5)
             for _, enabled, forced, owner in metadata:
                 self.assertTrue(enabled)
                 self.assertTrue(forced)
@@ -163,7 +163,10 @@ class PostgresIsolationTests(unittest.TestCase):
             policies = conn.execute("SELECT count(*) FROM pg_policy WHERE polrelid IN "
                 "(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
                 "WHERE n.nspname='forge') AND polqual IS NOT NULL AND polwithcheck IS NOT NULL").fetchone()[0]
-            self.assertEqual(policies, 5)
+            self.assertEqual(policies, 5)  # Original ALL policies keep their WITH CHECK.
+            role_policy = conn.execute("SELECT polcmd,polwithcheck IS NULL FROM pg_policy "
+                "WHERE polrelid='forge.membership_roles'::regclass").fetchall()
+            self.assertEqual(role_policy,[('r',True)])
 
     def test_force_rls_applies_to_migration_owner_and_helpers_are_invokers(self):
         with connect() as conn:
@@ -270,6 +273,81 @@ class PostgresIsolationTests(unittest.TestCase):
                 conn.execute('UPDATE forge.configuration_revisions SET organization_id=%s '
                              'WHERE organization_id=%s AND revision=4', (ORG_B, ORG_A))
             self.assertIn('row-level security', str(caught.exception))
+
+
+
+    def test_role_rows_require_active_owned_membership_and_organization(self):
+        with connect() as admin:
+            admin.execute("INSERT INTO forge.membership_roles VALUES "
+                "(%s,%s,'organization_admin'),(%s,%s,'member'),(%s,%s,'organization_admin')",
+                (ORG_A,MEMBER_A,ORG_A,UUID(int=23),ORG_B,UUID(int=22)))
+        with self.db.runtime() as conn:
+            self.assertEqual(conn.execute("SELECT * FROM forge.membership_roles").fetchall(),[])
+            for org,subject,expected in (
+                    (ORG_A,"alice",["organization_admin"]),(ORG_A,"carol",["member"]),
+                    (ORG_B,"bob",["organization_admin"]),(ORG_B,"alice",[])):
+                with conn.transaction():
+                    set_context(conn,organization=org,subject=subject)
+                    self.assertEqual([r[0] for r in conn.execute(
+                        "SELECT role FROM forge.membership_roles").fetchall()],expected)
+            for key in KEYS:
+                with conn.transaction():
+                    context=dict(organization=ORG_A,provider="test",issuer="issuer",subject="alice")
+                    context[key]=None;set_context(conn,**context)
+                    self.assertEqual(conn.execute("SELECT role FROM forge.membership_roles").fetchall(),[])
+        with connect() as admin:
+            admin.execute("UPDATE forge.memberships SET status='suspended' WHERE id=%s",(MEMBER_A,))
+        with self.db.runtime() as conn,conn.transaction():
+            set_context(conn)
+            self.assertEqual(conn.execute("SELECT role FROM forge.membership_roles").fetchall(),[])
+        with connect() as admin:
+            admin.execute("UPDATE forge.memberships SET status='active' WHERE id=%s",(MEMBER_A,))
+            admin.execute("UPDATE forge.organizations SET active=false WHERE id=%s",(ORG_A,))
+        with self.db.runtime() as conn,conn.transaction():
+            set_context(conn)
+            self.assertEqual(conn.execute("SELECT role FROM forge.membership_roles").fetchall(),[])
+
+
+    def test_raw_role_select_requires_persisted_entra_binding(self):
+        from test_entra import TENANT, OID, OTHER_TENANT, issuer
+        from forge.authorization import permits
+        from forge.authorization_store import PostgresAuthorizationReader
+        from forge.foundation import AuthenticatedIdentity
+
+        identity = AuthenticatedIdentity('entra', issuer(), OID)
+        with connect() as admin:
+            admin.execute("UPDATE forge.identities SET provider='entra',issuer=%s,subject=%s "
+                          "WHERE id=%s", (identity.issuer, identity.subject, ALICE))
+            admin.execute("INSERT INTO forge.membership_roles VALUES "
+                          "(%s,%s,'organization_admin'),(%s,%s,'member'),"
+                          "(%s,%s,'organization_admin')",
+                          (ORG_A, MEMBER_A, ORG_A, UUID(int=23), ORG_B, UUID(int=22)))
+        with self.db.pool() as pool:
+            reader = PostgresAuthorizationReader(pool)
+            self.assertIsNone(reader.read(identity, str(ORG_A)))
+            with self.db.runtime() as conn, conn.transaction():
+                set_context(conn, provider='entra', issuer=issuer(), subject=OID)
+                self.assertEqual(conn.execute(
+                    "SELECT membership_id,role FROM forge.membership_roles").fetchall(), [])
+            with connect() as admin:
+                admin.execute("UPDATE forge.identities SET entra_tenant_id=%s,entra_object_id=%s "
+                              "WHERE id=%s", (UUID(TENANT), UUID(OID), ALICE))
+            self.assertTrue(permits(reader.read(identity, str(ORG_A)), 'members.invite'))
+            with self.db.runtime() as conn:
+                for organization, provider, tenant_issuer, subject, expected in (
+                        (ORG_A, 'entra', issuer(), OID, [(MEMBER_A, 'organization_admin')]),
+                        (ORG_B, 'entra', issuer(), OID, []),
+                        (ORG_A, 'entra', issuer(OTHER_TENANT), OID, []),
+                        (ORG_A, 'entra', issuer(), 'guest-sub', []),
+                        (ORG_A, 'test', 'issuer', 'carol', [(UUID(int=23), 'member')]),
+                        (ORG_B, 'test', 'issuer', 'bob', [(UUID(int=22), 'organization_admin')]),
+                        (ORG_A, 'test', 'issuer', 'bob', [])):
+                    with self.subTest(organization=organization, provider=provider, subject=subject):
+                        with conn.transaction():
+                            set_context(conn, organization=organization, provider=provider,
+                                        issuer=tenant_issuer, subject=subject)
+                            self.assertEqual(conn.execute(
+                                "SELECT membership_id,role FROM forge.membership_roles").fetchall(), expected)
 
 
 if __name__ == '__main__':

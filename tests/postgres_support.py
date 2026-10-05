@@ -169,10 +169,114 @@ def migration_probe(*, populated=False, rollback=False, failure=False):
     return evidence
 
 
+
+def authorization_migration_probe(*, populated=False, failure=False):
+    """Separate exact0003 cases; original0002 probes/evidence stay unchanged."""
+    from uuid import uuid4
+    name = "forge_authorization_" + uuid4().hex
+    created_roles = False
+    with connect() as admin:
+        if admin.execute("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN "
+                "('forge_runtime','forge_migrator','forge_identity_binder'))").fetchone()[0]:
+            raise RuntimeError("Authorization probe requires its own role lifecycle")
+        admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    try:
+        kwargs = settings() | {"dbname": name}
+        with psycopg.connect(**kwargs) as conn:
+            conn.execute((ROOT/"migrations/0001_bootstrap.sql").read_text("utf-8"))
+            created_roles = True
+            conn.execute((ROOT/"migrations/0002_entra_identity_binding.sql").read_text("utf-8"))
+            if populated:
+                with conn.transaction():
+                    conn.execute("INSERT INTO forge.identities(id,provider,issuer,subject) "
+                        "VALUES (%s,'test','issuer','existing')", (ALICE,))
+                    conn.execute("INSERT INTO forge.organizations VALUES (%s,'upgrade','Upgrade',true,1)",
+                        (ORG_A,))
+                    conn.execute("INSERT INTO forge.configuration_revisions VALUES (%s,1)", (ORG_A,))
+                    conn.execute("INSERT INTO forge.memberships VALUES (%s,%s,%s,'active')",
+                        (ORG_A, MEMBER_A, ALICE))
+                    for identity,member,status in ((CAROL,UUID(int=903),"suspended"),
+                            (SUSPENDED,UUID(int=904),"archived")):
+                        conn.execute("INSERT INTO forge.identities(id,provider,issuer,subject) "
+                            "VALUES (%s,'test','issuer',%s)",(identity,"existing-"+status))
+                        conn.execute("INSERT INTO forge.memberships VALUES (%s,%s,%s,%s)",
+                            (ORG_A,member,identity,status))
+            rows_before = {table: conn.execute(sql.SQL("SELECT * FROM forge.{} ORDER BY 1").format(
+                sql.Identifier(table))).fetchall() for table in TABLES}
+            metadata = """
+SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity,c.relacl::text,c.relowner
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='forge' AND c.relkind='r' ORDER BY c.relname
+"""
+            policies = """
+SELECT p.polname,p.polrelid,p.polcmd,p.polroles,p.polqual::text,p.polwithcheck::text
+FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid
+JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='forge'
+ORDER BY p.polname,p.polrelid
+"""
+            functions = """
+SELECT p.proname,p.proowner,p.prosecdef,p.proacl::text,p.prosrc
+FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+WHERE n.nspname='forge' ORDER BY p.proname
+"""
+            before = [conn.execute(query).fetchall() for query in (metadata,policies,functions)]
+            migration = (ROOT/"migrations/0003_membership_authorization.sql").read_text("utf-8")
+            if not migration.endswith("COMMIT;\n"):
+                raise RuntimeError("Unexpected authorization migration boundary")
+            state = None
+            if failure:
+                injected = migration[:-len("COMMIT;\n")] + "SELECT 1 / 0;\nCOMMIT;\n"
+                try:
+                    conn.execute(injected)
+                except psycopg.errors.DivisionByZero as error:
+                    state = (error.sqlstate,
+                        conn.info.transaction_status is psycopg.pq.TransactionStatus.INERROR)
+                    if state != ("22012",True):
+                        raise RuntimeError("Authorization migration failure not observed")
+                    conn.execute("ROLLBACK")
+                else:
+                    raise RuntimeError("Authorization failure injection did not fail")
+                if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                    raise RuntimeError("Authorization rollback did not restore idle")
+                if [conn.execute(q).fetchall() for q in (metadata,policies,functions)] != before:
+                    raise RuntimeError("Authorization rollback changed prior metadata/ACL/RLS")
+            else:
+                conn.execute(migration)
+            table = conn.execute("SELECT to_regclass('forge.membership_roles') IS NOT NULL").fetchone()[0]
+            revision = conn.execute("SELECT EXISTS(SELECT 1 FROM pg_attribute "
+                "WHERE attrelid='forge.memberships'::regclass AND attname='revision' "
+                "AND NOT attisdropped)").fetchone()[0]
+            if table is not (not failure) or revision is not (not failure):
+                raise RuntimeError("Authorization migration object proof failed")
+            for key in TABLES:
+                after = conn.execute(sql.SQL("SELECT * FROM forge.{} ORDER BY 1").format(
+                    sql.Identifier(key))).fetchall()
+                expected = ([row+(1,) for row in rows_before[key]]
+                    if key == "memberships" and not failure else rows_before[key])
+                if after != expected:
+                    raise RuntimeError("Authorization migration changed prior records")
+            if not failure and conn.execute("SELECT count(*) FROM forge.membership_roles").fetchone()[0] != 0:
+                raise RuntimeError("Authorization migration seeded roles")
+            rls = conn.execute("SELECT count(*) FROM pg_class c JOIN pg_namespace n "
+                "ON n.oid=c.relnamespace WHERE n.nspname='forge' AND c.relkind='r' "
+                "AND c.relrowsecurity AND c.relforcerowsecurity").fetchone()[0]
+            if rls != (4 if failure else 5):
+                raise RuntimeError("Authorization RLS migration proof failed")
+            return (table,revision,len(rows_before["memberships"]),rls,state,
+                    conn.info.transaction_status is psycopg.pq.TransactionStatus.IDLE)
+    finally:
+        with connect() as admin:
+            admin.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+            if created_roles:
+                for role in ("forge_identity_binder","forge_runtime","forge_migrator"):
+                    admin.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))
+
+
 class DatabaseFixture:
     # Only this owned harness process shares initialization, never external DB state.
     _credentials = None
     migration_evidence = None
+    authorization_migration_evidence = None
 
     def __init__(self):
         if self._credentials is not None:
@@ -185,11 +289,17 @@ class DatabaseFixture:
             migration_probe(populated=True, rollback=True),
             migration_probe(populated=True, failure=True),
         )
+        DatabaseFixture.authorization_migration_evidence = (
+            authorization_migration_probe(),
+            authorization_migration_probe(populated=True),
+            authorization_migration_probe(populated=True,failure=True),
+        )
         self.runtime_password = secrets.token_urlsafe(32)
         self.writer_password = secrets.token_urlsafe(32)
         self.binder_password = secrets.token_urlsafe(32)
         with connect() as conn:
-            for migration in ('0001_bootstrap.sql', '0002_entra_identity_binding.sql'):
+            for migration in ('0001_bootstrap.sql', '0002_entra_identity_binding.sql',
+                              '0003_membership_authorization.sql'):
                 conn.execute((ROOT / 'migrations' / migration).read_text('utf-8'))
             conn.execute(sql.SQL('ALTER ROLE forge_identity_binder LOGIN PASSWORD {}').format(
                 sql.Literal(self.binder_password)))
