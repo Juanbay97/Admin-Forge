@@ -48,7 +48,7 @@ Historical evidence is not a new run or live Entra proof.
   Route: delegated direct, lifecycle/security/UI and tests cross non-trivial files.
 - [ ] **F07b — Creation, invitations and provisioning (future; not released).**
   Child F07b1 authorization read-model plan: [forge-administration](forge-administration.md);
-  completed internal read model, writer/independent211 and parent108DB spot passed; local closure authorized. F07b remains unfinished.
+  completed internal read model, writer/independent211 and parent108DB spot passed; local commit acf7a9e1415e91290ad9829b789669574b6675e0. F07b remains unfinished.
   Scope object/invitation confirmation, creation and idempotent outbox separately.
   No email matching, automatic membership/admin assignment or tenant signup.
 - [ ] **F08 — Remaining deployment/runtime readiness work (future).**

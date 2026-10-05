@@ -2,12 +2,12 @@
 
 ## Current outcome and gate
 
-**F07b1 read-model delivery is closed; local coherent commit authorized.** Parent
+**F07b1 read-model delivery is locally committed and closed.** Parent
 mirror2534/topic odd/forge-administration/tasks and exact14581-character plan
 readback preceded source. Writer211 and rebuilt wheel passed. Independent corrected
 108DB+6policy plus applicable prior97=211 passed, wheel verified, no finding.
-Parent spot108DB/18.864s, PostgreSQL17.11, exact-ID cleanup passed. Commit identity
-and observed stats are recorded below after the operation, never inferred.
+Parent spot108DB/18.864s, PostgreSQL17.11, exact-ID cleanup passed. Behavior commit
+acf7a9e1415e91290ad9829b789669574b6675e0 and observed stats are recorded below.
 Parent owns refreshed full mirrors; no administration API/bootstrap is delivered.
 
 Baseline 48785aeb1d41958c227b8e80cc66dc0ac95d177c, clean
@@ -315,3 +315,19 @@ D10/F07b1 closed with local commit authorization. No admin/API-ready claim.
 
 Structural audit initially used a missing next-def delimiter in baseline helper
 (ValueError, read-only); corrected def/class delimiter proved original probe intact.
+
+## Local work-unit delivery
+
+Behavior commit acf7a9e1415e91290ad9829b789669574b6675e0:
+`feat(authz): enforce scoped membership roles`.
+Exact13 approved authored files, +1438/-9=1447 authored changed lines; no ignored
+runtime/venv files staged. Nine verified migration/source/test blobs were identical
+before staging, in index, in behavior commit and worktree. Cached diffcheck passed;
+clean status observed immediately after behavior commit. No mutating hook/source
+normalization, AI attribution, new dependency or remote operation.
+Git's inherited automatic committer-identity and LF/CRLF warnings were retained;
+no global identity/EOL changes or amend. Historical proof/failures above remain.
+Small documentation follow-up records this actual behavior hash and updates only
+current closure pointers; parent owns full refreshed administration/identity mirrors.
+F07b2 first-admin designation/recovery and last-admin policy require human product
+decisions before mutations. No automatic answer, seed, API or provisioning delivery.
