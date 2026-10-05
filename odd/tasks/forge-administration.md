@@ -595,3 +595,14 @@ E12/F07b2a close only internal initial designation. F07b2b/F07b3/F07b overall an
 remain unfinished: no HTTP/UI/live operator wiring, publication/provisioning,
 removal/recovery/last-admin assumption. Parent full mirror refresh follows readback.
 Gentle remains disabled/unmanaged, no native approval; no remote/push/PR/merge.
+
+
+## F07b2a-http child checkpoint
+
+Initial-only HTTP adapter is tracked in odd/tasks/forge-initial-admin-http.md
+with docs/changes/initial-admin-designation-http.md. Parent mirror readback released
+implementation; writer candidate passed 296 tests (266 rerun baseline plus 30 new).
+Independent 296-test verification and parent 21-HTTP spot passed; local work-unit
+commit is authorized. Exact identity/closure is recorded in the child task.
+This does not release recovery, removal or reassignment policy. Existing F07b2a
+history and proof remain unchanged; parent owns the full mirror refresh.

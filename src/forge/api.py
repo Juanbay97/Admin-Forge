@@ -9,9 +9,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.telemetry import TelemetryConfig
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException
 
+from forge.administration import (
+    DesignationConflict, DesignationDenied, DesignationRequest, DesignationResult,
+    InitialAdministratorService,
+)
 from forge.foundation import (
     AuthenticatedIdentity, AuthorizationDenied, Membership, MembershipStatus,
     Organization, OrganizationConfiguration, build_public_bootstrap,
@@ -60,6 +64,24 @@ class PublicBootstrap(PublicModel):
     config_revision: int
 
 
+class InitialAdministratorBody(PublicModel):
+    membership_id: UUID
+    operation_id: UUID
+    expected_revision: Annotated[int, Field(
+        strict=True, ge=1, le=2**63-2,
+        description="Integer from 1 through 9223372036854775806; no coercion.",
+    )]
+
+
+class PublicInitialAdministrator(PublicModel):
+    organization_id: UUID
+    membership_id: UUID
+    operation_id: UUID
+    event_id: UUID
+    revision: Annotated[int, Field(strict=True, ge=2, le=2**63-1)]
+    audit_publication: Literal["pending"]
+
+
 class ErrorDetail(PublicModel):
     code: str
     message: str
@@ -88,6 +110,8 @@ MESSAGES = {
     "MEMBERSHIP_SUSPENDED": "Your organization membership is suspended.",
     "SERVICE_UNAVAILABLE": "The service is temporarily unavailable.",
     "INVALID_REQUEST": "The request is invalid.",
+    "DESIGNATION_DENIED": "Initial designation denied.",
+    "DESIGNATION_CONFLICT": "Initial designation conflicts.",
     "METHOD_NOT_ALLOWED": "The request method is not allowed.",
 }
 
@@ -117,6 +141,7 @@ def create_app(
     token_validator: TokenValidator | None = None,
     bootstrap_reader: BootstrapReader | None = None,
     *, lifespan=None,
+    initial_administrator_service: InitialAdministratorService | None = None,
 ) -> FastAPI:
     """Sync dependencies/handlers use FastAPI's worker pool, never the event loop.
 
@@ -215,6 +240,66 @@ def create_app(
             raise ApiFailure(404, "NOT_FOUND") from None
         except Exception:
             # Invalid adapter data and response-validation diagnostics remain private.
+            raise ApiFailure(503, "SERVICE_UNAVAILABLE") from None
+
+    def designation_token(
+        request: Request,
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Security(bearer)],
+    ) -> str:
+        # Inspect raw syntax: HTTPBearer may normalize surrounding whitespace.
+        raw = request.headers.get("authorization", "")
+        scheme, separator, token = raw.partition(" ")
+        if (
+            len(request.headers.getlist("authorization")) != 1
+            or credentials is None
+            or scheme.lower() != "bearer"
+            or not separator or not token
+            or "," in token
+            or any(character.isspace() for character in token)
+        ):
+            raise ApiFailure(401, "UNAUTHENTICATED")
+        if initial_administrator_service is None:
+            raise ApiFailure(503, "SERVICE_UNAVAILABLE")
+        return token
+
+    @app.post(
+        "/forge/v1/organizations/{organization_id}/initial-administrator",
+        response_model=PublicInitialAdministrator,
+        responses={status: {"model": ErrorEnvelope} for status in (401, 403, 409, 422, 503)},
+    )
+    def designate_initial_administrator(
+        token: Annotated[str, Depends(designation_token)],
+        organization_id: UUID,
+        body: InitialAdministratorBody,
+    ):
+        requested = DesignationRequest(
+            organization_id, body.membership_id, body.operation_id, body.expected_revision,
+        )
+        try:
+            result = initial_administrator_service.designate(token, requested)
+            # Validate the trusted port independently before any Pydantic coercion.
+            if (
+                type(result) is not DesignationResult
+                or any(type(getattr(result, field)) is not UUID for field in
+                       ("organization_id", "membership_id", "operation_id", "event_id"))
+                or (result.organization_id, result.membership_id, result.operation_id)
+                   != (organization_id, body.membership_id, body.operation_id)
+                or type(result.revision) is not int
+                or result.revision != body.expected_revision + 1
+                or type(result.audit_publication) is not str
+                or result.audit_publication != "pending"
+            ):
+                raise ApiFailure(503, "SERVICE_UNAVAILABLE")
+            return PublicInitialAdministrator(
+                organization_id=result.organization_id, membership_id=result.membership_id,
+                operation_id=result.operation_id, event_id=result.event_id,
+                revision=result.revision, audit_publication=result.audit_publication,
+            )
+        except DesignationDenied:
+            raise ApiFailure(403, "DESIGNATION_DENIED") from None
+        except DesignationConflict:
+            raise ApiFailure(409, "DESIGNATION_CONFLICT") from None
+        except Exception:
             raise ApiFailure(503, "SERVICE_UNAVAILABLE") from None
 
     return app

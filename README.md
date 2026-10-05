@@ -411,9 +411,41 @@ live role/column guards apply on each borrow; acquisition1s (finite override wit
 Migration lock2s/statement10s are bounds, not an implemented migration runner.
 
 Frozen DesignationResult reports audit_publication="pending": outbox INSERT is
-NOT publication, enrollment or external provisioning. No HTTP/UI/operator runtime
-wiring, real operator configuration, consumer, removal/recovery/last-administrator
-policy or production readiness is supplied. These remain separately scoped.
+NOT publication, enrollment or external provisioning. The internal service does not
+wire HTTP/UI/operator runtime configuration. The opt-in HTTP adapter below is
+separate; real operator configuration, consumer, removal/recovery/last-administrator
+policy and production readiness remain outside both units.
 Run tests/test_administration.py and the existing owned PostgreSQL harness.
 Task/proof: odd/tasks/forge-administration.md; neutral-Spanish design:
 docs/changes/initial-admin-designation.md.
+
+
+## Opt-in initial-administrator HTTP adapter
+
+Trusted composition may explicitly pass
+`initial_administrator_service=service` to `create_app`. The parameter is
+keyword-only and defaults to `None`; `create_runtime_app` does not auto-wire it,
+discover operators, create a designator pool or enable public deployment.
+
+`POST /forge/v1/organizations/{organization_id}/initial-administrator` accepts
+one Bearer header and a closed JSON body containing UUID `membership_id`,
+UUID `operation_id` and strict integer `expected_revision` (1 through
+9223372036854775806). Extra fields and coerced revisions are rejected. Every
+valid attempt, including replay, calls the existing service with the raw token.
+Only its genuine Entra validation and deployment-owned configuration authorize
+the operation; bootstrap identity, client roles and claimed actor fields do not.
+
+The 200 response contains only organization/member/operation/event UUIDs,
+committed revision and `audit_publication="pending"`. Malformed service results
+fail closed without coercion. Header syntax errors return 401; service denial
+(including bad authentication or unauthorized operators) returns 403; conflicts
+return 409; request validation returns 422; absent injection, service outages and
+unknown failures return 503. All errors use fixed redacted envelopes with fresh
+request UUIDs. The sync adapter preserves disabled telemetry and existing bootstrap.
+
+This is initial designation only, not removal, reassignment, recovery, provisioning,
+outbox publication, UI or production readiness. Run
+`tests/test_administration_api.py` and the unchanged owned PostgreSQL harness
+(which discovers `tests/test_postgres_administration_api.py`).
+Design: `docs/changes/initial-admin-designation-http.md`.
+Recovery/proof: `odd/tasks/forge-initial-admin-http.md`.
