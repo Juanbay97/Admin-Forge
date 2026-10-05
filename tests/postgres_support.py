@@ -272,15 +272,105 @@ WHERE n.nspname='forge' ORDER BY p.proname
                     admin.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))
 
 
+def designation_migration_probe(*, populated=False, failure=False):
+    """Separate exact0004 cases; original0002/0003 probes are immutable."""
+    from uuid import uuid4
+    name="forge_designation_"+uuid4().hex
+    created_roles=False
+    with connect() as admin:
+        if admin.execute("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN "
+                "('forge_runtime','forge_migrator','forge_identity_binder','forge_designator'))").fetchone()[0]:
+            raise RuntimeError("Designation probe requires its own role lifecycle")
+        admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    try:
+        with psycopg.connect(**(settings()|{"dbname":name})) as conn:
+            for filename in ("0001_bootstrap.sql","0002_entra_identity_binding.sql",
+                             "0003_membership_authorization.sql"):
+                conn.execute((ROOT/"migrations"/filename).read_text("utf-8"))
+                created_roles=True
+            if populated:
+                with conn.transaction():
+                    conn.execute("INSERT INTO forge.organizations VALUES(%s,'upgrade','Upgrade',false,1)",(ORG_A,))
+                    conn.execute("INSERT INTO forge.configuration_revisions VALUES(%s,1)",(ORG_A,))
+                    for identity,member,status in ((ALICE,MEMBER_A,"active"),
+                            (CAROL,UUID(int=903),"suspended"),(SUSPENDED,UUID(int=904),"archived")):
+                        conn.execute("INSERT INTO forge.identities(id,provider,issuer,subject) "
+                            "VALUES(%s,'test','issuer',%s)",(identity,"existing-"+status))
+                        conn.execute("INSERT INTO forge.memberships VALUES(%s,%s,%s,%s,3)",
+                            (ORG_A,member,identity,status))
+                    conn.execute("INSERT INTO forge.membership_roles VALUES(%s,%s,'member')",(ORG_A,MEMBER_A))
+            tables=TABLES+("membership_roles",)
+            records={t:conn.execute(sql.SQL("SELECT * FROM forge.{} ORDER BY 1,2").format(
+                sql.Identifier(t))).fetchall() for t in tables}
+            queries=(
+                "SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity,c.relowner,c.relacl::text "
+                "FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+                "WHERE n.nspname='forge' ORDER BY c.relname",
+                "SELECT p.polname,p.polrelid,p.polcmd,p.polpermissive,p.polroles,p.polqual::text,p.polwithcheck::text "
+                "FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n "
+                "ON n.oid=c.relnamespace WHERE n.nspname='forge' ORDER BY p.polname",
+                "SELECT p.proname,p.proowner,p.prosecdef,p.proacl::text,p.prosrc,p.proconfig "
+                "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+                "WHERE n.nspname='forge' ORDER BY p.proname",
+                "SELECT k.conname,k.conrelid,k.convalidated,pg_get_constraintdef(k.oid) "
+                "FROM pg_constraint k JOIN pg_namespace n ON n.oid=k.connamespace "
+                "WHERE n.nspname='forge' ORDER BY k.conname",
+                "SELECT a.attrelid,a.attname,a.attacl::text FROM pg_attribute a JOIN pg_class c "
+                "ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace "
+                "WHERE n.nspname='forge' AND a.attnum>0 ORDER BY a.attrelid,a.attnum",
+            )
+            before=[conn.execute(q).fetchall() for q in queries]
+            migration=(ROOT/"migrations/0004_initial_admin_designation.sql").read_text("utf-8")
+            if not migration.endswith("COMMIT;\n"):
+                raise RuntimeError("Unexpected designation migration boundary")
+            state=None
+            if failure:
+                script=migration[:-len("COMMIT;\n")]+"SELECT 1/0;\nCOMMIT;\n"
+                try:conn.execute(script)
+                except psycopg.errors.DivisionByZero as error:
+                    state=(error.sqlstate,conn.info.transaction_status is psycopg.pq.TransactionStatus.INERROR)
+                    if state!=("22012",True):raise RuntimeError("Designation failure not observed")
+                    conn.execute("ROLLBACK")
+                else:raise RuntimeError("Designation failure injection did not fail")
+                if [conn.execute(q).fetchall() for q in queries]!=before:
+                    raise RuntimeError("Designation rollback changed prior metadata")
+            else:conn.execute(migration)
+            for t in tables:
+                after=conn.execute(sql.SQL("SELECT * FROM forge.{} ORDER BY 1,2").format(sql.Identifier(t))).fetchall()
+                if after!=records[t]:raise RuntimeError("Designation migration changed prior records")
+            present=conn.execute("SELECT to_regclass('forge.initial_admin_designations') IS NOT NULL "
+                "AND to_regclass('forge.initial_admin_outbox') IS NOT NULL").fetchone()[0]
+            role=conn.execute("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='forge_designator')").fetchone()[0]
+            if present is not (not failure) or role is not (not failure):
+                raise RuntimeError("Designation object/role transaction proof failed")
+            if not failure:
+                for t in ("initial_admin_designations","initial_admin_outbox"):
+                    if conn.execute(sql.SQL("SELECT count(*) FROM forge.{}").format(sql.Identifier(t))).fetchone()[0]:
+                        raise RuntimeError("Designation migration seeded operational records")
+            rls=conn.execute("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
+                "WHERE n.nspname='forge' AND c.relkind='r' AND c.relrowsecurity AND c.relforcerowsecurity").fetchone()[0]
+            if rls!=(5 if failure else 7):raise RuntimeError("Designation RLS proof failed")
+            return (present,role,len(records["memberships"]),rls,state,
+                    conn.info.transaction_status is psycopg.pq.TransactionStatus.IDLE)
+    finally:
+        with connect() as admin:
+            admin.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+            if created_roles:
+                for role in ("forge_designator","forge_identity_binder","forge_runtime","forge_migrator"):
+                    if admin.execute("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=%s)",(role,)).fetchone()[0]:
+                        admin.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))
+
+
 class DatabaseFixture:
     # Only this owned harness process shares initialization, never external DB state.
     _credentials = None
     migration_evidence = None
     authorization_migration_evidence = None
+    designation_migration_evidence = None
 
     def __init__(self):
         if self._credentials is not None:
-            self.runtime_password, self.writer_password, self.binder_password = self._credentials
+            self.runtime_password, self.writer_password, self.binder_password, self.designator_password = self._credentials
             return
         wait_ready()
         DatabaseFixture.migration_evidence = (
@@ -294,13 +384,20 @@ class DatabaseFixture:
             authorization_migration_probe(populated=True),
             authorization_migration_probe(populated=True,failure=True),
         )
+        DatabaseFixture.designation_migration_evidence = (
+            designation_migration_probe(),
+            designation_migration_probe(populated=True),
+            designation_migration_probe(populated=True,failure=True),
+        )
         self.runtime_password = secrets.token_urlsafe(32)
         self.writer_password = secrets.token_urlsafe(32)
         self.binder_password = secrets.token_urlsafe(32)
+        self.designator_password = secrets.token_urlsafe(32)
         with connect() as conn:
             for migration in ('0001_bootstrap.sql', '0002_entra_identity_binding.sql',
-                              '0003_membership_authorization.sql'):
+                              '0003_membership_authorization.sql','0004_initial_admin_designation.sql'):
                 conn.execute((ROOT / 'migrations' / migration).read_text('utf-8'))
+            conn.execute(sql.SQL('ALTER ROLE forge_designator LOGIN PASSWORD {}').format(sql.Literal(self.designator_password)))
             conn.execute(sql.SQL('ALTER ROLE forge_identity_binder LOGIN PASSWORD {}').format(
                 sql.Literal(self.binder_password)))
             # The harness alone provisions LOGIN and a restricted policy-test writer.
@@ -319,7 +416,7 @@ class DatabaseFixture:
             conn.execute('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA forge TO forge_test_writer')
             version = conn.execute('SHOW server_version').fetchone()[0]
             print('Real PostgreSQL server:', version)
-        DatabaseFixture._credentials = (self.runtime_password, self.writer_password, self.binder_password)
+        DatabaseFixture._credentials = (self.runtime_password, self.writer_password, self.binder_password, self.designator_password)
         self.reset()
 
     def pool(self, *, user='forge_runtime', pool_class=None, connection_class=psycopg.Connection, **overrides):
@@ -330,6 +427,8 @@ class DatabaseFixture:
             kwargs['password'] = self.runtime_password
         elif user == 'forge_identity_binder':
             kwargs['password'] = self.binder_password
+        elif user == 'forge_designator':
+            kwargs['password'] = self.designator_password
         elif user == 'forge_test_writer':
             kwargs['password'] = self.writer_password
         kwargs.update(overrides)

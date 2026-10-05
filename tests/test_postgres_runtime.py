@@ -326,5 +326,39 @@ class PostgresRuntimeTests(unittest.TestCase):
             conn.execute("RESET search_path")
 
 
+    def test_operational_schema_attestation_is_separate_from_runtime_data_access(self):
+        from fastapi.testclient import TestClient
+        from forge.runtime import create_runtime_app
+        clock=[100.0]
+        app=create_runtime_app(self.configuration(),_clock=lambda:clock[0])
+        with TestClient(app) as client:
+            self.assertEqual(client.get("/forge/v1/status").json()["storage"],"ready")
+            with connect() as admin:
+                admin.execute("ALTER TABLE forge.initial_admin_outbox RENAME TO hidden_initial_outbox")
+                try:
+                    clock[0]+=5
+                    body=client.get("/forge/v1/status").json()
+                    self.assertEqual(body["storage"],"unavailable")
+                    self.assertNotIn("outbox",str(body))
+                finally:admin.execute("ALTER TABLE forge.hidden_initial_outbox RENAME TO initial_admin_outbox")
+            clock[0]+=5
+            self.assertEqual(client.get("/forge/v1/status").json()["storage"],"ready")
+        self.assertTrue(app.state.runtime.pool.closed)
+
+    def test_new_designation_context_is_rejected_by_ordinary_runtime_borrow(self):
+        from forge.postgres import PostgresBootstrapReader
+        from forge.foundation import AuthenticatedIdentity
+        with self.pool.connection() as conn:
+            conn.execute("SET forge.designation_actor='unexpected'")
+        try:
+            self.assertFalse(PostgresReadinessProbe(self.pool).check())
+            with self.assertRaises(RuntimeError):
+                PostgresBootstrapReader(self.pool).read(
+                    AuthenticatedIdentity("test","issuer","alice"),str(ORG_A))
+        finally:
+            with self.pool.connection() as conn:conn.execute("RESET forge.designation_actor")
+        self.assertTrue(PostgresReadinessProbe(self.pool).check())
+
+
 if __name__ == "__main__":
     unittest.main()

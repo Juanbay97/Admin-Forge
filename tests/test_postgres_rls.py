@@ -155,17 +155,18 @@ class PostgresIsolationTests(unittest.TestCase):
             metadata = conn.execute("SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity,"
                                     "pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n "
                                     "ON n.oid=c.relnamespace WHERE n.nspname='forge' AND c.relkind='r'").fetchall()
-            self.assertEqual(len(metadata), 5)
+            self.assertEqual(len(metadata), 7)
             for _, enabled, forced, owner in metadata:
                 self.assertTrue(enabled)
                 self.assertTrue(forced)
                 self.assertEqual(owner, 'forge_migrator')
             policies = conn.execute("SELECT count(*) FROM pg_policy WHERE polrelid IN "
                 "(SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
-                "WHERE n.nspname='forge') AND polqual IS NOT NULL AND polwithcheck IS NOT NULL").fetchone()[0]
+                "WHERE n.nspname='forge') AND polname IN ('identity_scope','membership_scope',"
+                "'organization_scope','configuration_scope','identity_binding_scope') AND polqual IS NOT NULL AND polwithcheck IS NOT NULL").fetchone()[0]
             self.assertEqual(policies, 5)  # Original ALL policies keep their WITH CHECK.
             role_policy = conn.execute("SELECT polcmd,polwithcheck IS NULL FROM pg_policy "
-                "WHERE polrelid='forge.membership_roles'::regclass").fetchall()
+                "WHERE polrelid='forge.membership_roles'::regclass AND polname='membership_role_scope'").fetchall()
             self.assertEqual(role_policy,[('r',True)])
 
     def test_force_rls_applies_to_migration_owner_and_helpers_are_invokers(self):

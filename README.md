@@ -275,7 +275,7 @@ The provided variables above are explicit trusted values, NOT environment loader
 or default credentials. Only numeric canonical loopback, a bounded identifier DB
 name, valid explicit port and nonempty bounded password are accepted. The database
 role must be exactly forge_runtime, separately provisioned as restricted LOGIN.
-Migrations 0001/0002/0003 are applied externally by a trusted administrator; this factory
+Migrations 0001/0002/0003/0004 are applied externally by a trusted administrator; this factory
 does not run migrations or bind/create identities or memberships.
 
 Configured mode rejects presence of any PG* variable without reading its value,
@@ -297,7 +297,7 @@ failure cooldown5s prevent probe floods; a positive result is valid only until T
 These finite library bounds are not a hard OS/DNS/request SLA.
 
 Readiness checks actual restricted role/column privileges/RLS and catalog structure
-for0001/0002/0003, including nullable UUID pair, exact pair CHECK, uniqueness, enabled
+for0001/0002/0003/0004, including nullable UUID pair, exact pair CHECK, uniqueness, enabled
 invoker trigger, policy/helper prerequisites and selected-revision FK. No business
 rows/counts or organization context are queried. This structural probe is not a
 complete migration-byte/policy-body audit or a deployment migration-history runner.
@@ -330,7 +330,7 @@ Available browser functional proof is accepted for this LOCAL operational shell;
 full network capture, actual screen-reader announcement and transient-loading
 certification remain explicit follow-up evidence, not delivery claims. Independent
 telemetry correction retest and parent spot passed. No live accounts, production, binder/login
-wiring, F07b invitations/outbox or F09 PKCE/protected storage/enrollment are implemented.
+wiring, F07b invitations/outbox publication or F09 PKCE/protected storage/enrollment are implemented.
 
 
 ## Internal membership authorization read model
@@ -363,7 +363,57 @@ same audited transaction/outbox, not trust an old snapshot.
 
 Run tests/test_authorization.py and the unchanged scripts/test-postgres.ps1 owned
 harness. Exact task/proof: odd/tasks/forge-administration.md; neutral-Spanish SDD:
-docs/changes/membership-authorization.md. First-administrator designation/recovery,
+docs/changes/membership-authorization.md. First-administrator recovery,
 last-administrator policy, member mutations and invitations/provisioning remain
 separately scoped future work; no administrative permissions are granted here.
 F07b1 closes only this internal read model, not an administration API or bootstrap.
+
+
+## Internal initial-administrator designation
+
+Migration0004 follows0001–0003 externally. It adds a permanent per-organization
+initial_admin_designations marker and real initial_admin_outbox audit records;
+there is no role backfill or administrator seed. Runtime SELECT is explicit on
+five business tables only, with zero table/column access to operational or unknown
+Forge tables. Binder has no new access. Catalog-only readiness attests the new
+role, exact constraints/helper/policy shapes, restrictive scope and privilege
+matrix; this does not configure a live operator or authorize deployment.
+
+Trusted deployment code must explicitly compose InitialAdministratorService with
+the actual EntraTokenValidator, an immutable DesignationConfiguration and a
+PostgresInitialAdministratorStore over a separately provisioned forge_designator
+LOGIN pool. Configuration requires exact validated issuer/tenant/object operator
+allowlist entries mapped to trusted internal actor UUIDs and an explicit
+organization→allowed target-tenant mapping. No defaults, environment discovery,
+request actor, JWT/email/tenant-admin roles or first-login inference are accepted.
+Every attempt, including replay, validates its raw token before database access;
+missing/empty authority or missing organization mapping denies before borrowing.
+Constructing DeploymentOperator or VerifiedPrincipal is not authentication.
+
+DesignationRequest contains organization/membership/operation UUIDs and a positive
+expected revision (maximum2**63-2). Only an existing active, coherently bound Entra
+membership in that exact organization and mapped tenant may receive the initial
+organization_admin role. A claim plus locked reload atomically commits role,
+revision increment, marker and fixed server-derived PF09 event. Existing admins,
+stale revision, changed replay payload, missing/wrong target or event failure
+cannot leave partial writes. Exact authorized replay returns the original result
+without regranting or incrementing; the permanent marker prevents reopening after
+later role removal. An inactive organization remains inactive and runtime access
+continues to deny.
+
+The dedicated non-owner, non-member, non-bypass designator can only read scoped
+metadata, UPDATE membership revision, INSERT the scoped administrator role and
+INSERT/replay-SELECT its operational records. Restrictive role policies prevent
+legacy PUBLIC policy OR-expansion. No identity/member creation, status/org change,
+audit UPDATE/DELETE, DDL or table-wide UPDATE. Idle/autocommit/clean-context and
+live role/column guards apply on each borrow; acquisition1s (finite override within
+(0,30]), statement3s/lock1s and local contexts restore on completion or rollback.
+Migration lock2s/statement10s are bounds, not an implemented migration runner.
+
+Frozen DesignationResult reports audit_publication="pending": outbox INSERT is
+NOT publication, enrollment or external provisioning. No HTTP/UI/operator runtime
+wiring, real operator configuration, consumer, removal/recovery/last-administrator
+policy or production readiness is supplied. These remain separately scoped.
+Run tests/test_administration.py and the existing owned PostgreSQL harness.
+Task/proof: odd/tasks/forge-administration.md; neutral-Spanish design:
+docs/changes/initial-admin-designation.md.

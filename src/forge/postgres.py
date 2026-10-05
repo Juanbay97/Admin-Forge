@@ -37,9 +37,17 @@ SELECT current_user = 'forge_runtime' AND session_user = current_user
         SELECT 1 FROM pg_catalog.pg_class AS t
         JOIN pg_catalog.pg_namespace AS n ON n.oid = t.relnamespace
         WHERE n.nspname = 'forge' AND t.relkind = 'r'
-          AND (NOT has_table_privilege(current_user,t.oid,'SELECT')
+          AND (has_table_privilege(current_user,t.oid,'SELECT') IS DISTINCT FROM
+                   (t.relname IN ('identities','organizations','memberships','configuration_revisions','membership_roles'))
                OR has_table_privilege(current_user,t.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-               OR has_any_column_privilege(current_user,t.oid,'INSERT,UPDATE,REFERENCES')))
+               OR has_any_column_privilege(current_user,t.oid,'INSERT,UPDATE,REFERENCES')
+               OR (t.relname NOT IN ('identities','organizations','memberships','configuration_revisions','membership_roles')
+                   AND has_any_column_privilege(current_user,t.oid,'SELECT'))))
+    AND NOT EXISTS (
+        SELECT 1 FROM unnest(ARRAY['forge.designation_organization',
+            'forge.designation_member','forge.designation_identity',
+            'forge.designation_actor','forge.designation_request']) AS k
+        WHERE coalesce(current_setting(k,true),'')<>'')
 FROM pg_catalog.pg_roles AS r WHERE r.rolname = current_user
 """
 
@@ -220,7 +228,8 @@ _EMPTY_CONTEXT = """
 SELECT NOT EXISTS (
     SELECT 1 FROM unnest(ARRAY['forge.organization','forge.provider','forge.issuer',
         'forge.subject','forge.binding_identity','forge.binding_issuer',
-        'forge.binding_tenant','forge.binding_object']) AS k
+        'forge.binding_tenant','forge.binding_object','forge.designation_organization',
+        'forge.designation_member','forge.designation_identity','forge.designation_actor','forge.designation_request']) AS k
     WHERE coalesce(current_setting(k,true),'') <> '')
 """
 
@@ -274,7 +283,8 @@ SELECT NOT EXISTS (
       AND t.relowner=(SELECT oid FROM pg_roles WHERE rolname='forge_migrator')
       AND NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(t.relacl,acldefault('r',t.relowner)))
                       WHERE grantee=0)
-) AND (SELECT count(*)=1 FROM pg_policy WHERE polrelid='forge.membership_roles'::regclass)
+) AND (SELECT count(*)=1 FROM pg_policy WHERE polrelid='forge.membership_roles'::regclass
+    AND ((SELECT oid FROM pg_roles WHERE rolname='forge_runtime')=ANY(polroles) OR 0=ANY(polroles)))
   AND EXISTS (
     SELECT 1 FROM pg_policy p WHERE p.polrelid='forge.membership_roles'::regclass
       AND p.polname='membership_role_scope' AND p.polcmd='r' AND p.polpermissive
@@ -321,7 +331,8 @@ class PostgresReadinessProbe:
                     cursor.execute("SET LOCAL search_path = pg_catalog")
                     for query, params in ((_EMPTY_CONTEXT, None), (_ROLE_CHECK, None),
                                           (_SCHEMA_CHECK, (_BINDING_CHECK,)),
-                                          (_AUTHORIZATION_SCHEMA, (_ROLE_VALUES_CHECK, _ROLE_SCOPE_CHECK))):
+                                          (_AUTHORIZATION_SCHEMA, (_ROLE_VALUES_CHECK, _ROLE_SCOPE_CHECK)),
+                                          (_DESIGNATION_SCHEMA, _DESIGNATION_FUNCTION_SOURCES)):
                         cursor.execute(query, params)
                         result = cursor.fetchone()
                         if result is None or result[0] is not True:
@@ -329,3 +340,212 @@ class PostgresReadinessProbe:
                     return True
         except Exception:
             return False
+
+
+# Dedicated write role: never accepted by ordinary runtime readers.
+_DESIGNATOR_CHECK = """
+SELECT current_user='forge_designator' AND session_user=current_user
+AND NOT (r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication)
+AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=r.oid)
+AND NOT EXISTS(SELECT 1 FROM pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace
+    WHERE n.nspname='forge' AND t.relowner=r.oid)
+AND NOT has_schema_privilege(current_user,'forge','CREATE')
+AND NOT has_schema_privilege(current_user,'public','CREATE')
+AND NOT has_database_privilege(current_user,current_database(),'CREATE,TEMP')
+AND current_setting('row_security')='on'
+AND NOT EXISTS(
+ SELECT 1 FROM pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace
+ WHERE n.nspname='forge' AND t.relkind='r' AND (
+ has_table_privilege(current_user,t.oid,'SELECT') IS DISTINCT FROM
+     (t.relname IN ('identities','organizations','memberships','membership_roles','initial_admin_designations','initial_admin_outbox'))
+ OR has_table_privilege(current_user,t.oid,'INSERT') IS DISTINCT FROM
+     (t.relname IN ('membership_roles','initial_admin_designations','initial_admin_outbox'))
+ OR has_table_privilege(current_user,t.oid,'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ OR has_any_column_privilege(current_user,t.oid,'REFERENCES')
+ OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attnum>0 AND NOT a.attisdropped
+     AND (has_column_privilege(current_user,t.oid,a.attnum,'UPDATE') IS DISTINCT FROM
+             (t.relname='memberships' AND a.attname='revision')
+          OR (t.relname NOT IN ('membership_roles','initial_admin_designations','initial_admin_outbox')
+              AND has_column_privilege(current_user,t.oid,a.attnum,'INSERT'))
+          OR (t.relname NOT IN ('identities','organizations','memberships','membership_roles','initial_admin_designations','initial_admin_outbox')
+              AND has_column_privilege(current_user,t.oid,a.attnum,'SELECT'))))))
+FROM pg_roles r WHERE r.rolname=current_user
+"""
+
+
+# Exact observed PostgreSQL17 deparse of the reviewed0004 schema, not ambient metadata.
+_DESIGNATION_FUNCTION_SOURCES = (
+    """
+    SELECT CASE WHEN key IN ('organization','member','identity','actor','request')
+        AND current_setting('forge.designation_' || key, true) ~
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN current_setting('forge.designation_' || key, true)::uuid ELSE NULL END
+""",
+    """
+    SELECT organization = forge.designation_uuid('organization')
+        AND (member IS NULL OR member = forge.designation_uuid('member'))
+        AND (actor IS NULL OR actor = forge.designation_uuid('actor'))
+        AND (request IS NULL OR request = forge.designation_uuid('request'))
+""",
+    """
+    SELECT EXISTS (SELECT 1 FROM forge.memberships AS m
+        JOIN forge.identities AS i ON i.id=m.identity_id
+        WHERE m.organization_id=organization AND m.id=member AND m.status='active'
+          AND i.provider='entra' AND i.entra_tenant_id IS NOT NULL
+          AND i.entra_object_id IS NOT NULL
+          AND i.issuer='https://login.microsoftonline.com/' || i.entra_tenant_id::text || '/v2.0'
+          AND i.subject=i.entra_object_id::text)
+""",
+)
+
+_DESIGNATION_SCHEMA = """
+WITH columns_expected(table_name,column_name,type_name,not_null,default_expr) AS (VALUES
+        ('initial_admin_designations','organization_id','uuid',true,''),
+        ('initial_admin_designations','membership_id','uuid',true,''),
+        ('initial_admin_designations','request_id','uuid',true,''),
+        ('initial_admin_designations','actor_id','uuid',true,''),
+        ('initial_admin_designations','target_tenant_id','uuid',true,''),
+        ('initial_admin_designations','expected_revision','bigint',true,''),
+        ('initial_admin_designations','revision','bigint',true,''),
+        ('initial_admin_designations','event_id','uuid',true,''),
+        ('initial_admin_outbox','event_id','uuid',true,''),
+        ('initial_admin_outbox','schema_version','integer',true,''),
+        ('initial_admin_outbox','organization_id','uuid',true,''),
+        ('initial_admin_outbox','actor_id','uuid',true,''),
+        ('initial_admin_outbox','actor_type','text',true,''),
+        ('initial_admin_outbox','source','text',true,''),
+        ('initial_admin_outbox','event_type','text',true,''),
+        ('initial_admin_outbox','occurred_at','timestamp with time zone',true,'transaction_timestamp()'),
+        ('initial_admin_outbox','received_at','timestamp with time zone',true,'transaction_timestamp()'),
+        ('initial_admin_outbox','request_id','uuid',true,''),
+        ('initial_admin_outbox','resource_type','text',true,''),
+        ('initial_admin_outbox','resource_id','uuid',true,''),
+        ('initial_admin_outbox','outcome','text',true,''),
+        ('initial_admin_outbox','previous_revision','bigint',true,''),
+        ('initial_admin_outbox','revision','bigint',true,''),
+        ('initial_admin_outbox','metadata','jsonb',true,'')),
+constraints_expected(table_name,constraint_name,definition,validated) AS (VALUES
+        ('initial_admin_designations','designation_committed_event','FOREIGN KEY (event_id) REFERENCES forge.initial_admin_outbox(event_id) DEFERRABLE INITIALLY DEFERRED',true),
+        ('initial_admin_designations','designation_event_payload','UNIQUE (organization_id, request_id, event_id, actor_id, membership_id, expected_revision, revision)',true),
+        ('initial_admin_designations','designation_member','FOREIGN KEY (organization_id, membership_id) REFERENCES forge.memberships(organization_id, id)',true),
+        ('initial_admin_designations','initial_admin_designations_check','CHECK ((revision = (expected_revision + 1)))',true),
+        ('initial_admin_designations','initial_admin_designations_event_id_key','UNIQUE (event_id)',true),
+        ('initial_admin_designations','initial_admin_designations_expected_revision_check','CHECK (((expected_revision > 0) AND (expected_revision < ''9223372036854775807''::bigint)))',true),
+        ('initial_admin_designations','initial_admin_designations_organization_id_fkey','FOREIGN KEY (organization_id) REFERENCES forge.organizations(id)',true),
+        ('initial_admin_designations','initial_admin_designations_pkey','PRIMARY KEY (organization_id)',true),
+        ('initial_admin_designations','initial_admin_designations_request_id_key','UNIQUE (request_id)',true),
+        ('initial_admin_outbox','designation_event_record','FOREIGN KEY (organization_id, request_id, event_id, actor_id, resource_id, previous_revision, revision) REFERENCES forge.initial_admin_designations(organization_id, request_id, event_id, actor_id, membership_id, expected_revision, revision)',true),
+        ('initial_admin_outbox','initial_admin_outbox_actor_type_check','CHECK ((actor_type = ''deployment_operator''::text))',true),
+        ('initial_admin_outbox','initial_admin_outbox_check','CHECK ((metadata = jsonb_build_object(''role'', ''organization_admin'', ''previous_revision'', previous_revision, ''revision'', revision)))',true),
+        ('initial_admin_outbox','initial_admin_outbox_event_type_check','CHECK ((event_type = ''membership.initial_admin_designated''::text))',true),
+        ('initial_admin_outbox','initial_admin_outbox_outcome_check','CHECK ((outcome = ''succeeded''::text))',true),
+        ('initial_admin_outbox','initial_admin_outbox_pkey','PRIMARY KEY (event_id)',true),
+        ('initial_admin_outbox','initial_admin_outbox_request_id_key','UNIQUE (request_id)',true),
+        ('initial_admin_outbox','initial_admin_outbox_resource_type_check','CHECK ((resource_type = ''membership''::text))',true),
+        ('initial_admin_outbox','initial_admin_outbox_schema_version_check','CHECK ((schema_version = 1))',true),
+        ('initial_admin_outbox','initial_admin_outbox_source_check','CHECK ((source = ''server''::text))',true)),
+policies_expected(table_name,policy_name,command,permissive,using_expr,check_expr) AS (VALUES
+        ('identities','designation_identity','r',true,'((id = forge.designation_uuid(''identity''::text)) AND (provider = ''entra''::text) AND (entra_tenant_id IS NOT NULL) AND (entra_object_id IS NOT NULL) AND (issuer = ((''https://login.microsoftonline.com/''::text || (entra_tenant_id)::text) || ''/v2.0''::text)) AND (subject = (entra_object_id)::text))',''),
+        ('initial_admin_designations','designation_record_insert','a',true,'','forge.designation_scope(organization_id, membership_id, actor_id, request_id)'),
+        ('initial_admin_designations','designation_record_read','r',true,'forge.designation_scope(organization_id, membership_id, actor_id, request_id)',''),
+        ('initial_admin_outbox','designation_event_insert','a',true,'','forge.designation_scope(organization_id, resource_id, actor_id, request_id)'),
+        ('initial_admin_outbox','designation_event_read','r',true,'forge.designation_scope(organization_id, resource_id, actor_id, request_id)',''),
+        ('membership_roles','designation_admin_insert','a',true,'','(forge.designation_scope(organization_id, membership_id, NULL::uuid, NULL::uuid) AND (role = ''organization_admin''::text) AND forge.designation_bound_member(organization_id, membership_id))'),
+        ('membership_roles','designation_admin_read','r',true,'(forge.designation_scope(organization_id, NULL::uuid, NULL::uuid, NULL::uuid) AND (role = ''organization_admin''::text))',''),
+        ('memberships','designation_member_allow','r',true,'(forge.designation_scope(organization_id, id, NULL::uuid, NULL::uuid) AND (status = ''active''::text))',''),
+        ('memberships','designation_member_limit','*',false,'(forge.designation_scope(organization_id, id, NULL::uuid, NULL::uuid) AND (status = ''active''::text))','(forge.designation_scope(organization_id, id, NULL::uuid, NULL::uuid) AND (status = ''active''::text))'),
+        ('memberships','designation_revision','w',true,'(forge.designation_scope(organization_id, id, NULL::uuid, NULL::uuid) AND (status = ''active''::text))','(forge.designation_scope(organization_id, id, NULL::uuid, NULL::uuid) AND (status = ''active''::text) AND forge.designation_bound_member(organization_id, id))'),
+        ('organizations','designation_org_allow','r',true,'forge.designation_scope(id, NULL::uuid, NULL::uuid, NULL::uuid)',''),
+        ('organizations','designation_org_limit','r',false,'forge.designation_scope(id, NULL::uuid, NULL::uuid, NULL::uuid)','')),
+functions_expected(function_name,source,argument_types,return_type) AS (VALUES
+        ('designation_uuid',%s,'text','uuid'),
+        ('designation_scope',%s,'uuid, uuid, uuid, uuid','boolean'),
+        ('designation_bound_member',%s,'uuid, uuid','boolean'))
+SELECT
+(SELECT count(*)=7 AND bool_and(c.relrowsecurity AND c.relforcerowsecurity
+    AND pg_get_userbyid(c.relowner)='forge_migrator') FROM pg_class c JOIN pg_namespace n
+    ON n.oid=c.relnamespace WHERE n.nspname='forge' AND c.relname IN
+    ('identities','organizations','memberships','configuration_revisions','membership_roles',
+     'initial_admin_designations','initial_admin_outbox') AND c.relkind='r')
+AND NOT EXISTS(
+ SELECT 1 FROM columns_expected e LEFT JOIN pg_namespace n ON n.nspname='forge'
+ LEFT JOIN pg_class t ON t.relnamespace=n.oid AND t.relname=e.table_name
+ LEFT JOIN pg_attribute a ON a.attrelid=t.oid AND a.attname=e.column_name AND NOT a.attisdropped
+ LEFT JOIN pg_attrdef d ON d.adrelid=t.oid AND d.adnum=a.attnum
+ WHERE a.attnum IS NULL OR a.atttypid<>e.type_name::regtype OR a.attnotnull<>e.not_null
+ OR coalesce(pg_get_expr(d.adbin,d.adrelid),'')<>e.default_expr)
+AND (SELECT count(*)=24 FROM pg_attribute a JOIN pg_class t ON t.oid=a.attrelid
+ JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='forge'
+ AND t.relname IN ('initial_admin_designations','initial_admin_outbox')
+ AND a.attnum>0 AND NOT a.attisdropped)
+AND NOT EXISTS(
+ SELECT 1 FROM constraints_expected e LEFT JOIN pg_namespace n ON n.nspname='forge'
+ LEFT JOIN pg_class t ON t.relnamespace=n.oid AND t.relname=e.table_name
+ LEFT JOIN pg_constraint k ON k.conrelid=t.oid AND k.conname=e.constraint_name
+ WHERE k.oid IS NULL OR k.convalidated IS DISTINCT FROM e.validated
+ OR pg_get_constraintdef(k.oid) IS DISTINCT FROM e.definition)
+AND (SELECT count(*)=19 FROM pg_constraint k JOIN pg_class t ON t.oid=k.conrelid
+ JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='forge'
+ AND t.relname IN ('initial_admin_designations','initial_admin_outbox'))
+AND NOT EXISTS(
+ SELECT 1 FROM policies_expected e LEFT JOIN pg_namespace n ON n.nspname='forge'
+ LEFT JOIN pg_class t ON t.relnamespace=n.oid AND t.relname=e.table_name
+ LEFT JOIN pg_policy p ON p.polrelid=t.oid AND p.polname=e.policy_name
+ WHERE p.oid IS NULL OR p.polcmd::text<>e.command OR p.polpermissive<>e.permissive
+ OR p.polroles IS DISTINCT FROM ARRAY[(SELECT oid FROM pg_roles WHERE rolname='forge_designator')]
+ OR coalesce(pg_get_expr(p.polqual,p.polrelid),'') IS DISTINCT FROM e.using_expr
+ OR coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'') IS DISTINCT FROM e.check_expr)
+AND NOT EXISTS(
+ SELECT 1 FROM (VALUES ('identities',3),('organizations',3),('memberships',4),
+ ('configuration_revisions',1),('membership_roles',3),('initial_admin_designations',2),
+ ('initial_admin_outbox',2)) e(name,policy_count)
+ WHERE (SELECT count(*) FROM pg_policy p JOIN pg_class t ON t.oid=p.polrelid
+ JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='forge' AND t.relname=e.name)<>e.policy_count)
+AND NOT EXISTS(
+ SELECT 1 FROM functions_expected e LEFT JOIN pg_namespace n ON n.nspname='forge'
+ LEFT JOIN pg_proc f ON f.pronamespace=n.oid AND f.proname=e.function_name
+ WHERE f.oid IS NULL OR f.prosecdef OR f.provolatile<>'s' OR f.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog']
+ OR pg_get_userbyid(f.proowner)<>'forge_migrator'
+ OR btrim(f.prosrc,chr(10)||chr(13)||' ') IS DISTINCT FROM btrim(e.source,chr(10)||chr(13)||' ')
+ OR oidvectortypes(f.proargtypes) IS DISTINCT FROM e.argument_types
+ OR format_type(f.prorettype,NULL) IS DISTINCT FROM e.return_type
+ OR f.pronargdefaults<>0 OR f.provariadic<>0
+ OR (SELECT lanname FROM pg_language WHERE oid=f.prolang) IS DISTINCT FROM 'sql'
+ OR NOT has_function_privilege('forge_designator',f.oid,'EXECUTE')
+ OR has_function_privilege('forge_runtime',f.oid,'EXECUTE')
+ OR has_function_privilege('forge_identity_binder',f.oid,'EXECUTE')
+ OR EXISTS(SELECT 1 FROM aclexplode(f.proacl) a WHERE a.grantee=0))
+AND (SELECT count(*)=3 FROM pg_proc f JOIN pg_namespace n ON n.oid=f.pronamespace
+ WHERE n.nspname='forge' AND f.proname LIKE 'designation_%%')
+AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname='forge_designator'
+ AND (r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication))
+AND EXISTS(SELECT 1 FROM pg_roles WHERE rolname='forge_designator')
+AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='forge_designator'))
+AND NOT has_schema_privilege('forge_designator','forge','CREATE')
+AND NOT has_schema_privilege('forge_designator','public','CREATE')
+AND NOT has_database_privilege('forge_designator',current_database(),'CREATE,TEMP')
+AND NOT EXISTS(SELECT 1 FROM pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace
+ WHERE n.nspname='forge' AND (t.relowner=(SELECT oid FROM pg_roles WHERE rolname='forge_designator')
+ OR (t.relname IN ('initial_admin_designations','initial_admin_outbox') AND
+    (has_table_privilege('forge_runtime',t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+     OR has_any_column_privilege('forge_runtime',t.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+     OR has_table_privilege('forge_identity_binder',t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+     OR has_any_column_privilege('forge_identity_binder',t.oid,'SELECT,INSERT,UPDATE,REFERENCES')
+     OR EXISTS(SELECT 1 FROM aclexplode(t.relacl) a WHERE a.grantee=0)))))
+AND NOT EXISTS(
+ SELECT 1 FROM pg_class t JOIN pg_namespace n ON n.oid=t.relnamespace
+ WHERE n.nspname='forge' AND t.relkind='r' AND (
+ has_table_privilege('forge_designator',t.oid,'SELECT') IS DISTINCT FROM
+     (t.relname IN ('identities','organizations','memberships','membership_roles','initial_admin_designations','initial_admin_outbox'))
+ OR has_table_privilege('forge_designator',t.oid,'INSERT') IS DISTINCT FROM
+     (t.relname IN ('membership_roles','initial_admin_designations','initial_admin_outbox'))
+ OR has_table_privilege('forge_designator',t.oid,'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ OR has_any_column_privilege('forge_designator',t.oid,'REFERENCES')
+ OR EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=t.oid AND a.attnum>0 AND NOT a.attisdropped
+     AND (has_column_privilege('forge_designator',t.oid,a.attnum,'UPDATE') IS DISTINCT FROM
+             (t.relname='memberships' AND a.attname='revision')
+          OR (t.relname NOT IN ('membership_roles','initial_admin_designations','initial_admin_outbox')
+              AND has_column_privilege('forge_designator',t.oid,a.attnum,'INSERT'))
+          OR (t.relname NOT IN ('identities','organizations','memberships','membership_roles','initial_admin_designations','initial_admin_outbox')
+              AND has_column_privilege('forge_designator',t.oid,a.attnum,'SELECT'))))))
+"""
