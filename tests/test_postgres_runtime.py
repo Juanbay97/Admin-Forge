@@ -35,6 +35,52 @@ class PostgresRuntimeTests(unittest.TestCase):
         self.addCleanup(pool.close, timeout=5)
         self.assertFalse(PostgresReadinessProbe(pool).check())
 
+    def test_frozen_legacy_readiness_accepts_retained_destination(self):
+        import hashlib
+        import forge.postgres as p
+        names = ('_ROLE_CHECK', '_EMPTY_CONTEXT', '_SCHEMA_CHECK', '_BINDING_CHECK',
+                 '_AUTHORIZATION_SCHEMA', '_ROLE_VALUES_CHECK', '_ROLE_SCOPE_CHECK',
+                 '_DESIGNATION_SCHEMA', '_DESIGNATION_FUNCTION_SOURCES')
+        self.assertEqual(hashlib.sha256(repr(tuple(getattr(p, n) for n in names)).encode()).hexdigest(),
+                         '4766b7f0fd206467971e6f2a51357b9ef3546f797fc945c8b7a3554248edfb3c')
+        with self.pool.connection() as conn, conn.transaction():
+            conn.execute('SET LOCAL search_path=pg_catalog')
+            for query, params in ((p._EMPTY_CONTEXT, None), (p._ROLE_CHECK, None),
+                    (p._SCHEMA_CHECK, (p._BINDING_CHECK,)),
+                    (p._AUTHORIZATION_SCHEMA, (p._ROLE_VALUES_CHECK, p._ROLE_SCOPE_CHECK)),
+                    (p._DESIGNATION_SCHEMA, p._DESIGNATION_FUNCTION_SOURCES)):
+                self.assertTrue(conn.execute(query, params).fetchone()[0])
+
+    def test_outbox_security_and_shape_tampering_fails_closed(self):
+        mutations = (
+            'ALTER TABLE forge.outbox_events DISABLE ROW LEVEL SECURITY',
+            'ALTER TABLE forge.outbox_events NO FORCE ROW LEVEL SECURITY',
+            'ALTER TABLE forge.outbox_events DISABLE TRIGGER ALL',
+            'ALTER TABLE forge.outbox_events ALTER actor_id DROP NOT NULL',
+            'ALTER TABLE forge.outbox_events DROP CONSTRAINT outbox_events_revision_check',
+            "ALTER POLICY outbox_record ON forge.outbox_events WITH CHECK (true)",
+            'GRANT SELECT ON forge.outbox_events TO forge_outbox_writer',
+            'GRANT UPDATE(actor_id) ON forge.outbox_events TO forge_outbox_writer',
+            'GRANT INSERT ON forge.outbox_events TO forge_runtime',
+            'ALTER ROLE forge_outbox_writer BYPASSRLS',
+            'GRANT forge_outbox_writer TO forge_runtime',
+            'GRANT forge_runtime TO forge_outbox_writer',
+            'ALTER TABLE forge.outbox_events OWNER TO forge_outbox_writer',
+            'GRANT EXECUTE ON FUNCTION forge.designation_uuid(text) TO forge_outbox_writer',
+            'REVOKE CONNECT ON DATABASE forge_test FROM forge_outbox_writer',
+        )
+        for query in mutations:
+            with self.subTest(query=query), connect() as conn:
+                conn.execute('BEGIN')
+                conn.execute(query)
+                # Use the same transaction so no tampering survives a failing assertion.
+                from forge.postgres import _OUTBOX_SCHEMA
+                try:
+                    self.assertFalse(conn.execute(_OUTBOX_SCHEMA).fetchone()[0])
+                finally:
+                    conn.execute('ROLLBACK')
+            self.assertTrue(PostgresReadinessProbe(self.pool).check())
+
 
     def test_probe_restores_timeouts_and_never_sets_business_context(self):
         with self.pool.connection() as conn:

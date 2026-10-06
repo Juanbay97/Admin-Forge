@@ -361,6 +361,92 @@ def designation_migration_probe(*, populated=False, failure=False):
                         admin.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))
 
 
+def seed_outbox_migration_legacy(conn):
+    """Commit a coherent legacy designation only inside the migration probe."""
+    tenant, target, actor, request, event = (UUID(int=n) for n in range(701, 706))
+    with conn.transaction():
+        conn.execute(
+            "UPDATE forge.identities SET provider='entra',issuer=%s,subject=%s,"
+            "entra_tenant_id=%s,entra_object_id=%s WHERE id=%s",
+            (f"https://login.microsoftonline.com/{tenant}/v2.0",
+             str(target), tenant, target, ALICE),
+        )
+        conn.execute("UPDATE forge.memberships SET revision=2 WHERE organization_id=%s AND id=%s",
+                     (ORG_A, MEMBER_A))
+        conn.execute("INSERT INTO forge.membership_roles VALUES (%s,%s,'organization_admin')",
+                     (ORG_A, MEMBER_A))
+        conn.execute(
+            "INSERT INTO forge.initial_admin_designations "
+            "(organization_id,membership_id,request_id,actor_id,target_tenant_id,"
+            "expected_revision,revision,event_id) VALUES (%s,%s,%s,%s,%s,1,2,%s)",
+            (ORG_A, MEMBER_A, request, actor, tenant, event),
+        )
+        conn.execute(
+            "INSERT INTO forge.initial_admin_outbox "
+            "(event_id,schema_version,organization_id,actor_id,actor_type,source,"
+            "event_type,request_id,resource_type,resource_id,outcome,"
+            "previous_revision,revision,metadata) VALUES "
+            "(%s,1,%s,%s,'deployment_operator','server','membership.initial_admin_designated',"
+            "%s,'membership',%s,'succeeded',1,2,"
+            "jsonb_build_object('role','organization_admin','previous_revision',1,'revision',2))",
+            (event, ORG_A, actor, request, MEMBER_A),
+        )
+        # The marker's deferred FK must resolve to its actual matching event.
+        conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+    if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+        raise RuntimeError('Legacy migration seed did not commit')
+
+
+def outbox_migration_probe(conn, seed):
+    """Exercise the actual one-shot script, never change older migration probes."""
+    migration = (ROOT / 'migrations/0005_transactional_outbox.sql').read_text('utf-8')
+    if not migration.endswith('COMMIT;\n'):
+        raise RuntimeError('Unexpected outbox migration boundary')
+    evidence = []
+    tables = TABLES + ('membership_roles', 'initial_admin_designations', 'initial_admin_outbox')
+    metadata = ("SELECT polname,polrelid,polroles,polqual::text,polwithcheck::text "
+                "FROM pg_policy ORDER BY polrelid,polname")
+    for populated, failure in ((False, False), (True, False), (True, True)):
+        if populated:
+            seed()
+            seed_outbox_migration_legacy(conn)
+        records = {t: conn.execute(sql.SQL('SELECT * FROM forge.{} ORDER BY 1,2').format(
+            sql.Identifier(t))).fetchall() for t in tables}
+        policies = conn.execute(metadata).fetchall()
+        if failure:
+            try:
+                conn.execute(migration[:-len('COMMIT;\n')] + 'SELECT 1/0;\nCOMMIT;\n')
+            except psycopg.errors.DivisionByZero:
+                if conn.info.transaction_status is not psycopg.pq.TransactionStatus.INERROR:
+                    raise RuntimeError('Expected aborted migration')
+                conn.execute('ROLLBACK')
+                if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                    raise RuntimeError('Failed migration did not return to idle')
+            else:
+                raise RuntimeError('Migration failure was not observed')
+            if conn.execute("SELECT to_regclass('forge.outbox_events')").fetchone()[0] is not None:
+                raise RuntimeError('Failed migration retained destination')
+            if conn.execute("SELECT count(*) FROM pg_roles WHERE rolname='forge_outbox_writer'").fetchone()[0]:
+                raise RuntimeError('Failed migration retained role')
+        else:
+            conn.execute(migration)
+            if conn.execute('SELECT count(*) FROM forge.outbox_events').fetchone()[0] != 0:
+                raise RuntimeError('P1a must not import legacy events')
+            conn.execute('DROP TABLE forge.outbox_events')
+            conn.execute('DROP OWNED BY forge_outbox_writer')
+            conn.execute('DROP ROLE forge_outbox_writer')
+        for table in tables:
+            if conn.execute(sql.SQL('SELECT * FROM forge.{} ORDER BY 1,2').format(
+                    sql.Identifier(table))).fetchall() != records[table]:
+                raise RuntimeError('Outbox migration changed prior records')
+        if conn.execute(metadata).fetchall() != policies:
+            raise RuntimeError('Outbox migration changed prior policies')
+        legacy_counts = tuple(len(records[table]) for table in
+                              ('membership_roles', 'initial_admin_designations', 'initial_admin_outbox'))
+        evidence.append((populated, failure, len(records['organizations']), legacy_counts))
+    return evidence
+
+
 class DatabaseFixture:
     # Only this owned harness process shares initialization, never external DB state.
     _credentials = None
@@ -397,6 +483,8 @@ class DatabaseFixture:
             for migration in ('0001_bootstrap.sql', '0002_entra_identity_binding.sql',
                               '0003_membership_authorization.sql','0004_initial_admin_designation.sql'):
                 conn.execute((ROOT / 'migrations' / migration).read_text('utf-8'))
+            DatabaseFixture.outbox_migration_evidence = outbox_migration_probe(conn, self.reset)
+            conn.execute((ROOT / 'migrations/0005_transactional_outbox.sql').read_text('utf-8'))
             conn.execute(sql.SQL('ALTER ROLE forge_designator LOGIN PASSWORD {}').format(sql.Literal(self.designator_password)))
             conn.execute(sql.SQL('ALTER ROLE forge_identity_binder LOGIN PASSWORD {}').format(
                 sql.Literal(self.binder_password)))
@@ -410,7 +498,8 @@ class DatabaseFixture:
                          'TO forge_runtime, forge_migrator, forge_test_writer')
             conn.execute('GRANT CONNECT ON DATABASE forge_test TO forge_test_writer')
             conn.execute('GRANT USAGE ON SCHEMA forge TO forge_test_writer')
-            conn.execute('GRANT SELECT ON ALL TABLES IN SCHEMA forge TO forge_test_writer')
+            for table in TABLES + ('membership_roles', 'initial_admin_designations', 'initial_admin_outbox'):
+                conn.execute(sql.SQL('GRANT SELECT ON forge.{} TO forge_test_writer').format(sql.Identifier(table)))
             conn.execute('GRANT INSERT, UPDATE, DELETE ON forge.configuration_revisions '
                          'TO forge_test_writer')
             conn.execute('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA forge TO forge_test_writer')

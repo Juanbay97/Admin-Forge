@@ -332,7 +332,8 @@ class PostgresReadinessProbe:
                     for query, params in ((_EMPTY_CONTEXT, None), (_ROLE_CHECK, None),
                                           (_SCHEMA_CHECK, (_BINDING_CHECK,)),
                                           (_AUTHORIZATION_SCHEMA, (_ROLE_VALUES_CHECK, _ROLE_SCOPE_CHECK)),
-                                          (_DESIGNATION_SCHEMA, _DESIGNATION_FUNCTION_SOURCES)):
+                                          (_DESIGNATION_SCHEMA, _DESIGNATION_FUNCTION_SOURCES),
+                                          (_OUTBOX_SCHEMA, None)):
                         cursor.execute(query, params)
                         result = cursor.fetchone()
                         if result is None or result[0] is not True:
@@ -340,6 +341,68 @@ class PostgresReadinessProbe:
                     return True
         except Exception:
             return False
+
+
+# Additive attestation; all legacy readiness constants remain unchanged.
+# Three original invokers already have PUBLIC EXECUTE; no new helper is exposed.
+_OUTBOX_SCHEMA = """
+WITH columns_expected(name,kind,default_expr) AS (VALUES
+ ('event_id','uuid',''),('organization_id','uuid',''),('actor_id','uuid',''),
+ ('request_id','uuid',''),('resource_id','uuid',''),('event_type','text',''),
+ ('previous_revision','bigint',''),('revision','bigint',''),('schema_version','integer','1'),
+ ('outcome','text','''succeeded''::text'),('recorded_at','timestamp with time zone','transaction_timestamp()')),
+constraints_expected(definition) AS (VALUES
+ ('PRIMARY KEY (event_id)'),('UNIQUE (organization_id, resource_id, revision)'),
+ ('FOREIGN KEY (organization_id) REFERENCES forge.organizations(id)'),
+ ('CHECK ((event_type = ANY (ARRAY[''membership.updated''::text, ''department.created''::text])))'),
+ ('CHECK (((previous_revision >= 0) AND (previous_revision < ''9223372036854775807''::bigint)))'),
+ ('CHECK ((revision = (previous_revision + 1)))'),('CHECK ((schema_version = 1))'),
+ ('CHECK ((outcome = ''succeeded''::text))')),
+t AS (SELECT * FROM pg_class WHERE oid=to_regclass('forge.outbox_events')),
+r AS (SELECT * FROM pg_roles WHERE rolname='forge_outbox_writer')
+SELECT (SELECT count(*)=1 AND bool_and(relkind='r' AND relrowsecurity AND relforcerowsecurity
+ AND pg_get_userbyid(relowner)='forge_migrator') FROM t)
+AND (SELECT count(*)=11 FROM pg_attribute WHERE attrelid=(SELECT oid FROM t) AND attnum>0 AND NOT attisdropped)
+AND NOT EXISTS (SELECT 1 FROM columns_expected e LEFT JOIN pg_attribute a
+ ON a.attrelid=(SELECT oid FROM t) AND a.attname=e.name AND NOT a.attisdropped
+ LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+ WHERE a.attnum IS NULL OR NOT a.attnotnull OR a.atttypid<>e.kind::regtype
+ OR coalesce(pg_get_expr(d.adbin,d.adrelid),'')<>e.default_expr OR a.attacl IS NOT NULL)
+AND (SELECT count(*)=8 AND bool_and(convalidated AND NOT condeferrable AND NOT condeferred)
+ FROM pg_constraint WHERE conrelid=(SELECT oid FROM t))
+AND NOT EXISTS (SELECT definition FROM constraints_expected EXCEPT
+ SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=(SELECT oid FROM t))
+AND (SELECT count(*)=1 AND bool_and(polname='outbox_record' AND polcmd='a' AND polpermissive
+ AND polroles=ARRAY[(SELECT oid FROM r)] AND polqual IS NULL
+ AND pg_get_expr(polwithcheck,polrelid)='(organization_id = forge.context_organization())')
+ FROM pg_policy WHERE polrelid=(SELECT oid FROM t))
+AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid=(SELECT oid FROM t)
+ AND (NOT tgisinternal OR tgenabled<>'O'))
+AND (SELECT count(*)=1 AND bool_and(NOT (rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole
+ OR rolreplication OR rolinherit)) FROM r)
+AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM r) OR roleid=(SELECT oid FROM r))
+AND has_schema_privilege('forge_outbox_writer','forge','USAGE')
+AND has_database_privilege('forge_outbox_writer',current_database(),'CONNECT')
+AND NOT has_schema_privilege('forge_outbox_writer','forge','CREATE')
+AND NOT has_schema_privilege('forge_outbox_writer','public','CREATE')
+AND NOT has_database_privilege('forge_outbox_writer',current_database(),'CREATE,TEMP')
+AND NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspowner=(SELECT oid FROM r))
+AND NOT EXISTS (SELECT 1 FROM pg_class WHERE relowner=(SELECT oid FROM r))
+AND NOT EXISTS (SELECT 1 FROM pg_proc WHERE proowner=(SELECT oid FROM r))
+AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='forge' AND c.relkind='r' AND (
+ has_table_privilege('forge_outbox_writer',c.oid,'INSERT') IS DISTINCT FROM (c.oid=(SELECT oid FROM t))
+ OR has_table_privilege('forge_outbox_writer',c.oid,'SELECT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ OR has_any_column_privilege('forge_outbox_writer',c.oid,'SELECT,UPDATE,REFERENCES')
+ OR (c.oid<>(SELECT oid FROM t) AND has_any_column_privilege('forge_outbox_writer',c.oid,'INSERT'))))
+AND NOT EXISTS (SELECT 1 FROM t, LATERAL aclexplode(coalesce(t.relacl,acldefault('r',t.relowner))) a
+ WHERE a.grantee NOT IN (t.relowner,(SELECT oid FROM r)) OR a.is_grantable
+ OR (a.grantee=(SELECT oid FROM r) AND a.privilege_type<>'INSERT'))
+AND NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ WHERE n.nspname='forge' AND has_function_privilege('forge_outbox_writer',p.oid,'EXECUTE')
+ IS DISTINCT FROM (p.oid IN ('forge.context_organization()'::regprocedure,
+ 'forge.context_ready()'::regprocedure,'forge.has_membership(uuid)'::regprocedure)))
+"""
 
 
 # Dedicated write role: never accepted by ordinary runtime readers.

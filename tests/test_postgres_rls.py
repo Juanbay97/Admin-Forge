@@ -155,7 +155,8 @@ class PostgresIsolationTests(unittest.TestCase):
             metadata = conn.execute("SELECT c.relname,c.relrowsecurity,c.relforcerowsecurity,"
                                     "pg_get_userbyid(c.relowner) FROM pg_class c JOIN pg_namespace n "
                                     "ON n.oid=c.relnamespace WHERE n.nspname='forge' AND c.relkind='r'").fetchall()
-            self.assertEqual(len(metadata), 7)
+            self.assertEqual({row[0] for row in metadata}, set(TABLES) | {
+                'membership_roles', 'initial_admin_designations', 'initial_admin_outbox', 'outbox_events'})
             for _, enabled, forced, owner in metadata:
                 self.assertTrue(enabled)
                 self.assertTrue(forced)
