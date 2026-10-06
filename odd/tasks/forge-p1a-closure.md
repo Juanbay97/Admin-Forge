@@ -6,7 +6,8 @@ Close only the generic P1a recording proof gap and reconcile its existing specs.
 The worktree already contains substantial uncommitted P1a implementation and
 unrelated artifacts; preserve them exactly outside the eight allowed surfaces.
 HEAD 48c3e8eaf14fe22073775fd60d18c3f26f34df71,
-branch feat/forge-s3-outbox-recording. No staging or commits authorized.
+branch feat/forge-s3-outbox-recording. The initial correction prohibited commits;
+the user subsequently authorized local delivery and this unit's 807-line exception.
 
 Full Engram observations 2679 and 2712 were read. Observation 2679 contains extra
 historical evidence beyond disk; do not replace it wholesale. Current project
@@ -30,7 +31,8 @@ failed; narrowly elevated readback succeeded without ownership/config changes.
   Route: delegated direct, related multi-file documentation consistency.
 - [x] C3: Run full authorized verification, document exact RED/GREEN results and
   current delta against the in-memory preexisting candidate, refresh this mirror,
-  then return for parent verification. No further slice, staging or commit.
+  then complete independently verified, parent-authorized local delivery.
+  No further implementation slice or remote action is authorized.
   Route: delegated direct, owned PostgreSQL and focused regression verification.
 
 ## Acceptance and constraints
@@ -73,12 +75,14 @@ Run existing foundation, authorization, administration, administration_api, api,
 entra and runtime unittest modules separately; no zero-test or skipped passes.
 Then python -m compileall -q src tests, python -m pip check, git diff --check.
 Measure protected-file hashes against preexisting bytes, not HEAD alone.
-No commit until parent verifies the candidate. Full mirror topic:
+Parent verified the candidate and authorized the two local delivery units. Full mirror topic:
 odd/forge-p1a-closure/tasks, project forge; parent owns other full mirrors.
 
 ## Current status
 
-Writer proof closure is verified. Parent independent verification/delivery remains pending.
+P1a proof closure, independent verification and authorized local delivery are complete.
+The behavior commit is e8c489f8a0c7bcb5f614f8f7fa62dfb879d14c16.
+The accompanying documentation-only commit records reconciliation and closure.
 Prior empty-to-empty legacy preservation evidence is a coverage gap, not observed
 data loss. Generic recording stays separate from future legacy bridge/publication.
 
@@ -116,5 +120,34 @@ Existing Starlette/httpx deprecation warning is nonblocking; no upgrade performe
 Numbering is reconciled: 0005 recording, 0006 future bridge, 0007 departments,
 0008 invitations, 0009 mutations; ten implementation units excluding planning P0.
 Historical RED/gate evidence remains labelled historical. RDD stays disabled.
-Parent verification and commit authorization remain pending; P1b/O2/O3 and all
-later slices remain unreleased. Engram2679 was read in full and not overwritten.
+P1b/O2/O3 and all later slices remain unreleased. Engram2679 was read in full
+and not overwritten. The verification and authorization below supersede the
+initial correction-only restrictions; historical evidence remains intact.
+
+## Local delivery and independent verification
+
+The user explicitly granted the complete 807-line P1a exception on 2026-10-06;
+it applies to this unit only, not the usual 800-line budget or future slices.
+Delivery strategy: exception-ok for this unit, existing feature-branch-chain.
+Behavior commit: e8c489f8a0c7bcb5f614f8f7fa62dfb879d14c16.
+Its exact 12 paths contain 804 additions and 3 deletions, including all tests.
+Rollback boundary: revert this behavior unit to remove generic recording/readiness,
+its additive 0005 migration, focused tests and proof documents; no legacy schema
+or unrelated work is part of that boundary.
+
+Independent verification: 309 passed, zero failures/skips; PostgreSQL 166 tests
+in 37.054s with exact owned-container cleanup. All 61 protected pre-correction
+file hashes and 11 unchanged helper-definition hashes matched. Parent spot:
+outbox 3 passed in 0.005s. Writer results above remain separately attributed.
+Before delivery, all 68 captured candidate hashes matched; the index was empty.
+The second local unit contains seven reconciled S3 planning files plus only
+closure bookkeeping in this task and apply-progress. Its actual commit identity
+is recorded in the full Engram mirror metadata to avoid recursive commit edits.
+
+RDD: disabled/unmanaged by user choice; no native approval is pending or claimed.
+No full tests rerun during delivery: verified source, tests and migration bytes
+are unchanged. Staged path/size checks, source hashes, Markdown references,
+migration numbering and git diff --check are the delivery checks.
+Existing Starlette/httpx deprecation remains a nonblocking follow-up; no upgrade.
+Git reported inferred commit identity and LF/CRLF notices; no config was changed.
+Local delivery only: no push, PR, merge, deployment, P1b or server changes.

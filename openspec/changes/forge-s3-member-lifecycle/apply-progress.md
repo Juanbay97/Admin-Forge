@@ -1,12 +1,13 @@
-# Apply progress: P1a proof closure; parent verification pending
+# Apply progress: P1a verified and delivered locally
 
 ## Current closure scope
 
-Only P1a populated-legacy preservation evidence and spec consistency are authorized.
+P1a populated-legacy proof closure and its local Git delivery are complete.
 The prior generic recorder is implemented, not currently RED. RDD is user-disabled;
 historical references to native review or prior blocking gates below do not apply
-to this closure. No staging/commit, P1b bridge, worker or lifecycle work is released.
-Current proof results are appended after verification; recovery task:
+to this closure. The user authorized only the two local delivery units below;
+P1b bridge, worker and lifecycle work remain unreleased.
+Current proof and local delivery results are appended below; recovery task:
 odd/tasks/forge-p1a-closure.md. Full Engram2679 retains additional original evidence
 and must not be overwritten with a shorter disk copy.
 
@@ -178,5 +179,23 @@ Existing Starlette/httpx deprecation warning is nonblocking; no upgrade performe
 Numbering is reconciled: 0005 recording, 0006 future bridge, 0007 departments,
 0008 invitations, 0009 mutations; ten implementation units excluding planning P0.
 Historical RED/gate evidence remains labelled historical. RDD stays disabled.
-Parent verification and commit authorization remain pending; P1b/O2/O3 and all
-later slices remain unreleased. Engram2679 was read in full and not overwritten.
+Parent verification and local commit authorization are complete; P1b/O2/O3 and
+all later slices remain unreleased. Engram2679 was read in full and not overwritten.
+
+## Authorized local delivery
+
+Behavior commit: e8c489f8a0c7bcb5f614f8f7fa62dfb879d14c16.
+The user explicitly granted this complete 807-authored-line exception (804 added,
+3 deleted) on 2026-10-06. All 12 authorized behavior/test/evidence paths were
+committed unchanged after an empty-index check and all 68 frozen hash matches.
+The follow-up documentation unit reconciles seven S3 planning files and closure
+bookkeeping only; it adds no runtime behavior. Local delivery is complete.
+
+Independent verification observed 309 passes with no failures/skips, including
+166 PostgreSQL tests in 37.054s and exact owned-container cleanup. Protection
+readback matched 61 files plus 11 unchanged helper definitions. Parent spot:
+3 outbox tests passed in 0.005s. These are separate from the writer timings above.
+No tests rerun at commit time; exact verified source/migration/test bytes remain.
+Delivery checks cover staged paths/counts, hashes, links, numbering and diff checks.
+RDD remains disabled/unmanaged, with no pending native approval.
+All P1b/O2/O3 and later work stays pending; no remote/deployment action occurred.
