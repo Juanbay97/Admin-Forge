@@ -1,5 +1,6 @@
 import { session } from "../auth/session";
 import { createAccountApi } from "./account";
+import { createCatalogApi } from "./catalog";
 import { createApiClient } from "./client";
 import { createGatewayApi } from "./gateway";
 import { createMembersApi } from "./members";
@@ -10,4 +11,5 @@ export const services: Services = {
   account: createAccountApi(client),
   members: createMembersApi(client),
   gateway: createGatewayApi(client),
+  catalog: createCatalogApi(client),
 };

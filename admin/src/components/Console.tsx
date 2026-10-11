@@ -3,6 +3,7 @@ import type { Me } from "../api/account";
 import type { Services } from "../api/services";
 import { resolveEntry } from "../auth/access";
 import { defaultTheme } from "../brand/theme";
+import { Catalog } from "../pages/Catalog";
 import { Gateway } from "../pages/Gateway";
 import { Members } from "../pages/Members";
 import { Overview } from "../pages/Overview";
@@ -14,7 +15,7 @@ interface ConsoleProps {
   onSignOut: () => void;
 }
 
-const VIEWS = ["Overview", "Members", "Gateway"] as const;
+const VIEWS = ["Overview", "Members", "Gateway", "Catalog"] as const;
 type View = (typeof VIEWS)[number];
 
 export function Console({ services, me, onSignOut }: ConsoleProps) {
@@ -74,6 +75,8 @@ export function Console({ services, me, onSignOut }: ConsoleProps) {
         {selected ? (
           view === "Members" ? (
             <Members key={selected.id} api={services.account} membersApi={services.members} organization={selected} />
+          ) : view === "Catalog" ? (
+            <Catalog key={selected.id} catalogApi={services.catalog} organization={selected} />
           ) : view === "Gateway" ? (
             <Gateway key={selected.id} gatewayApi={services.gateway} organization={selected} />
           ) : (

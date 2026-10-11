@@ -171,8 +171,9 @@ B3a `feat/mvp-b3-admin-gateway`: `admin/src/{api/gateway.ts,api/services.ts,gate
 - [x] B3a.1 RED: save key (allow-listed base-URL select, key write-only: password field, cleared on submit, never rendered or echoed), revision conflict (409 shows reload prompt, nothing overwritten, reload then save works), rejected key (redacted 422), 404 rendering, org switch clears, keyboard, reduced motion (5 unit + 8 UI observed failing first)
 - [x] B3a.2 GREEN; verify (cwd `admin`): `npm run test:unit` (72 pass), `npx tsc --noEmit`, `npm run build`
 
-B3b `feat/mvp-b3b-admin-catalog`: `admin/src/{pages/Catalog.tsx,api/catalog.ts,...}`, tests. Deps: B3a.
-- [ ] B3b.1 RED: refresh discovery, map aliases to upstream ids, publish with default (expected catalogue/gateway revisions, operation id), conflict, status shows published aliases; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit`
+B3b `feat/mvp-b3b-admin-catalog`: `admin/src/{pages/Catalog.tsx,api/catalog.ts,catalog/model.ts}`; Modify `api/services.ts`, `api/runtime.ts`, `components/Console.tsx` (Catalog view); tests `tests/unit/catalog.spec.ts`, `tests/ui/catalog.spec.ts`, `tests/ui/support.ts` (catalogue double with CAS). Deps: B3a.
+- [x] B3b.1 RED: refresh discovery, map aliases to upstream ids (suggested alias grammar, validation of invalid/duplicate/none), publish with default (expected catalogue/gateway revisions, operation id), conflict publishes nothing, unreachable gateway, status lists exactly the aliases a member sees, org switch clears, 404 rendering, keyboard, reduced motion (10 unit + 10 UI observed failing first)
+- [x] B3b.2 GREEN; verify (cwd `admin`): `npm run test:unit` (92 pass), `npx tsc --noEmit`, `npm run build`
 
 ## B4 admin Playwright (`b4-admin-e2e`)
 Files: `admin/playwright.config.ts`, `admin/e2e/admin-flow.spec.ts`, `scripts/admin-e2e.ps1`. Deps: B3.

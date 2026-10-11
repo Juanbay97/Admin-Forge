@@ -45,6 +45,18 @@ export interface Backend {
   departments: Record<string, { status: number; items: Department[] }>;
   members?: Record<string, Member[]>;
   gateways?: Record<string, GatewayFixture>;
+  catalogs?: Record<string, CatalogFixture>;
+}
+
+export interface CatalogFixture {
+  gatewayRevision: number;
+  /** Models the gateway reports; null = no usable gateway, refresh fails. */
+  upstream: string[] | null;
+  revision: number;
+  state: "CURRENT" | "UNPUBLISHED" | "STALE_GATEWAY";
+  defaultModel: string | null;
+  aliases: Record<string, string>;
+  publications: unknown[];
 }
 
 export interface RecordedRequest {
@@ -112,7 +124,9 @@ export async function installBackend(page: Page, source: Backend) {
         delivery_channel: "local_mailbox",
       });
     }
-    const scoped = path.match(/^\/forge\/v1\/orgs\/([^/]+)\/(departments|members|gateway)(?:\/([^/]+)\/(suspend|reactivate))?$/);
+    const scoped = path.match(
+      /^\/forge\/v1\/orgs\/([^/]+)\/(departments|members|gateway\/catalogue\/status|gateway\/catalogue\/refresh|gateway|models\/publish|models)(?:\/([^/]+)\/(suspend|reactivate))?$/,
+    );
     if (scoped) {
       const orgId = decodeURIComponent(scoped[1] ?? "");
       await held.get(orgId);
@@ -121,6 +135,56 @@ export async function installBackend(page: Page, source: Backend) {
         const configured = backend.departments[orgId];
         if (!configured || configured.status !== 200) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
         return reply(route, 200, { departments: configured.items });
+      }
+      if (collection?.startsWith("gateway/catalogue") || collection?.startsWith("models")) {
+        const catalog = backend.catalogs?.[orgId];
+        if (!catalog) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
+        if (collection === "gateway/catalogue/status") {
+          return reply(route, 200, {
+            catalogue_revision: catalog.revision,
+            default_model: catalog.defaultModel,
+            publication_state: catalog.state,
+          });
+        }
+        if (collection === "gateway/catalogue/refresh") {
+          if (!catalog.upstream) return reply(route, 503, envelope("SERVICE_UNAVAILABLE", "Unavailable."));
+          return reply(route, 200, {
+            gateway_revision: catalog.gatewayRevision,
+            model_ids: catalog.upstream,
+            capability_state: "unknown",
+            verification: "unverified",
+          });
+        }
+        if (collection === "models") {
+          if (catalog.state === "UNPUBLISHED") return reply(route, 404, envelope("NOT_FOUND", "Not found."));
+          return reply(route, 200, {
+            organization_id: orgId,
+            revision: catalog.revision,
+            default_model: catalog.defaultModel,
+            models: Object.keys(catalog.aliases).sort().map((id) => ({ id })),
+          });
+        }
+        const body = request.postDataJSON() as {
+          expected_catalogue_revision: number;
+          expected_gateway_revision: number;
+          aliases: Record<string, string>;
+          default_alias: string;
+        };
+        catalog.publications.push(body);
+        if (body.expected_catalogue_revision !== catalog.revision || body.expected_gateway_revision !== catalog.gatewayRevision) {
+          return reply(route, 409, envelope("REVISION_CONFLICT", "Revision changed."));
+        }
+        const valid = Object.entries(body.aliases).every(
+          ([alias, id]) => /^[a-z][a-z0-9_-]{0,63}$/.test(alias) && catalog.upstream?.includes(id),
+        );
+        if (!valid || !(body.default_alias in body.aliases)) return reply(route, 422, envelope("INVALID_REQUEST", "Invalid."));
+        Object.assign(catalog, {
+          revision: catalog.revision + 1,
+          state: "CURRENT",
+          defaultModel: body.default_alias,
+          aliases: body.aliases,
+        });
+        return reply(route, 200, { revision: catalog.revision, default_model: body.default_alias, models: Object.keys(body.aliases).sort() });
       }
       if (collection === "gateway") {
         const gateway = backend.gateways?.[orgId];
@@ -163,6 +227,12 @@ export async function installBackend(page: Page, source: Backend) {
     invitations,
     /** What the double stored for an organisation, key included (it is never sent back). */
     stored: (orgId: string) => backend.gateways?.[orgId],
+    catalog: (orgId: string) => backend.catalogs?.[orgId],
+    /** The gateway or catalogue moves on after the page refreshed discovery. */
+    bumpCatalog(orgId: string) {
+      const catalog = backend.catalogs?.[orgId];
+      if (catalog) catalog.gatewayRevision += 1;
+    },
     /** Another administrator changes the gateway behind this page's back. */
     bumpGateway(orgId: string) {
       const gateway = backend.gateways?.[orgId];
@@ -212,6 +282,26 @@ export const ADMIN_BACKEND: Backend = {
   departments: {
     [ORG_A]: { status: 200, items: [{ id: "d-legal", name: "Legal" }] },
     [ORG_B]: { status: 200, items: [{ id: "d-finance", name: "Finance" }] },
+  },
+  catalogs: {
+    [ORG_A]: {
+      gatewayRevision: 3,
+      upstream: ["gpt-4o", "gpt-4o-mini", "4o-realtime"],
+      revision: 0,
+      state: "UNPUBLISHED",
+      defaultModel: null,
+      aliases: {},
+      publications: [],
+    },
+    [ORG_B]: {
+      gatewayRevision: 5,
+      upstream: ["claude-3-5-sonnet"],
+      revision: 2,
+      state: "CURRENT",
+      defaultModel: "deep",
+      aliases: { deep: "claude-3-5-sonnet", quick: "claude-3-5-sonnet" },
+      publications: [],
+    },
   },
   gateways: {
     [ORG_A]: { status: "NOT_CONFIGURED", revision: 0, endpoint: PROD, allowed_endpoints: [PROD, LOCAL] },

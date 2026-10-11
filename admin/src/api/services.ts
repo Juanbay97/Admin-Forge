@@ -1,4 +1,5 @@
 import type { AccountApi } from "./account";
+import type { CatalogApi } from "./catalog";
 import type { GatewayApi } from "./gateway";
 import type { MembersApi } from "./members";
 
@@ -7,4 +8,5 @@ export interface Services {
   account: AccountApi;
   members: MembersApi;
   gateway: GatewayApi;
+  catalog: CatalogApi;
 }
