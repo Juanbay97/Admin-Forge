@@ -54,3 +54,12 @@ class AuthorizationTests(unittest.TestCase):
         self.assertNotIn('alice',repr(value))
     def test_bigint_max_is_valid_but_snapshot_is_not_authentication(self):
         self.assertTrue(permits(snapshot(revision=2**63-1),'members.update'))
+
+    def test_model_publication_is_exact_admin_only(self):
+        for size in range(5):
+            for roles in combinations(ROLES, size):
+                self.assertIs(permits(snapshot(roles=frozenset(roles)), 'models.publish'),
+                              'organization_admin' in roles)
+        for action in ('models.Publish', 'models.publish ', 'models.delete'):
+            self.assertFalse(permits(snapshot(), action))
+        self.assertFalse(permits(snapshot(roles=frozenset({'platform_operator'})), 'models.publish'))

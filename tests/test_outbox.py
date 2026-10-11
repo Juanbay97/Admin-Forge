@@ -33,3 +33,11 @@ class OutboxTests(unittest.TestCase):
         self.assertEqual((event.organization_id, event.revision), (UUID(int=7), 1))
         with self.assertRaises(FrozenInstanceError):
             event.revision = 2
+
+    def test_catalog_publication_event_uses_explicit_catalog_revision(self):
+        from forge.outbox import Event
+        event = Event(*(UUID(int=n) for n in range(31, 36)),
+                      'model_catalog.published', 2, 3)
+        self.assertEqual(event.event_type, 'model_catalog.published')
+        self.assertEqual((event.previous_revision, event.revision), (2, 3))
+        self.assertNotIn(str(event.organization_id), repr(event))

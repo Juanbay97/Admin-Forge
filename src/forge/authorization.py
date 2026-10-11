@@ -52,8 +52,8 @@ def valid_snapshot(snapshot: object) -> bool:
 
 
 def permits(snapshot: AuthorizationSnapshot | None, action: str) -> bool:
-    """Exact default-deny member policy, not a reusable mutation capability."""
+    """Exact default-deny organization policy, not a reusable mutation capability."""
     return bool(
-        valid_snapshot(snapshot) and type(action) is str and action in MEMBER_ACTIONS
+        valid_snapshot(snapshot) and type(action) is str and action in MEMBER_ACTIONS | {"models.publish"}
         and "organization_admin" in snapshot.roles
     )

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 
-EVENT_TYPES = ('membership.updated', 'department.created')
+EVENT_TYPES = ('membership.updated', 'department.created', 'model_catalog.published')
 
 
 @dataclass(frozen=True, repr=False)

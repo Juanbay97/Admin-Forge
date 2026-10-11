@@ -161,7 +161,10 @@ def migration_probe(*, populated=False, rollback=False, failure=False):
             if failure:
                 evidence += failure_state + (conn.info.transaction_status is psycopg.pq.TransactionStatus.IDLE,)
     finally:
-        with connect() as admin:
+        # Database removal has its own finite budget, not a product-query override.
+        cleanup_settings = settings()
+        cleanup_settings['options'] = '-c statement_timeout=30000 -c lock_timeout=2000'
+        with psycopg.connect(**cleanup_settings) as admin:
             admin.execute(sql.SQL('DROP DATABASE {}').format(sql.Identifier(name)))
             # These roles were created only by this case in the owned ephemeral cluster.
             for role in ('forge_identity_binder', 'forge_runtime', 'forge_migrator'):
@@ -600,3 +603,417 @@ class ProbeConnection(psycopg.Connection):
             return super().cursor(name, binary=binary, row_factory=row_factory,
                                   scrollable=scrollable, withhold=withhold)
         return ProbeCursor(self, row_factory=row_factory)
+
+
+# Catalog0010 is deliberately opt-in: legacy/default fixtures stay at0005.
+from contextlib import contextmanager
+
+
+@contextmanager
+def catalog_schema(*, fail_migration=False):
+    """Own only the new table/role, never change the default schema inventory."""
+    with connect() as conn:
+        if conn.execute("SELECT to_regclass('forge.model_catalog_snapshots')").fetchone()[0]:
+            raise RuntimeError("Catalog fixture requires absent destination")
+        if conn.execute("SELECT 1 FROM pg_roles WHERE rolname='forge_catalog_writer'").fetchone():
+            raise RuntimeError("Catalog fixture requires absent role")
+        migration = (ROOT / "migrations/0010_model_catalog_snapshots.sql").read_text("utf-8")
+        if not migration.endswith("COMMIT;\n"):
+            raise RuntimeError("Unexpected catalog migration boundary")
+        applied = False
+        try:
+            if fail_migration:
+                try:
+                    conn.execute(migration[:-len("COMMIT;\n")] + "SELECT 1/0;\nCOMMIT;\n")
+                except psycopg.errors.DivisionByZero:
+                    if conn.info.transaction_status is not psycopg.pq.TransactionStatus.INERROR:
+                        raise RuntimeError("Catalog failure was not transactional")
+                    conn.execute("ROLLBACK")
+                else:
+                    raise RuntimeError("Catalog migration failure not observed")
+            else:
+                conn.execute(migration)
+                applied = True
+            yield conn
+        finally:
+            if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                conn.execute("ROLLBACK")
+            if applied:
+                conn.execute("DROP TABLE forge.model_catalog_snapshots")
+                # Own this role only after the earlier absence check and commit.
+                conn.execute("DROP OWNED BY forge_catalog_writer")
+                conn.execute("DROP ROLE forge_catalog_writer")
+
+
+@contextmanager
+def catalog_publication_schema(*, fail_migration=False, before_migration=None):
+    """Opt-in0010/0011; restore only owned schema changes after each case."""
+    with catalog_schema() as conn:
+        if conn.execute("SELECT to_regclass('forge.active_model_catalogs')").fetchone()[0]:
+            raise RuntimeError("Publication fixture requires absent destination")
+        if conn.execute("SELECT 1 FROM pg_roles WHERE rolname='forge_config_publisher'").fetchone():
+            raise RuntimeError("Publication fixture requires absent role")
+        original_check = conn.execute(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE "
+            "conrelid='forge.outbox_events'::regclass AND conname='outbox_events_event_type_check'"
+        ).fetchone()[0]
+        original_policy = conn.execute(
+            "SELECT pg_get_expr(polwithcheck,polrelid) FROM pg_policy WHERE "
+            "polrelid='forge.outbox_events'::regclass AND polname='outbox_record'"
+        ).fetchone()[0]
+        if before_migration is not None:
+            with conn.transaction():
+                before_migration(conn)
+        migration = (ROOT / "migrations/0011_model_catalog_publication.sql").read_text("utf-8")
+        if not migration.endswith("COMMIT;\n"):
+            raise RuntimeError("Unexpected publication migration boundary")
+        applied = False
+        try:
+            if fail_migration:
+                try:
+                    conn.execute(migration[:-len("COMMIT;\n")] + "SELECT 1/0;\nCOMMIT;\n")
+                except psycopg.errors.DivisionByZero:
+                    if conn.info.transaction_status is not psycopg.pq.TransactionStatus.INERROR:
+                        raise RuntimeError("Publication failure was not transactional")
+                    conn.execute("ROLLBACK")
+                else:
+                    raise RuntimeError("Publication migration failure not observed")
+            else:
+                conn.execute(migration)
+                applied = True
+            yield conn
+        finally:
+            if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                conn.execute("ROLLBACK")
+            if applied:
+                with conn.transaction():
+                    conn.execute("DROP TABLE forge.active_model_catalogs")
+                    conn.execute("DROP POLICY catalog_publisher_read ON forge.model_catalog_snapshots")
+                    conn.execute("DROP POLICY catalog_event ON forge.outbox_events")
+                    conn.execute("ALTER POLICY outbox_record ON forge.outbox_events WITH CHECK "
+                                 + original_policy)
+                    conn.execute("ALTER TABLE forge.outbox_events DROP CONSTRAINT catalog_publication_event_identity")
+                    # Tests may have inserted publication fixtures; remove exactly that new type.
+                    conn.execute("DELETE FROM forge.outbox_events WHERE event_type='model_catalog.published'")
+                    conn.execute("ALTER TABLE forge.outbox_events DROP CONSTRAINT outbox_events_event_type_check")
+                    conn.execute("ALTER TABLE forge.outbox_events ADD CONSTRAINT outbox_events_event_type_check "
+                                 + original_check)
+                    conn.execute("DROP OWNED BY forge_config_publisher")
+                    conn.execute("DROP ROLE forge_config_publisher")
+
+
+@contextmanager
+def catalog_authority_schema(*, fail_migration=False, before_migration=None):
+    """Own0012 only inside the already isolated0010/0011 fixture."""
+    with catalog_publication_schema() as conn:
+        if conn.execute("SELECT to_regclass('forge.catalog_publication_operations')").fetchone()[0]:
+            raise RuntimeError("Authority fixture requires absent ledger")
+        if conn.execute("SELECT 1 FROM pg_roles WHERE rolname='forge_catalog_authority'").fetchone():
+            raise RuntimeError("Authority fixture requires absent owner")
+        if before_migration is not None:
+            with conn.transaction():
+                before_migration(conn)
+        migration = (ROOT / "migrations/0012_catalog_publication_authority.sql").read_text("utf-8")
+        if not migration.endswith("COMMIT;\n"):
+            raise RuntimeError("Unexpected authority migration boundary")
+        applied = False
+        try:
+            if fail_migration:
+                try:
+                    conn.execute(migration[:-len("COMMIT;\n")] + "SELECT 1/0;\nCOMMIT;\n")
+                except psycopg.errors.DivisionByZero:
+                    if conn.info.transaction_status is not psycopg.pq.TransactionStatus.INERROR:
+                        raise RuntimeError("Authority failure was not transactional")
+                    conn.execute("ROLLBACK")
+                else:
+                    raise RuntimeError("Authority migration failure not observed")
+            else:
+                conn.execute(migration)
+                applied = True
+            yield conn
+        finally:
+            if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                conn.execute("ROLLBACK")
+            if applied:
+                with conn.transaction():
+                    conn.execute("DROP TABLE forge.catalog_publication_operations")
+                    conn.execute("DROP FUNCTION forge.lock_catalog_authority(uuid,uuid,uuid,uuid)")
+                    for table in ("organizations", "memberships", "identities", "membership_roles"):
+                        for policy in ("catalog_authority_allow", "catalog_authority_limit"):
+                            conn.execute(sql.SQL("DROP POLICY {} ON forge.{}").format(
+                                sql.Identifier(policy), sql.Identifier(table)))
+                    conn.execute("ALTER TABLE forge.model_catalog_snapshots DROP CONSTRAINT catalog_replay_snapshot")
+                    conn.execute("ALTER TABLE forge.outbox_events DROP CONSTRAINT catalog_replay_event")
+                    conn.execute("DROP OWNED BY forge_catalog_authority")
+                    conn.execute("DROP ROLE forge_catalog_authority")
+
+
+@contextmanager
+def owned_enrollment_schema(*, fail_migration=False):
+    """Add0013 only inside the owned cluster; preserve existing dirty fixture code."""
+    with connect() as conn:
+        if conn.execute("SELECT to_regclass('forge.owned_accounts')").fetchone()[0]:
+            raise RuntimeError("Enrollment fixture requires absent schema")
+        migration = (ROOT / 'migrations/0013_owned_account_enrollment.sql').read_text('utf-8')
+        if not migration.endswith('COMMIT;\n'):
+            raise RuntimeError('Unexpected enrollment migration boundary')
+        applied = False
+        try:
+            if fail_migration:
+                try:
+                    conn.execute(migration[:-len('COMMIT;\n')]+'SELECT 1/0;\nCOMMIT;\n')
+                except psycopg.errors.DivisionByZero:
+                    conn.execute('ROLLBACK')
+                else:
+                    raise RuntimeError('Enrollment migration rollback not observed')
+            else:
+                conn.execute(migration)
+                applied = True
+            yield conn
+        finally:
+            if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                conn.execute('ROLLBACK')
+            if applied:
+                with conn.transaction():
+                    # Only new enrolled identities are removed; original members remain.
+                    created_accounts = [row[0] for row in conn.execute('SELECT id FROM forge.owned_accounts').fetchall()]
+                    conn.execute('DELETE FROM forge.membership_roles WHERE (organization_id,membership_id) '
+                        'IN (SELECT organization_id,membership_id FROM forge.membership_departments)')
+                    conn.execute('DELETE FROM forge.membership_departments')
+                    conn.execute('DELETE FROM forge.memberships WHERE identity_id IN (SELECT id FROM forge.owned_accounts)')
+                    for table in ('account_enrollment_audit','membership_departments','account_invitations','owned_accounts','departments'):
+                        conn.execute(sql.SQL('DROP TABLE forge.{}').format(sql.Identifier(table)))
+                    conn.execute('DELETE FROM forge.identities WHERE id=ANY(%s::uuid[])', (created_accounts,))
+                    for table in ('organizations','memberships','identities','membership_roles'):
+                        for policy in ('enrollment_authority','enrollment_limit'):
+                            conn.execute(sql.SQL('DROP POLICY {} ON forge.{}').format(
+                                sql.Identifier(policy),sql.Identifier(table)))
+                    for signature in (
+                        'issue_account_invitation(uuid,uuid,text,text,text,uuid,uuid,uuid,text,text,text,integer)',
+                        'revoke_account_invitation(uuid,uuid,text,text,text,uuid)',
+                        'accept_account_invitation(uuid,text,uuid,text)',
+                        'enrollment_lock_admin(uuid,uuid,text,text,text)', 'enrollment_uuid(text)',
+                    ):
+                        conn.execute('DROP FUNCTION forge.'+signature)
+                    for role in ('forge_enrollment','forge_enrollment_authority'):
+                        conn.execute(sql.SQL('DROP OWNED BY {}').format(sql.Identifier(role)))
+                        conn.execute(sql.SQL('DROP ROLE {}').format(sql.Identifier(role)))
+
+
+@contextmanager
+def owned_account_session_schema():
+    """Own0013/0014 data and unwind their complete FK graph without baseline loss.
+
+    Test credential rows may point at an existing baseline identity (administrator).
+    The shared enrollment fixture assumes its remaining owned_accounts are newly
+    enrolled identities. Remove only those test credential rows before handing
+    control back, so the shared cleanup never deletes baseline members/identities.
+    """
+    identity_query = ('SELECT id,provider,issuer,subject,entra_tenant_id,entra_object_id '
+                      'FROM forge.identities ORDER BY id')
+    membership_query = ('SELECT organization_id,id,identity_id,status FROM '
+                        'forge.memberships ORDER BY organization_id,id')
+    role_query = ('SELECT organization_id,membership_id,role FROM '
+                  'forge.membership_roles ORDER BY organization_id,membership_id,role')
+    with connect() as observer:
+        original_identities = observer.execute(identity_query).fetchall()
+        original_memberships = observer.execute(membership_query).fetchall()
+        original_roles = observer.execute(role_query).fetchall()
+    original_identity_ids = [row[0] for row in original_identities]
+    with owned_enrollment_schema() as conn:
+        # These tables were just created by this fixture; no external enrollment
+        # or invitation data can be adopted, removed or restored implicitly.
+        for table in ('owned_accounts','account_invitations','account_enrollment_audit',
+                      'membership_departments'):
+            if conn.execute(sql.SQL('SELECT count(*) FROM forge.{}').format(
+                    sql.Identifier(table))).fetchone()[0] != 0:
+                raise RuntimeError('Account fixture requires empty owned enrollment tables')
+        migration = (ROOT/'migrations/0014_owned_account_sessions.sql').read_text('utf-8')
+        conn.execute(migration)
+        try:
+            yield conn
+        finally:
+            if conn.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                conn.execute('ROLLBACK')
+            with conn.transaction():
+                # Leaf0014 tables are entirely fixture-created. Retain all real
+                # FK constraints and remove dependants in reverse dependency order.
+                for table in ('account_message_delivery','account_password_resets',
+                              'account_sessions','account_login_buckets'):
+                    conn.execute(sql.SQL('DROP TABLE forge.{}').format(sql.Identifier(table)))
+                invite_ids = [row[0] for row in conn.execute(
+                    'SELECT id FROM forge.account_invitations').fetchall()]
+                conn.execute('DELETE FROM forge.account_enrollment_audit '
+                             'WHERE invitation_id=ANY(%s::uuid[])',(invite_ids,))
+                conn.execute('DELETE FROM forge.account_invitations '
+                             'WHERE id=ANY(%s::uuid[])',(invite_ids,))
+                # Only new test credentials attached to original identities are
+                # removed here. New enrollment credentials remain for shared cleanup.
+                conn.execute('DELETE FROM forge.owned_accounts WHERE id=ANY(%s::uuid[])',
+                             (original_identity_ids,))
+                for identity,provider,issuer,subject,tenant,object_id in original_identities:
+                    conn.execute('UPDATE forge.identities SET provider=%s,issuer=%s,'
+                                 'subject=%s,entra_tenant_id=%s,entra_object_id=%s WHERE id=%s',
+                                 (provider,issuer,subject,tenant,object_id,identity))
+                for organization,member,identity,status in original_memberships:
+                    conn.execute('UPDATE forge.memberships SET identity_id=%s,status=%s '
+                                 'WHERE organization_id=%s AND id=%s',
+                                 (identity,status,organization,member))
+                signatures = conn.execute("SELECT p.oid::regprocedure::text FROM pg_proc p "
+                    "JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='forge' "
+                    "AND p.proname LIKE 'account_%'").fetchall()
+                for signature, in signatures:
+                    # Catalog-returned function signatures, never request input.
+                    conn.execute('DROP FUNCTION '+signature)
+                conn.execute('DROP POLICY account_identity_scope ON forge.owned_accounts')
+                conn.execute('DROP OWNED BY forge_account_service')
+                conn.execute('DROP ROLE forge_account_service')
+    with connect() as observer:
+        for query, expected in ((identity_query,original_identities),
+                                (membership_query,original_memberships),
+                                (role_query,original_roles)):
+            if observer.execute(query).fetchall() != expected:
+                raise RuntimeError('Account fixture failed to preserve baseline rows')
+        if observer.execute("SELECT to_regclass('forge.owned_accounts')").fetchone()[0]:
+            raise RuntimeError('Account fixture retained owned schema')
+
+
+class AccountDatabaseFixture(DatabaseFixture):
+    """Fresh owned accounts fixture, without unrelated baseline rollback probes.
+
+    Only real0001–0004 migrations and runtime LOGIN provisioning are applied.
+    Enrollment/session migrations remain scoped to each owned test context.
+    Legacy DatabaseFixture and its rollback coverage are deliberately unchanged.
+    """
+    def __init__(self):
+        wait_ready()
+        self.runtime_password = secrets.token_urlsafe(32)
+        with connect() as conn:
+            if conn.execute("SELECT to_regnamespace('forge')").fetchone()[0]:
+                raise RuntimeError("Account fixture requires a pristine owned database")
+            for name in ('0001_bootstrap.sql', '0002_entra_identity_binding.sql',
+                         '0003_membership_authorization.sql',
+                         '0004_initial_admin_designation.sql'):
+                conn.execute((ROOT / 'migrations' / name).read_text('utf-8'))
+            conn.execute(sql.SQL('ALTER ROLE forge_runtime LOGIN PASSWORD {}').format(
+                sql.Literal(self.runtime_password)))
+            print('Owned accounts PostgreSQL server:',
+                  conn.execute('SHOW server_version').fetchone()[0])
+        self.reset()
+
+
+@contextmanager
+def owned_gateway_configuration_schema(*,fail_migration=False):
+    """Opt-in0015 only; unwind its exact dependencies before shared account teardown."""
+    with owned_account_session_schema() as admin:
+        migration=(ROOT/'migrations/0015_gateway_configuration.sql').read_text('utf-8')
+        if not migration.endswith('COMMIT;\n'):
+            raise RuntimeError('Unexpected gateway migration boundary')
+        if admin.execute("SELECT to_regclass('forge.organization_gateways')").fetchone()[0]:
+            raise RuntimeError('Gateway fixture requires absent schema')
+        applied=False
+        try:
+            if fail_migration:
+                try:admin.execute(migration[:-len('COMMIT;\n')]+'SELECT 1/0;\nCOMMIT;\n')
+                except psycopg.errors.DivisionByZero:admin.execute('ROLLBACK')
+                else:raise RuntimeError('Gateway migration rollback not observed')
+            else:
+                admin.execute(migration);applied=True
+            yield admin
+        finally:
+            if admin.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                admin.execute('ROLLBACK')
+            if applied:
+                with admin.transaction():
+                    admin.execute('DROP TABLE forge.gateway_configuration_audit')
+                    admin.execute('DROP TABLE forge.organization_gateways')
+                    for signature in ('gateway_read(text,uuid)',
+                            'gateway_save(text,uuid,bigint,uuid,text)','gateway_lock_admin(text,uuid)',
+                            'gateway_resolve_admin(uuid,uuid)'):
+                        admin.execute('DROP FUNCTION forge.'+signature)
+                    for role in ('forge_gateway_service','forge_gateway_authority'):
+                        admin.execute(sql.SQL('DROP OWNED BY {}').format(sql.Identifier(role)))
+                        admin.execute(sql.SQL('DROP ROLE {}').format(sql.Identifier(role)))
+
+
+class GatewayCatalogDatabaseFixture(AccountDatabaseFixture):
+    """Actual catalogue prerequisite migrations in a fresh owned cluster only."""
+    def __init__(self):
+        super().__init__()
+        with connect() as admin:
+            for name in ('0005_transactional_outbox.sql','0010_model_catalog_snapshots.sql',
+                         '0011_model_catalog_publication.sql','0012_catalog_publication_authority.sql'):
+                admin.execute((ROOT/'migrations'/name).read_text('utf-8'))
+
+
+@contextmanager
+def owned_gateway_catalog_schema():
+    """Append0016 and unwind only its owned data/dependencies before0015 cleanup."""
+    with owned_gateway_configuration_schema() as admin:
+        tables=('gateway_catalog_selections','active_model_catalogs',
+                'catalog_publication_operations','outbox_events','model_catalog_snapshots')
+        if any(admin.execute(sql.SQL('SELECT count(*) FROM forge.{}').format(
+                sql.Identifier(table))).fetchone()[0] for table in tables[1:]):
+            raise RuntimeError('Owned catalogue fixture requires empty publication tables')
+        version_check=admin.execute("SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conrelid='forge.model_catalog_snapshots'::regclass AND contype='c' "
+            "AND pg_get_constraintdef(oid) LIKE '%schema_version%'").fetchone()
+        admin.execute((ROOT/'migrations/0016_owned_gateway_catalog.sql').read_text('utf-8'))
+        try:
+            yield admin
+        finally:
+            if admin.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                admin.execute('ROLLBACK')
+            with admin.transaction():
+                for table in tables:
+                    admin.execute(sql.SQL('DELETE FROM forge.{}').format(sql.Identifier(table)))
+                admin.execute('DROP TABLE forge.gateway_catalog_selections')
+                admin.execute('DROP TABLE forge.gateway_model_discoveries')
+                signatures=admin.execute("SELECT p.oid::regprocedure::text FROM pg_proc p "
+                    "JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='forge' "
+                    "AND p.proname LIKE 'gateway_catalog_%'").fetchall()
+                for signature, in signatures:
+                    admin.execute('DROP FUNCTION '+signature)
+                admin.execute('DROP FUNCTION forge.gateway_resolve_member(uuid,uuid)')
+                for table in tables[1:]:
+                    admin.execute(sql.SQL('DROP POLICY owned_catalog_scope ON forge.{}').format(sql.Identifier(table)))
+                admin.execute('ALTER TABLE forge.catalog_publication_operations DROP CONSTRAINT owned_catalog_replay')
+                admin.execute('ALTER TABLE forge.catalog_publication_operations DROP COLUMN gateway_revision, DROP COLUMN selection_sha256')
+                admin.execute('ALTER TABLE forge.model_catalog_snapshots DROP CONSTRAINT catalog_payload_version')
+                # Definition comes exclusively from the initial owned reviewed catalog.
+                admin.execute(sql.SQL('ALTER TABLE forge.model_catalog_snapshots ADD CONSTRAINT {} ').format(
+                    sql.Identifier(version_check[0])).as_string(admin)+version_check[1])
+
+@contextmanager
+def owned_gateway_inference_schema():
+    """Actual0017, removed before its exact owned catalogue dependencies."""
+    with owned_gateway_catalog_schema() as admin:
+        admin.execute((ROOT/'migrations/0017_owned_gateway_inference.sql').read_text('utf-8'))
+        try:
+            yield admin
+        finally:
+            if admin.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:
+                admin.execute('ROLLBACK')
+            admin.execute('DROP FUNCTION forge.gateway_inference_route(text,uuid,text)')
+
+@contextmanager
+def owned_gateway_catalog_admin_extension(admin,*,fail_migration=False):
+    """Only nested in the owned0016 fixture; unwind0018 then0017 exactly."""
+    if admin.execute("SELECT to_regprocedure('forge.gateway_inference_route(text,uuid,text)')").fetchone()[0]:
+        raise RuntimeError('Owned status extension requires absent0017/0018')
+    admin.execute((ROOT/'migrations/0017_owned_gateway_inference.sql').read_text('utf-8'))
+    applied=False
+    try:
+        migration=(ROOT/'migrations/0018_gateway_catalog_admin_status.sql').read_text('utf-8')
+        if not migration.endswith('COMMIT;\n'):raise RuntimeError('Unexpected status migration boundary')
+        if fail_migration:
+            try:admin.execute(migration[:-len('COMMIT;\n')]+'SELECT 1/0;\nCOMMIT;\n')
+            except psycopg.errors.DivisionByZero:admin.execute('ROLLBACK')
+            else:raise RuntimeError('Status rollback not observed')
+        else:
+            admin.execute(migration);applied=True
+        yield admin
+    finally:
+        if admin.info.transaction_status is not psycopg.pq.TransactionStatus.IDLE:admin.execute('ROLLBACK')
+        if applied:admin.execute('DROP FUNCTION forge.gateway_catalog_admin_status(text,uuid)')
+        admin.execute('DROP FUNCTION forge.gateway_inference_route(text,uuid,text)')
