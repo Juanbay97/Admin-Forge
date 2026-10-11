@@ -30,6 +30,10 @@ class DirectoryUnavailable(Exception):
     def __init__(self): super().__init__('Directory unavailable.')
 
 
+class DirectoryLastAdmin(Exception):
+    def __init__(self): super().__init__('Directory conflict.')
+
+
 @dataclass(frozen=True)
 class Department:
     id: UUID
@@ -87,6 +91,7 @@ class DirectoryStore(Protocol):
     def departments(self, digest: str, organization_id: UUID) -> list[Department]: ...
     def create_department(self, digest: str, organization_id: UUID, name: str) -> Department: ...
     def members(self, digest: str, organization_id: UUID) -> list[Member]: ...
+    def set_member_status(self, digest: str, organization_id: UUID, member_id: UUID, status: str) -> Member: ...
 
 
 class DirectoryService:
@@ -127,3 +132,15 @@ class DirectoryService:
     def members(self, token: str, organization_id: UUID) -> list[Member]:
         self._organization(organization_id)
         return list(self._store.members(capability_digest(token), organization_id))
+
+    def suspend_member(self, token: str, organization_id: UUID, member_id: UUID) -> Member:
+        return self._set_status(token, organization_id, member_id, 'suspended')
+
+    def reactivate_member(self, token: str, organization_id: UUID, member_id: UUID) -> Member:
+        return self._set_status(token, organization_id, member_id, 'active')
+
+    def _set_status(self, token, organization_id, member_id, status):
+        self._organization(organization_id)
+        if type(member_id) is not UUID:
+            raise ValueError('Invalid member.')
+        return self._store.set_member_status(capability_digest(token), organization_id, member_id, status)

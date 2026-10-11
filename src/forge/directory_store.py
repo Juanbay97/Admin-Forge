@@ -11,7 +11,7 @@ from psycopg.pq import TransactionStatus
 from psycopg.rows import tuple_row
 from forge.account_store import _ROLE, _KEYS
 from forge.directory import (Department, Member, MemberRow, DirectoryDenied, DirectoryConflict,
-                             DirectoryUnavailable)
+                             DirectoryLastAdmin, DirectoryUnavailable)
 
 
 class DirectoryConnection:
@@ -36,7 +36,7 @@ class DirectoryConnection:
                     for key in _KEYS:
                         cursor.execute("SELECT set_config(%s,'',true)", ('forge.' + key,))
                     yield cursor
-        except (DirectoryDenied, DirectoryConflict, DirectoryUnavailable, ValueError):
+        except (DirectoryDenied, DirectoryConflict, DirectoryLastAdmin, DirectoryUnavailable, ValueError):
             raise
         except Exception as error:
             if getattr(error, 'sqlstate', None) == 'P0001':
@@ -45,8 +45,10 @@ class DirectoryConnection:
                     raise DirectoryDenied() from None
                 if message == 'DIRECTORY_CONFLICT':
                     raise DirectoryConflict() from None
+                if message == 'DIRECTORY_LAST_ADMIN':
+                    raise DirectoryLastAdmin() from None
                 if message == 'DIRECTORY_INVALID':
-                    raise ValueError('Invalid department name.') from None
+                    raise ValueError('Invalid directory request.') from None
             raise DirectoryUnavailable() from None
 
 
@@ -88,3 +90,12 @@ class PostgresDirectoryStore:
         with self.connection.cursor() as cursor:
             cursor.execute('SELECT * FROM forge.directory_members(%s,%s)', (digest, organization_id))
             return [_member(row) for row in cursor.fetchall()]
+
+    def set_member_status(self, digest, organization_id, member_id, status):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.directory_member_status(%s,%s,%s,%s)',
+                           (digest, organization_id, member_id, status))
+            row = cursor.fetchone()
+            if row is None:
+                raise DirectoryUnavailable()
+            return _member(row)

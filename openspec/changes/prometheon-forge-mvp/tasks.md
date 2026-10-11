@@ -113,9 +113,9 @@ Files: `migrations/0022_member_directory.sql` (renumbered from 0021 when A3b too
 
 ## A4b member lifecycle (`feat/mvp-a4b-member-lifecycle`, stacked on A4a)
 Files: `migrations/0023_member_lifecycle.sql` (`UPDATE(status)` + session-revoke grants/policies, `directory_member_status` with last-admin guard under row locks), Modify `directory.py` (`DirectoryLastAdmin`, suspend/reactivate), `directory_store.py`, `account_api.py` (`POST .../members/{m}/suspend|reactivate`, 409 `LAST_ADMIN`), `mvp_profile.py` (F23); extend the three `tests/*member_administration*.py` files. Deps: A4a. A5b therefore pins F23.
-- [ ] A4b.1 RED: suspend/reactivate, session revocation, 409 `LAST_ADMIN` (incl. self-suspension), unknown/foreign id 404, concurrent mutual suspension (row lock)
-- [ ] A4b.2 GREEN: 0023 SQL (last-admin + role checks inside function, admin rows locked FOR UPDATE; suspension revokes all of the account's sessions) + store/routes; pin F23 by fresh==upgrade-from-0022
-- [ ] A4b.3 Verify: `-p test_member_administration*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_member_administration.py`
+- [x] A4b.1 RED: suspend/reactivate, session revocation, 409 `LAST_ADMIN` (incl. self-suspension), unknown/foreign id 404, concurrent mutual suspension (row lock)
+- [x] A4b.2 GREEN: 0023 SQL (last-admin + role checks inside function, admin rows locked FOR UPDATE; suspension revokes all of the account's sessions) + store/routes; pin F23 by fresh==upgrade-from-0022 (F23 = `e025d612...199c0d`, identical to the schema of the pre-split combined 0022 verified earlier)
+- [x] A4b.3 Verify: `-p test_member_administration*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_member_administration.py`
 
 ## A5a provisioning + contract (`a5a-provisioning-contract`)
 Files: `src/forge/provisioning.py`, `contract.py`, `contract/forge-mvp.contract.json`; Modify `account_api.py` (`GET /forge/v1/contract`); tests `test_provisioning.py`, `test_contract.py`. Deps: A4b.

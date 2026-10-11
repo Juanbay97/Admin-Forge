@@ -16,7 +16,7 @@ from forge.foundation import AuthenticatedIdentity
 from forge.invitations import InvitationService,InvitationRequest,InvitationDenied,ExistingAccountAuthenticationRequired,InvitationUnavailable
 from forge.invitation_delivery import DeliveryCoordinator
 from forge.directory import (DirectoryService,DirectoryDenied,DirectorySuspended,DirectoryConflict,
-    DirectoryUnavailable)
+    DirectoryLastAdmin,DirectoryUnavailable)
 from forge.gateway_inference import GatewayInference,TextRequest
 from forge.gateway_catalog import GatewayCatalog
 from forge.gateway_configuration import GatewayConfiguration,GatewayDenied,GatewayConflict,GatewayUnavailable
@@ -308,12 +308,20 @@ def create_account_app(*,sessions: SessionService | None=None,
         return JSONResponse(status_code=409,content=envelope.model_dump(mode='json'),
                             headers={'Cache-Control':'no-store'})
 
+    @app.exception_handler(DirectoryLastAdmin)
+    async def directory_last_admin(request,exc):
+        envelope=ErrorEnvelope(error=ErrorDetail(code='LAST_ADMIN',
+            message='The last active administrator cannot be suspended.',request_id=uuid4(),
+            retryable=False,retry_after_seconds=None,reset_at=None))
+        return JSONResponse(status_code=409,content=envelope.model_dump(mode='json'),
+                            headers={'Cache-Control':'no-store'})
+
     @app.middleware('http')
     async def private_account_transport(request: Request,call_next):
         if ((request.url.path.startswith('/forge/v1/accounts/') and request.method=='POST')
                 or (request.url.path.startswith('/forge/v1/orgs/') and (
                     (request.url.path.endswith('/gateway') and request.method=='PUT')
-                    or (request.url.path.endswith('/departments') and request.method=='POST')
+                    or (request.url.path.endswith(('/departments','/suspend','/reactivate')) and request.method=='POST')
                     or (request.url.path.endswith(('/models/publish','/gateway/catalogue/refresh','/chat/completions')) and request.method=='POST')))):
             data=bytearray()
             async for chunk in request.stream():
@@ -345,7 +353,7 @@ def create_account_app(*,sessions: SessionService | None=None,
             raise ApiFailure(404,'NOT_FOUND') from None
         except DirectorySuspended:
             raise ApiFailure(403,'MEMBERSHIP_SUSPENDED') from None
-        except (GatewayConflict,DirectoryConflict):
+        except (GatewayConflict,DirectoryConflict,DirectoryLastAdmin):
             raise
         except (GatewayUnavailable,DirectoryUnavailable):
             raise ApiFailure(503,'SERVICE_UNAVAILABLE') from None
@@ -438,6 +446,18 @@ def create_account_app(*,sessions: SessionService | None=None,
               openapi_extra={'security':[{'ForgeBearer':[]}]})
     def list_members(organization_id: UUID,actor: Annotated[tuple,Depends(token)]):
         return {'members':invoke(directory_port().members,actor[0],organization_id)}
+
+    @app.post('/forge/v1/orgs/{organization_id}/members/{member_id}/suspend',response_model=MemberResponse,
+              responses={status:{'model':ErrorEnvelope} for status in (401,404,409,422,503)},
+              openapi_extra={'security':[{'ForgeBearer':[]}]})
+    def suspend_member(organization_id: UUID,member_id: UUID,actor: Annotated[tuple,Depends(token)]):
+        return invoke(directory_port().suspend_member,actor[0],organization_id,member_id)
+
+    @app.post('/forge/v1/orgs/{organization_id}/members/{member_id}/reactivate',response_model=MemberResponse,
+              responses={status:{'model':ErrorEnvelope} for status in (401,404,422,503)},
+              openapi_extra={'security':[{'ForgeBearer':[]}]})
+    def reactivate_member(organization_id: UUID,member_id: UUID,actor: Annotated[tuple,Depends(token)]):
+        return invoke(directory_port().reactivate_member,actor[0],organization_id,member_id)
 
     def catalog_actor(organization_id,actor,*,admin=False):
         if gateway_catalog is None:

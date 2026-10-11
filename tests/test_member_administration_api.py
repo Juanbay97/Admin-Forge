@@ -1,4 +1,4 @@
-"""Member list HTTP surface over mocked ports; session/readiness fixtures only."""
+"""Member administration HTTP surface over mocked ports; session/readiness fixtures only."""
 from pathlib import Path
 import sys
 import unittest
@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 from forge.account_api import create_account_app
 from forge.accounts import ACCOUNT_ISSUER
-from forge.directory import Department, DirectoryDenied, Member
+from forge.directory import Department, DirectoryDenied, DirectoryLastAdmin, Member
 from forge.foundation import AuthenticatedIdentity
 
 ORG = '11111111-1111-4111-8111-111111111111'
@@ -23,6 +23,8 @@ def sample(status='active', ident=MEMBER, roles=('member',)):
 
 class MemberApiTests(unittest.TestCase):
     members_url = '/forge/v1/orgs/' + ORG + '/members'
+    suspend_url = members_url + '/' + MEMBER + '/suspend'
+    reactivate_url = members_url + '/' + MEMBER + '/reactivate'
 
     def fixture(self, directory=True):
         sessions = MagicMock()
@@ -32,6 +34,8 @@ class MemberApiTests(unittest.TestCase):
         service = MagicMock()
         service.members.return_value = [sample('active', roles=('organization_admin',), ident=str(uuid4())),
                                         sample('active'), sample('suspended', ident=str(uuid4()))]
+        service.suspend_member.side_effect = lambda token, org, member: sample('suspended', str(member))
+        service.reactivate_member.side_effect = lambda token, org, member: sample('active', str(member))
         app = create_account_app(sessions=sessions, readiness=readiness, directory=service if directory else None)
         return TestClient(app, raise_server_exceptions=False), sessions, service
 
@@ -50,27 +54,57 @@ class MemberApiTests(unittest.TestCase):
                 self.assertNotIn(secret, response.text)
             self.assertEqual(service.members.call_args.args, ('A' * 43, UUID(ORG)))
 
-    def test_cross_org_and_non_admin_are_the_same_redacted_404(self):
+    def test_suspend_and_reactivate_return_the_member_with_the_new_status(self):
+        client, _, service = self.fixture()
+        with client:
+            suspended = client.post(self.suspend_url, headers=HEADERS)
+            self.assertEqual((suspended.status_code, suspended.json()['status']), (200, 'suspended'))
+            self.assertEqual(set(suspended.json()), FIELDS)
+            self.assertEqual(service.suspend_member.call_args.args, ('A' * 43, UUID(ORG), UUID(MEMBER)))
+            reactivated = client.post(self.reactivate_url, headers=HEADERS)
+            self.assertEqual((reactivated.status_code, reactivated.json()['status']), (200, 'active'))
+            self.assertEqual(service.reactivate_member.call_args.args, ('A' * 43, UUID(ORG), UUID(MEMBER)))
+
+    def test_last_admin_is_a_redacted_409(self):
+        client, _, service = self.fixture()
+        service.suspend_member.side_effect = DirectoryLastAdmin()
+        with client:
+            response = client.post(self.suspend_url, headers=HEADERS)
+            self.assertEqual(response.status_code, 409)
+            self.assertEqual(response.json()['error']['code'], 'LAST_ADMIN')
+            self.assertNotIn(MEMBER, response.text)
+
+    def test_cross_org_non_admin_and_unknown_member_are_the_same_404(self):
         client, _, service = self.fixture()
         service.members.side_effect = DirectoryDenied()
+        service.suspend_member.side_effect = DirectoryDenied()
+        service.reactivate_member.side_effect = DirectoryDenied()
         with client:
-            response = client.get(self.members_url, headers=HEADERS)
-            self.assertEqual((response.status_code, response.json()['error']['code']), (404, 'NOT_FOUND'))
-            self.assertNotIn('pat@example.com', response.text)
+            responses = [client.get(self.members_url, headers=HEADERS), client.post(self.suspend_url, headers=HEADERS),
+                         client.post(self.reactivate_url, headers=HEADERS)]
+            self.assertEqual([r.status_code for r in responses], [404, 404, 404])
+            self.assertEqual({r.json()['error']['code'] for r in responses}, {'NOT_FOUND'})
 
-    def test_invalid_organization_identifier_is_422_before_the_service(self):
+    def test_invalid_identifiers_and_oversized_bodies_are_422_before_the_service(self):
         client, _, service = self.fixture()
         with client:
             self.assertEqual(client.get('/forge/v1/orgs/not-a-uuid/members', headers=HEADERS).status_code, 422)
-        service.members.assert_not_called()
+            self.assertEqual(client.post(self.members_url + '/not-a-uuid/suspend', headers=HEADERS).status_code, 422)
+            self.assertEqual(client.post(self.suspend_url, headers=HEADERS, content=b'x' * 8193).status_code, 422)
+            self.assertEqual(client.post(self.reactivate_url, headers=HEADERS, content=b'x' * 8193).status_code, 422)
+        service.suspend_member.assert_not_called()
+        service.reactivate_member.assert_not_called()
 
     def test_unauthenticated_requests_precede_everything(self):
         client, sessions, service = self.fixture()
         with client:
             self.assertEqual(client.get(self.members_url).status_code, 401)
+            self.assertEqual(client.post(self.suspend_url).status_code, 401)
+            self.assertEqual(client.post(self.reactivate_url).status_code, 401)
             sessions.validate.return_value = None
             self.assertEqual(client.get(self.members_url, headers=HEADERS).status_code, 401)
         service.members.assert_not_called()
+        service.suspend_member.assert_not_called()
 
     def test_unconfigured_directory_and_store_failures_are_redacted_503(self):
         client, _, _ = self.fixture(directory=False)
@@ -87,7 +121,10 @@ class MemberApiTests(unittest.TestCase):
         client, _, _ = self.fixture()
         with client:
             paths = client.get('/openapi.json').json()['paths']
-            self.assertEqual(paths['/forge/v1/orgs/{organization_id}/members']['get']['security'], [{'ForgeBearer': []}])
+            for path, method in (('/forge/v1/orgs/{organization_id}/members', 'get'),
+                                 ('/forge/v1/orgs/{organization_id}/members/{member_id}/suspend', 'post'),
+                                 ('/forge/v1/orgs/{organization_id}/members/{member_id}/reactivate', 'post')):
+                self.assertEqual(paths[path][method]['security'], [{'ForgeBearer': []}])
 
 
 if __name__ == '__main__':
