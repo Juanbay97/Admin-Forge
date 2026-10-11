@@ -8,6 +8,8 @@ const PREVIEW_PORT = 3415;
 
 export const ORG_A = "11111111-1111-4111-8111-111111111111";
 export const ORG_B = "22222222-2222-4222-8222-222222222222";
+export const PROD = "https://ia.prometheonlab.com";
+export const LOCAL = "http://127.0.0.1:3413";
 export const ORG_C = "33333333-3333-4333-8333-333333333333";
 
 export interface Account {
@@ -30,10 +32,19 @@ export interface Member {
   departments: Department[];
 }
 
+export interface GatewayFixture {
+  status: "NOT_CONFIGURED" | "SAVED_UNVERIFIED";
+  revision: number;
+  endpoint: string;
+  allowed_endpoints: string[];
+  savedKey?: string;
+}
+
 export interface Backend {
   accounts: Record<string, Account>;
   departments: Record<string, { status: number; items: Department[] }>;
   members?: Record<string, Member[]>;
+  gateways?: Record<string, GatewayFixture>;
 }
 
 export interface RecordedRequest {
@@ -101,7 +112,7 @@ export async function installBackend(page: Page, source: Backend) {
         delivery_channel: "local_mailbox",
       });
     }
-    const scoped = path.match(/^\/forge\/v1\/orgs\/([^/]+)\/(departments|members)(?:\/([^/]+)\/(suspend|reactivate))?$/);
+    const scoped = path.match(/^\/forge\/v1\/orgs\/([^/]+)\/(departments|members|gateway)(?:\/([^/]+)\/(suspend|reactivate))?$/);
     if (scoped) {
       const orgId = decodeURIComponent(scoped[1] ?? "");
       await held.get(orgId);
@@ -110,6 +121,25 @@ export async function installBackend(page: Page, source: Backend) {
         const configured = backend.departments[orgId];
         if (!configured || configured.status !== 200) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
         return reply(route, 200, { departments: configured.items });
+      }
+      if (collection === "gateway") {
+        const gateway = backend.gateways?.[orgId];
+        if (!gateway) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
+        if (request.method() === "GET") return reply(route, 200, withoutKey(gateway));
+        const body = request.postDataJSON() as { expected_revision: number; api_key: string; endpoint: string };
+        if (body.expected_revision !== gateway.revision) {
+          return reply(route, 409, envelope("REVISION_CONFLICT", "Gateway configuration revision changed."));
+        }
+        if (!gateway.allowed_endpoints.includes(body.endpoint) || body.api_key === "rejected-key") {
+          return reply(route, 422, envelope("INVALID_REQUEST", "Invalid."));
+        }
+        Object.assign(gateway, {
+          status: "SAVED_UNVERIFIED",
+          revision: gateway.revision + 1,
+          endpoint: body.endpoint,
+          savedKey: body.api_key,
+        });
+        return reply(route, 200, { status: gateway.status, revision: gateway.revision, endpoint: gateway.endpoint });
       }
       const members = backend.members?.[orgId];
       if (!members) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
@@ -131,6 +161,13 @@ export async function installBackend(page: Page, source: Backend) {
   return {
     requests,
     invitations,
+    /** What the double stored for an organisation, key included (it is never sent back). */
+    stored: (orgId: string) => backend.gateways?.[orgId],
+    /** Another administrator changes the gateway behind this page's back. */
+    bumpGateway(orgId: string) {
+      const gateway = backend.gateways?.[orgId];
+      if (gateway) gateway.revision += 1;
+    },
     /** Delay every reply for one organisation until `letThrough` is called. */
     hold(orgId: string) {
       held.set(orgId, new Promise<void>((resolve) => release.set(orgId, resolve)));
@@ -139,6 +176,11 @@ export async function installBackend(page: Page, source: Backend) {
       release.get(orgId)?.();
     },
   };
+}
+
+/** The read model never carries the key. */
+function withoutKey({ savedKey: _savedKey, ...visible }: GatewayFixture) {
+  return visible;
 }
 
 function member(id: string, email: string, name: string, roles: string[], department: Department): Member {
@@ -170,6 +212,10 @@ export const ADMIN_BACKEND: Backend = {
   departments: {
     [ORG_A]: { status: 200, items: [{ id: "d-legal", name: "Legal" }] },
     [ORG_B]: { status: 200, items: [{ id: "d-finance", name: "Finance" }] },
+  },
+  gateways: {
+    [ORG_A]: { status: "NOT_CONFIGURED", revision: 0, endpoint: PROD, allowed_endpoints: [PROD, LOCAL] },
+    [ORG_B]: { status: "SAVED_UNVERIFIED", revision: 2, endpoint: LOCAL, allowed_endpoints: [PROD, LOCAL] },
   },
   members: {
     [ORG_A]: [

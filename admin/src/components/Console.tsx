@@ -1,23 +1,23 @@
 import { useState } from "react";
-import type { AccountApi, Me } from "../api/account";
-import type { MembersApi } from "../api/members";
+import type { Me } from "../api/account";
+import type { Services } from "../api/services";
 import { resolveEntry } from "../auth/access";
 import { defaultTheme } from "../brand/theme";
+import { Gateway } from "../pages/Gateway";
 import { Members } from "../pages/Members";
 import { Overview } from "../pages/Overview";
 import { AccessDenied } from "./AccessDenied";
 
 interface ConsoleProps {
-  api: AccountApi;
-  membersApi: MembersApi;
+  services: Services;
   me: Me;
   onSignOut: () => void;
 }
 
-const VIEWS = ["Overview", "Members"] as const;
+const VIEWS = ["Overview", "Members", "Gateway"] as const;
 type View = (typeof VIEWS)[number];
 
-export function Console({ api, membersApi, me, onSignOut }: ConsoleProps) {
+export function Console({ services, me, onSignOut }: ConsoleProps) {
   const entry = resolveEntry(me);
   const [orgId, setOrgId] = useState(entry.kind === "ready" ? entry.organization.id : "");
   const [view, setView] = useState<View>("Overview");
@@ -73,9 +73,11 @@ export function Console({ api, membersApi, me, onSignOut }: ConsoleProps) {
       <main className="mx-auto max-w-4xl p-6">
         {selected ? (
           view === "Members" ? (
-            <Members key={selected.id} api={api} membersApi={membersApi} organization={selected} />
+            <Members key={selected.id} api={services.account} membersApi={services.members} organization={selected} />
+          ) : view === "Gateway" ? (
+            <Gateway key={selected.id} gatewayApi={services.gateway} organization={selected} />
           ) : (
-            <Overview key={selected.id} api={api} organization={selected} />
+            <Overview key={selected.id} api={services.account} organization={selected} />
           )
         ) : (
           <p>Select an organization to continue.</p>

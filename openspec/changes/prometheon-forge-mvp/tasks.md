@@ -51,7 +51,7 @@ Rule: if any slice measures >800 at apply time, STOP, report, split by work unit
 
 ### Stacks (base = previous branch; A0 base = `main`)
 
-- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` (A4a) -> `a4b-member-lifecycle` -> `a5a-provisioning-contract` -> `a5a2-contract` -> `a5b-mvp-local` -> `a5b2-serve-composition` -> `a5b3-local-supervisor` -> `a6-api-isolation` -> `b1-admin-scaffold` (B1a) -> `b1b-admin-login` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
+- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` (A4a) -> `a4b-member-lifecycle` -> `a5a-provisioning-contract` -> `a5a2-contract` -> `a5b-mvp-local` -> `a5b2-serve-composition` -> `a5b3-local-supervisor` -> `a6-api-isolation` -> `b1-admin-scaffold` (B1a) -> `b1b-admin-login` -> `b2-admin-members` -> `b3-admin-gateway` (B3a) -> `b3b-admin-catalog` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
 - CL (`clients/openyak`): `feat/mvp-c1-remove-key-flow` -> `c2a-managed-launcher` -> `c2b-me-context-contract` -> `c3a-brand-tokens` -> `c3b-brand-strings` -> `c4-client-e2e`.
 - Dependencies: A1->A6 linear; B1 after A5b (needs mounted admin) but B2 after A4b, B3 after A2b; C1 independent; C2a after A3a; C2b after A5a (pin fixture until Final); C3/C4 after C2b; Final needs all.
 
@@ -166,9 +166,13 @@ B1b `feat/mvp-b1b-admin-login`: `admin/{index.html,README.md}`, `src/{main,App}.
 Files: `admin/src/pages/Members.tsx`, `api/members.ts`, `components/{InviteDialog,MemberTable}.tsx`, tests. Deps: B1, A4b.
 - [x] B2.1 RED: invite (pending row: the server lists members only after acceptance), suspend/reactivate, last-admin error, org-switch clears list, 404 rendering, keyboard/Escape focus return, reduced-motion (7 unit + 9 UI observed failing first); GREEN. Verify (cwd `admin`): `npm run test:unit` (59 pass), `npx tsc --noEmit`, `npm run build`. Also modified `src/api/runtime.ts`, `src/App.tsx`, `src/components/Console.tsx` (Overview/Members navigation), `src/members/model.ts` (pure helpers), `tests/ui/support.ts` (stateful members/invitations double)
 
-## B3 gateway + catalog UI (`b3-admin-gateway`)
-Files: `admin/src/pages/{Gateway,Catalog}.tsx`, `api/gateway.ts`, tests. Deps: B2, A2b.
-- [ ] B3.1 RED: save key (allow-listed endpoint select, key never rendered), revision conflict, publish catalog; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit`
+## B3 gateway + catalog UI (B3 est. ~990 authored lines > 800: split at apply time into B3a gateway / B3b catalog)
+B3a `feat/mvp-b3-admin-gateway`: `admin/src/{api/gateway.ts,api/services.ts,gateway/model.ts,pages/Gateway.tsx}`; Modify `api/runtime.ts` (single `services` bundle replaces per-port exports), `App.tsx`, `components/Console.tsx` (Gateway view); tests `tests/unit/gateway.spec.ts`, `tests/ui/gateway.spec.ts`, `tests/ui/support.ts` (gateway double with CAS). Deps: B2, A2b.
+- [x] B3a.1 RED: save key (allow-listed base-URL select, key write-only: password field, cleared on submit, never rendered or echoed), revision conflict (409 shows reload prompt, nothing overwritten, reload then save works), rejected key (redacted 422), 404 rendering, org switch clears, keyboard, reduced motion (5 unit + 8 UI observed failing first)
+- [x] B3a.2 GREEN; verify (cwd `admin`): `npm run test:unit` (72 pass), `npx tsc --noEmit`, `npm run build`
+
+B3b `feat/mvp-b3b-admin-catalog`: `admin/src/{pages/Catalog.tsx,api/catalog.ts,...}`, tests. Deps: B3a.
+- [ ] B3b.1 RED: refresh discovery, map aliases to upstream ids, publish with default (expected catalogue/gateway revisions, operation id), conflict, status shows published aliases; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit`
 
 ## B4 admin Playwright (`b4-admin-e2e`)
 Files: `admin/playwright.config.ts`, `admin/e2e/admin-flow.spec.ts`, `scripts/admin-e2e.ps1`. Deps: B3.
