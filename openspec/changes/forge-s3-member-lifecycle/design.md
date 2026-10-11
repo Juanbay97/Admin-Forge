@@ -23,7 +23,7 @@ Evidence above is retained from the prior planning inspection, not new runtime p
 | Separate restricted writer, enrollment and worker pools; keep runtime read-only | Broaden runtime grants: simpler, violates current checks | Preserve least privilege, FORCE RLS and explicit trusted composition. |
 | Pure policies, frozen commands, synchronous ports and stores | Route-owned SQL: fewer files, weaker boundaries | Match existing adapters and redaction. |
 | Organization serialization plus database last-admin guard | Application count alone races | Lock before fresh authority/count reads; guard all permitted role/status write paths; bounded timeout fails closed. |
-| Pending invite reserves membership UUID and tenant/object tuple; materialize identity/membership on validated activation | New membership status changes existing consumers | No access or administrator count before binding; unique organization/tenant/object reservation. |
+| Forge-owned pending invitation reserves membership UUID and one existing active same-org department; password acceptance materializes a genuine Forge identity/member | Entra-first activation is deferred | No public registration or pre-acceptance access; email is not an authorization identity. |
 | Generic event plus later delivery-state sidecar; atomic backfill and AFTER INSERT legacy mirror | Recurring importer requires incompatible legacy read policies | Preserve stable IDs and every legacy grant/policy; worker reads only the destination. |
 | Lease claims, fencing token, capped backoff | Hold transaction through sink: simpler, locks during I/O | Crash recovery and stale-worker exclusion without claiming exactly-once delivery. |
 | Many-to-many association keyed by organization/member/department | Single nullable department rejects cross-functional members | Composite same-org foreign keys and unique triples; no association implies administrative privilege. |
@@ -31,7 +31,7 @@ Evidence above is retained from the prior planning inspection, not new runtime p
 
 ## Interfaces and flow
 
-Proposed ports: `DepartmentStore.mutate/read`, `MemberStore.invite/mutate/read`, `EnrollmentStore.activate(VerifiedPrincipal, organization_id)`, `OutboxStore.claim/ack/retry`, `EventSink.publish`.
+Proposed ports: `DepartmentStore.mutate/read`, `MemberStore.invite/mutate/read`, `EnrollmentStore.accept(invitation_id, capability_digest, password_hash)` (Forge-owned; Entra activation deferred), `OutboxStore.claim/ack/retry`, `EventSink.publish`.
 
 ```text
 Client -> API: bearer + organization + command + If-Match
@@ -42,7 +42,7 @@ store -> DB: resource + revision + event; COMMIT
 API -> Client: allowlisted projection + ETag
 
 Bootstrap -> validator: validated principal (not client claims)
-Bootstrap -> enrollment: matching pending invite, atomic activation/event
+Password acceptance -> enrollment: single-use owned-account invite, atomic activation/audit
 Bootstrap -> existing reader: bound identity; normal access checks
 
 Migration -> DB: verify complete RLS visibility; lock legacy writes; install mirror + backfill; COMMIT
@@ -77,3 +77,32 @@ The S7 domain exists but its name is pending; Windows signing is deferred for ma
 ## Verification
 
 Strict RED/GREEN/REFACTOR, module unittest plus owned PostgreSQL harness. Cover real concurrent locks, authority revocation, last-admin races, activation uniqueness, cross-org RLS, readiness tampering, failure atomicity, lease expiry and secret-marker redaction. No browser/client proof claimed; first-login integration is server-side bootstrap, not desktop PKCE.
+
+## Approved owned-account increment (2026-10-08)
+
+Microsoft is deferred: administrators enter email/name and one existing active
+same-organization area. Pending invitations grant no membership or department link.
+Recipients set a password through a random single-use32-byte capability; only its
+hash is durable. Accounts use provider `forge`, an explicit fixed internal issuer
+and stable UUID subject, never spoofed Entra or email identity. Existing account
+invitations require separately authenticated linking; U1 cannot overwrite credentials.
+
+`0013_owned_account_enrollment.sql` is the additive owned-account/departments/link
+increment; reserved0006–0009 and 0012 are preserved. Many-to-many associations remain
+the durable model, with exactly one initial area in this onboarding increment.
+Lock/revalidate organization, admin member, actual identity and grant at creation;
+acceptance revalidates inviter authority, organization, area and invitation lifetime.
+Consume/create identity+credentials+member+area+allowlisted audit atomically. Dedicated
+nonbypass authority functions preserve runtime table grants. The additional scoped
+policies intentionally fall outside the legacy exact readiness attestation: the
+unchanged legacy probe must return false after 0013. This is an opt-in enrollment
+migration, not a runtime rollout. This increment explicitly supersedes the earlier
+retained-schema compatibility expectation for 0013 only; unrelated slices remain
+unchanged. U2 must provide a separate enrollment-aware exact catalog/ACL/RLS
+attestation before any runtime composition is enabled; never relax the legacy probe.
+
+U0/U1 only are released now. Versioned bounded Scrypt uses installed cryptography;
+no crypto implementation or package installation is introduced. U2 will add sessions,
+HTTP and delivery states (issuance is not mail delivery); U3 will extend the actual
+product UI and prove browser flows. Recovery, unrelated outbox/catalog work and
+S4–S7 scope remain unchanged. Exact checks and progress: `odd/tasks/forge-owned-accounts.md`.
