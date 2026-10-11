@@ -37,6 +37,17 @@ class Department:
 
 
 @dataclass(frozen=True)
+class Member:
+    """One member of an organization as an administrator sees it (no secrets)."""
+    id: UUID
+    email: str
+    display_name: str
+    status: str
+    roles: tuple[str, ...]
+    departments: tuple[Department, ...]
+
+
+@dataclass(frozen=True)
 class MemberRow:
     """One membership of the validated account, in any status (store output)."""
     account_id: UUID
@@ -75,6 +86,7 @@ class DirectoryStore(Protocol):
     def me(self, digest: str) -> list[MemberRow]: ...
     def departments(self, digest: str, organization_id: UUID) -> list[Department]: ...
     def create_department(self, digest: str, organization_id: UUID, name: str) -> Department: ...
+    def members(self, digest: str, organization_id: UUID) -> list[Member]: ...
 
 
 class DirectoryService:
@@ -111,3 +123,7 @@ class DirectoryService:
                 or any(ord(char) < 32 or ord(char) == 127 for char in name)):
             raise ValueError('Invalid department name.')
         return self._store.create_department(capability_digest(token), organization_id, name.strip())
+
+    def members(self, token: str, organization_id: UUID) -> list[Member]:
+        self._organization(organization_id)
+        return list(self._store.members(capability_digest(token), organization_id))

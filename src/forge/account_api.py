@@ -144,6 +144,19 @@ class DepartmentListResponse(InputModel):
     departments: list[DepartmentResponse]
 
 
+class MemberResponse(InputModel):
+    id: UUID
+    email: str
+    display_name: str
+    status: Literal['active','suspended']
+    roles: list[str]
+    departments: list[DepartmentResponse]
+
+
+class MemberListResponse(InputModel):
+    members: list[MemberResponse]
+
+
 class MeAccountResponse(InputModel):
     id: UUID
     email: str
@@ -419,6 +432,12 @@ def create_account_app(*,sessions: SessionService | None=None,
               openapi_extra={'security':[{'ForgeBearer':[]}]})
     def create_department(organization_id: UUID,body: DepartmentBody,actor: Annotated[tuple,Depends(token)]):
         return invoke(directory_port().create_department,actor[0],organization_id,body.name)
+
+    @app.get('/forge/v1/orgs/{organization_id}/members',response_model=MemberListResponse,
+              responses={status:{'model':ErrorEnvelope} for status in (401,404,422,503)},
+              openapi_extra={'security':[{'ForgeBearer':[]}]})
+    def list_members(organization_id: UUID,actor: Annotated[tuple,Depends(token)]):
+        return {'members':invoke(directory_port().members,actor[0],organization_id)}
 
     def catalog_actor(organization_id,actor,*,admin=False):
         if gateway_catalog is None:

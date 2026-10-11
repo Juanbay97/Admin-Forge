@@ -10,7 +10,7 @@ from uuid import UUID
 from psycopg.pq import TransactionStatus
 from psycopg.rows import tuple_row
 from forge.account_store import _ROLE, _KEYS
-from forge.directory import (Department, MemberRow, DirectoryDenied, DirectoryConflict,
+from forge.directory import (Department, Member, MemberRow, DirectoryDenied, DirectoryConflict,
                              DirectoryUnavailable)
 
 
@@ -55,6 +55,11 @@ def _departments(value):
     return tuple(Department(UUID(item['id']), item['name']) for item in items)
 
 
+def _member(row):
+    member_id, email, name, status, roles, departments = row
+    return Member(member_id, email, name, status, tuple(roles), _departments(departments))
+
+
 class PostgresDirectoryStore:
     def __init__(self, pool, *, acquisition_timeout=1.0):
         self.connection = DirectoryConnection(pool, acquisition_timeout=acquisition_timeout)
@@ -78,3 +83,8 @@ class PostgresDirectoryStore:
             if row is None:
                 raise DirectoryUnavailable()
             return Department(*row)
+
+    def members(self, digest, organization_id):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.directory_members(%s,%s)', (digest, organization_id))
+            return [_member(row) for row in cursor.fetchall()]

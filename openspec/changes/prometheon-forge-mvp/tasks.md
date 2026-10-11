@@ -9,7 +9,7 @@ Two stacked-to-main chains, local only (no push/PR/merge). Strict TDD: every sli
 | Estimated changed lines | ~10,400 total (CP ~6,300 / CL ~4,100), 25 slices after splits |
 | 400-line budget risk | High (review_budget_lines = 800 per slice) |
 | Chained PRs recommended | Yes |
-| Suggested split | A2->A2a/A2b, A3->A3a/A3b, A5->A5a/A5b, C2->C2a/C2b, A0->A0/A0b (see table) |
+| Suggested split | A2->A2a/A2b, A3->A3a/A3b, A4->A4a/A4b, A5->A5a/A5b, C2->C2a/C2b, A0->A0/A0b (see table) |
 | Delivery strategy | auto-chain (force-chained) |
 | Chain strategy | stacked-to-main |
 
@@ -30,7 +30,8 @@ Chain strategy: stacked-to-main
 | A2b 0019 + mvp_profile + PG gate | ~420 | no (A2 whole ~900: split) |
 | A3a me | ~490 | no (A3 whole 976: split at apply) |
 | A3b departments | ~490 | no |
-| A4 members | ~700 | no |
+| A4a member list | ~470 | no (A4 whole 863: split at apply) |
+| A4b member lifecycle | ~400 | no |
 | A5a provisioning+contract | ~520 | no |
 | A5b mvp_local+admin_mount+readiness+script | ~650 | no (A5 whole ~1,170: split; STOP if >800) |
 | A6 API isolation E2E | ~350 | no |
@@ -50,9 +51,9 @@ Rule: if any slice measures >800 at apply time, STOP, report, split by work unit
 
 ### Stacks (base = previous branch; A0 base = `main`)
 
-- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` -> `a5a-provisioning-contract` -> `a5b-mvp-local` -> `a6-api-isolation` -> `b1-admin-scaffold` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
+- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` (A4a) -> `a4b-member-lifecycle` -> `a5a-provisioning-contract` -> `a5b-mvp-local` -> `a6-api-isolation` -> `b1-admin-scaffold` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
 - CL (`clients/openyak`): `feat/mvp-c1-remove-key-flow` -> `c2a-managed-launcher` -> `c2b-me-context-contract` -> `c3a-brand-tokens` -> `c3b-brand-strings` -> `c4-client-e2e`.
-- Dependencies: A1->A6 linear; B1 after A5b (needs mounted admin) but B2 after A4, B3 after A2b; C1 independent; C2a after A3a; C2b after A5a (pin fixture until Final); C3/C4 after C2b; Final needs all.
+- Dependencies: A1->A6 linear; B1 after A5b (needs mounted admin) but B2 after A4b, B3 after A2b; C1 independent; C2a after A3a; C2b after A5a (pin fixture until Final); C3/C4 after C2b; Final needs all.
 
 ## Slice 0: Setup (no source edits)
 
@@ -99,25 +100,31 @@ Files: `migrations/0020_directory_identity.sql` (role, narrow RLS, `directory_ac
 - [x] A3a.3 Verify: `-p test_directory*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_directory.py`
 
 ## A3b departments (`feat/mvp-a3b-departments`, stacked on A3a)
-Files: `migrations/0021_department_directory.sql` (`directory_admin`, department list/create, case-insensitive unique name index, org-wide read + insert policies), Modify `directory.py`, `directory_store.py`, `account_api.py` (`GET|POST /forge/v1/orgs/{id}/departments`), `mvp_profile.py` (F21); extend the three `tests/test_directory*.py`/`test_postgres_directory.py` files. Deps: A3a. Departments get their own migration so reviewed 0020 bytes (and F20) stay immutable; consequently A4 moves to migration 0022/F22 and A5b pins F22.
+Files: `migrations/0021_department_directory.sql` (`directory_admin`, department list/create, case-insensitive unique name index, org-wide read + insert policies), Modify `directory.py`, `directory_store.py`, `account_api.py` (`GET|POST /forge/v1/orgs/{id}/departments`), `mvp_profile.py` (F21); extend the three `tests/test_directory*.py`/`test_postgres_directory.py` files. Deps: A3a. Departments get their own migration so reviewed 0020 bytes (and F20) stay immutable; consequently A4 moves to migrations 0022/0023 (F22/F23, see A4a/A4b) and A5b pins F23.
 - [x] A3b.1 RED: departments list/create/duplicate/cross-org+non-admin uniform 404, 409 `DEPARTMENT_EXISTS`, invalid name 422 (member-administration)
 - [x] A3b.2 GREEN: 0021 + store + routes; pin F21 by fresh(0001-0005+0010-0021)==upgrade-from-0020 (F21 = `bcb3ce1d...faaaeb`)
 - [x] A3b.3 Verify: `-p test_directory*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_directory.py`
 
-## A4 members (`a4-members`)
-Files: `migrations/0022_member_administration.sql` (renumbered from 0021 when A3b took 0021), Modify `directory.py`, `directory_store.py`, `account_api.py`, `mvp_profile.py` (F22); `tests/test_member_administration*.py`, `tests/test_postgres_member_administration.py`. Deps: A3b.
-- [ ] A4.1 RED: admin list, non-admin 403, cross-org 404, suspend/reactivate, 409 `LAST_ADMIN`, unknown/foreign id 404, concurrent suspend (row lock)
-- [ ] A4.2 GREEN: 0022 SQL (last-admin + role checks inside function) + store/routes; pin F22
-- [ ] A4.3 Verify: `-p test_member_administration*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_member_administration.py`
+## A4a member list (`a4-members`, branch name retained; A4 split into A4a/A4b at apply time: 863 authored lines > 800)
+Files: `migrations/0022_member_directory.sql` (renumbered from 0021 when A3b took 0021; org-scoped read policies, `directory_member_rows`, `directory_members`), Modify `directory.py`, `directory_store.py`, `account_api.py` (`GET /forge/v1/orgs/{o}/members`), `mvp_profile.py` (F22); `tests/test_member_administration.py`, `tests/test_member_administration_api.py`, `tests/test_postgres_member_administration.py`. Deps: A3b.
+- [x] A4a.1 RED: admin list (all statuses, roles, departments, no secrets), non-admin/cross-org/unknown-org uniform 404, 401 before service (member-administration)
+- [x] A4a.2 GREEN: 0022 SQL + store/route; pin F22 by fresh(0001-0005+0010-0022)==upgrade-from-0021 (F22 = `4df89fdf...d06f5b`)
+- [x] A4a.3 Verify: `-p test_member_administration*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_member_administration.py`
+
+## A4b member lifecycle (`feat/mvp-a4b-member-lifecycle`, stacked on A4a)
+Files: `migrations/0023_member_lifecycle.sql` (`UPDATE(status)` + session-revoke grants/policies, `directory_member_status` with last-admin guard under row locks), Modify `directory.py` (`DirectoryLastAdmin`, suspend/reactivate), `directory_store.py`, `account_api.py` (`POST .../members/{m}/suspend|reactivate`, 409 `LAST_ADMIN`), `mvp_profile.py` (F23); extend the three `tests/*member_administration*.py` files. Deps: A4a. A5b therefore pins F23.
+- [ ] A4b.1 RED: suspend/reactivate, session revocation, 409 `LAST_ADMIN` (incl. self-suspension), unknown/foreign id 404, concurrent mutual suspension (row lock)
+- [ ] A4b.2 GREEN: 0023 SQL (last-admin + role checks inside function, admin rows locked FOR UPDATE; suspension revokes all of the account's sessions) + store/routes; pin F23 by fresh==upgrade-from-0022
+- [ ] A4b.3 Verify: `-p test_member_administration*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_member_administration.py`
 
 ## A5a provisioning + contract (`a5a-provisioning-contract`)
-Files: `src/forge/provisioning.py`, `contract.py`, `contract/forge-mvp.contract.json`; Modify `account_api.py` (`GET /forge/v1/contract`); tests `test_provisioning.py`, `test_contract.py`. Deps: A4.
+Files: `src/forge/provisioning.py`, `contract.py`, `contract/forge-mvp.contract.json`; Modify `account_api.py` (`GET /forge/v1/contract`); tests `test_provisioning.py`, `test_contract.py`. Deps: A4b.
 - [ ] A5a.1 RED: provision org, idempotent rerun, two-org seed; contract drift test (regenerate == committed, `contract_version: forge-mvp/1`, sha endpoint)
 - [ ] A5a.2 GREEN: `python -m forge.provision`; contract generator + route
 - [ ] A5a.3 Verify: `-p test_provisioning.py -v`, `-p test_contract.py -v`
 
 ## A5b mvp_local runtime (`a5b-mvp-local`)
-Files: `src/forge/mvp_local.py`, `mvp_readiness.py` (pins F22), `admin_mount.py`, `scripts/mvp-local.ps1`, Modify `pyproject.toml` (package-data), `docs/mvp-local.md`; tests `test_mvp_local.py`, `test_admin_mount.py`. Deps: A5a. STOP and report if >800.
+Files: `src/forge/mvp_local.py`, `mvp_readiness.py` (pins F23), `admin_mount.py`, `scripts/mvp-local.ps1`, Modify `pyproject.toml` (package-data), `docs/mvp-local.md`; tests `test_mvp_local.py`, `test_admin_mount.py`. Deps: A5a. STOP and report if >800.
 - [ ] A5b.1 RED: valid/missing/malformed config, env ignored, port occupied, foreign Origin/Host rejected, CORS only 3411, startup fails if admin build missing, CSP + SPA fallback, invite `.eml` mailbox (mvp-local-runtime)
 - [ ] A5b.2 GREEN: ports from single `mvp_ports`; `DeliveryCoordinator(origin=http://127.0.0.1:3411)`; PG17 readiness
 - [ ] A5b.3 Verify: `-p test_mvp_local.py -v`, `-p test_admin_mount.py -v`, `scripts\test-postgres.ps1`
@@ -134,7 +141,7 @@ Files (in `admin/`): `package.json`, lockfile, `vite.config.ts` (base `/admin/`)
 - [ ] B1.3 Verify (cwd `admin`): `npm run test:unit`, `npx tsc --noEmit`, `npm run build` (output gitignored)
 
 ## B2 members UI (`b2-admin-members`)
-Files: `admin/src/pages/Members.tsx`, `api/members.ts`, `components/{InviteDialog,MemberTable}.tsx`, tests. Deps: B1, A4.
+Files: `admin/src/pages/Members.tsx`, `api/members.ts`, `components/{InviteDialog,MemberTable}.tsx`, tests. Deps: B1, A4b.
 - [ ] B2.1 RED: invite, suspend, last-admin error, keyboard/reduced-motion; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit`
 
 ## B3 gateway + catalog UI (`b3-admin-gateway`)
