@@ -100,14 +100,14 @@ Files: `migrations/0020_directory_identity.sql` (role, narrow RLS, `directory_ac
 
 ## A3b departments (`feat/mvp-a3b-departments`, stacked on A3a)
 Files: `migrations/0021_department_directory.sql` (`directory_admin`, department list/create, case-insensitive unique name index, org-wide read + insert policies), Modify `directory.py`, `directory_store.py`, `account_api.py` (`GET|POST /forge/v1/orgs/{id}/departments`), `mvp_profile.py` (F21); extend the three `tests/test_directory*.py`/`test_postgres_directory.py` files. Deps: A3a. Departments get their own migration so reviewed 0020 bytes (and F20) stay immutable; consequently A4 moves to migration 0022/F22 and A5b pins F22.
-- [ ] A3b.1 RED: departments list/create/duplicate/cross-org+non-admin uniform 404, 409 `DEPARTMENT_EXISTS`, invalid name 422 (member-administration)
-- [ ] A3b.2 GREEN: 0021 + store + routes; pin F21 by fresh(0001-0005+0010-0021)==upgrade-from-0020
-- [ ] A3b.3 Verify: `-p test_directory*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_directory.py`
+- [x] A3b.1 RED: departments list/create/duplicate/cross-org+non-admin uniform 404, 409 `DEPARTMENT_EXISTS`, invalid name 422 (member-administration)
+- [x] A3b.2 GREEN: 0021 + store + routes; pin F21 by fresh(0001-0005+0010-0021)==upgrade-from-0020 (F21 = `bcb3ce1d...faaaeb`)
+- [x] A3b.3 Verify: `-p test_directory*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_directory.py`
 
 ## A4 members (`a4-members`)
-Files: `migrations/0021_member_administration.sql`, Modify `directory.py`, `directory_store.py`, `account_api.py`, `mvp_profile.py` (F21); `tests/test_member_administration*.py`, `tests/test_postgres_member_administration.py`. Deps: A3.
+Files: `migrations/0022_member_administration.sql` (renumbered from 0021 when A3b took 0021), Modify `directory.py`, `directory_store.py`, `account_api.py`, `mvp_profile.py` (F22); `tests/test_member_administration*.py`, `tests/test_postgres_member_administration.py`. Deps: A3b.
 - [ ] A4.1 RED: admin list, non-admin 403, cross-org 404, suspend/reactivate, 409 `LAST_ADMIN`, unknown/foreign id 404, concurrent suspend (row lock)
-- [ ] A4.2 GREEN: 0021 SQL (last-admin + role checks inside function) + store/routes; pin F21
+- [ ] A4.2 GREEN: 0022 SQL (last-admin + role checks inside function) + store/routes; pin F22
 - [ ] A4.3 Verify: `-p test_member_administration*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_member_administration.py`
 
 ## A5a provisioning + contract (`a5a-provisioning-contract`)
@@ -117,7 +117,7 @@ Files: `src/forge/provisioning.py`, `contract.py`, `contract/forge-mvp.contract.
 - [ ] A5a.3 Verify: `-p test_provisioning.py -v`, `-p test_contract.py -v`
 
 ## A5b mvp_local runtime (`a5b-mvp-local`)
-Files: `src/forge/mvp_local.py`, `mvp_readiness.py` (pins F21), `admin_mount.py`, `scripts/mvp-local.ps1`, Modify `pyproject.toml` (package-data), `docs/mvp-local.md`; tests `test_mvp_local.py`, `test_admin_mount.py`. Deps: A5a. STOP and report if >800.
+Files: `src/forge/mvp_local.py`, `mvp_readiness.py` (pins F22), `admin_mount.py`, `scripts/mvp-local.ps1`, Modify `pyproject.toml` (package-data), `docs/mvp-local.md`; tests `test_mvp_local.py`, `test_admin_mount.py`. Deps: A5a. STOP and report if >800.
 - [ ] A5b.1 RED: valid/missing/malformed config, env ignored, port occupied, foreign Origin/Host rejected, CORS only 3411, startup fails if admin build missing, CSP + SPA fallback, invite `.eml` mailbox (mvp-local-runtime)
 - [ ] A5b.2 GREEN: ports from single `mvp_ports`; `DeliveryCoordinator(origin=http://127.0.0.1:3411)`; PG17 readiness
 - [ ] A5b.3 Verify: `-p test_mvp_local.py -v`, `-p test_admin_mount.py -v`, `scripts\test-postgres.ps1`

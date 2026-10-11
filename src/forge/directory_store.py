@@ -10,7 +10,8 @@ from uuid import UUID
 from psycopg.pq import TransactionStatus
 from psycopg.rows import tuple_row
 from forge.account_store import _ROLE, _KEYS
-from forge.directory import Department, MemberRow, DirectoryDenied, DirectoryUnavailable
+from forge.directory import (Department, MemberRow, DirectoryDenied, DirectoryConflict,
+                             DirectoryUnavailable)
 
 
 class DirectoryConnection:
@@ -35,13 +36,17 @@ class DirectoryConnection:
                     for key in _KEYS:
                         cursor.execute("SELECT set_config(%s,'',true)", ('forge.' + key,))
                     yield cursor
-        except (DirectoryDenied, DirectoryUnavailable, ValueError):
+        except (DirectoryDenied, DirectoryConflict, DirectoryUnavailable, ValueError):
             raise
         except Exception as error:
             if getattr(error, 'sqlstate', None) == 'P0001':
                 message = getattr(getattr(error, 'diag', None), 'message_primary', None)
                 if message == 'DIRECTORY_DENIED':
                     raise DirectoryDenied() from None
+                if message == 'DIRECTORY_CONFLICT':
+                    raise DirectoryConflict() from None
+                if message == 'DIRECTORY_INVALID':
+                    raise ValueError('Invalid department name.') from None
             raise DirectoryUnavailable() from None
 
 
@@ -59,3 +64,17 @@ class PostgresDirectoryStore:
             cursor.execute('SELECT * FROM forge.directory_me(%s)', (digest,))
             return [MemberRow(account, email, name, org, org_name, status, tuple(roles), _departments(departments))
                     for account, email, name, org, org_name, status, roles, departments in cursor.fetchall()]
+
+    def departments(self, digest, organization_id):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.directory_departments(%s,%s)', (digest, organization_id))
+            return [Department(*row) for row in cursor.fetchall()]
+
+    def create_department(self, digest, organization_id, name):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.directory_department_create(%s,%s,%s)',
+                           (digest, organization_id, name))
+            row = cursor.fetchone()
+            if row is None:
+                raise DirectoryUnavailable()
+            return Department(*row)

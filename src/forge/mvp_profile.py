@@ -10,8 +10,9 @@ from forge.dev_accounts_gateway import ADDITIONS, CHECKPOINTS
 
 ORIGIN_MIGRATION = '0019_gateway_origin.sql'
 DIRECTORY_MIGRATION = '0020_directory_identity.sql'
-MVP_ADDITIONS = (*ADDITIONS, ORIGIN_MIGRATION, DIRECTORY_MIGRATION)
-MVP_PROFILE = '0001-0005+0010-0020/PG17'
+DEPARTMENT_MIGRATION = '0021_department_directory.sql'
+MVP_ADDITIONS = (*ADDITIONS, ORIGIN_MIGRATION, DIRECTORY_MIGRATION, DEPARTMENT_MIGRATION)
+MVP_PROFILE = '0001-0005+0010-0021/PG17'
 
 # Schema fingerprint after 0019 (F19): fresh apply of 0001-0005+0010-0019 and upgrade
 # from the 0018 profile were proven identical on the owned PG17 harness.
@@ -21,4 +22,8 @@ F19 = '366249318981b950df80c7e958543877e9d2d83f0dae1b14b907a18b39df9d87'
 # from the 0019 profile were proven identical on the owned PG17 harness.
 F20 = 'eb61cb72599654d7a1e7d959bb323e3a398d5c0197ee404e545ee83e1befe672'
 
-MVP_CHECKPOINTS = (*CHECKPOINTS, F19, F20)
+# Schema fingerprint after 0021 (F21): fresh apply of 0001-0005+0010-0021 and upgrade
+# from the 0020 profile were proven identical on the owned PG17 harness.
+F21 = 'bcb3ce1de893d3a08a29ad2dade5b21399e38dc98a3182db1ea16dcfb6faaaeb'
+
+MVP_CHECKPOINTS = (*CHECKPOINTS, F19, F20, F21)

@@ -1,14 +1,17 @@
-"""Server-discovered identity context.
+"""Server-discovered identity context and department directory.
 
 Callers never supply an organization id for ``me``: the context comes from the
-live session. Authority is enforced in the database function; this layer only
-normalizes and redacts.
+live session. Org-scoped department operations are admin-only and uniformly deny
+foreign or unknown organizations. Authority is enforced in the database function;
+this layer only normalizes and redacts.
 """
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
 from forge.invitations import capability_digest
+
+MAX_NAME = 120
 
 
 class DirectoryDenied(Exception):
@@ -17,6 +20,10 @@ class DirectoryDenied(Exception):
 
 class DirectorySuspended(Exception):
     def __init__(self): super().__init__('Directory unavailable.')
+
+
+class DirectoryConflict(Exception):
+    def __init__(self): super().__init__('Directory conflict.')
 
 
 class DirectoryUnavailable(Exception):
@@ -66,6 +73,8 @@ class Me:
 
 class DirectoryStore(Protocol):
     def me(self, digest: str) -> list[MemberRow]: ...
+    def departments(self, digest: str, organization_id: UUID) -> list[Department]: ...
+    def create_department(self, digest: str, organization_id: UUID, name: str) -> Department: ...
 
 
 class DirectoryService:
@@ -86,3 +95,19 @@ class DirectoryService:
         return Me(Account(first.account_id, first.email, first.display_name),
                   tuple(Membership(row.organization_id, row.organization_name, row.status,
                                    row.roles, row.departments) for row in active))
+
+    @staticmethod
+    def _organization(organization_id):
+        if type(organization_id) is not UUID:
+            raise ValueError('Invalid organization.')
+
+    def departments(self, token: str, organization_id: UUID) -> list[Department]:
+        self._organization(organization_id)
+        return list(self._store.departments(capability_digest(token), organization_id))
+
+    def create_department(self, token: str, organization_id: UUID, name: str) -> Department:
+        self._organization(organization_id)
+        if (type(name) is not str or not 1 <= len(name.strip()) <= MAX_NAME
+                or any(ord(char) < 32 or ord(char) == 127 for char in name)):
+            raise ValueError('Invalid department name.')
+        return self._store.create_department(capability_digest(token), organization_id, name.strip())
