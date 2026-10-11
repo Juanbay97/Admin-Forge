@@ -51,7 +51,7 @@ Rule: if any slice measures >800 at apply time, STOP, report, split by work unit
 
 ### Stacks (base = previous branch; A0 base = `main`)
 
-- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` (A4a) -> `a4b-member-lifecycle` -> `a5a-provisioning-contract` -> `a5a2-contract` -> `a5b-mvp-local` -> `a6-api-isolation` -> `b1-admin-scaffold` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
+- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` (A4a) -> `a4b-member-lifecycle` -> `a5a-provisioning-contract` -> `a5a2-contract` -> `a5b-mvp-local` -> `a5b2-serve-composition` -> `a5b3-local-supervisor` -> `a6-api-isolation` -> `b1-admin-scaffold` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
 - CL (`clients/openyak`): `feat/mvp-c1-remove-key-flow` -> `c2a-managed-launcher` -> `c2b-me-context-contract` -> `c3a-brand-tokens` -> `c3b-brand-strings` -> `c4-client-e2e`.
 - Dependencies: A1->A6 linear; B1 after A5b (needs mounted admin) but B2 after A4b, B3 after A2b; C1 independent; C2a after A3a; C2b after A5a (pin fixture until Final); C3/C4 after C2b; Final needs all.
 
@@ -129,14 +129,24 @@ Files: `src/forge/contract.py`, `contract/forge-mvp.contract.json`; Modify `acco
 - [x] A5a2.2 GREEN: generator from app routes + `GET /forge/v1/contract` + `python -m forge.contract --write|--check`
 - [x] A5a2.3 Verify: `-p test_contract.py -v`; account/directory/member/gateway API suites unchanged-green
 
-## A5b mvp_local runtime (`a5b-mvp-local`)
-Files: `src/forge/mvp_local.py`, `mvp_readiness.py` (pins F23), `admin_mount.py`, `scripts/mvp-local.ps1`, Modify `pyproject.toml` (package-data), `docs/mvp-local.md`; tests `test_mvp_local.py`, `test_admin_mount.py`. Deps: A5a2. STOP and report if >800.
-- [ ] A5b.1 RED: valid/missing/malformed config, env ignored, port occupied, foreign Origin/Host rejected, CORS only 3411, startup fails if admin build missing, CSP + SPA fallback, invite `.eml` mailbox (mvp-local-runtime)
-- [ ] A5b.2 GREEN: ports from single `mvp_ports`; `DeliveryCoordinator(origin=http://127.0.0.1:3411)`; PG17 readiness
-- [ ] A5b.3 Verify: `-p test_mvp_local.py -v`, `-p test_admin_mount.py -v`, `scripts\test-postgres.ps1`
+## A5b mvp_local runtime (A5b was ~1,050 authored lines > 800: split at apply time into A5b1/A5b2/A5b3)
+A5b1 `feat/mvp-a5b-mvp-local`: `src/forge/admin_mount.py` (CSP, SPA fallback, caching, degraded 503; Host/Origin guard + CORS), `mvp_readiness.py` (pins F23); tests `test_admin_mount.py`, `test_postgres_mvp_readiness.py`; `tests/mvp_support.py` (`migrations=` parameter). Deps: A5a2.
+- [x] A5b1.1 RED: CSP + SPA fallback + traversal, build missing (required -> `ADMIN_BUILD_MISSING`, optional -> clear 503), foreign Host/Origin rejected, CORS only the client origin; MvpReadiness accepts F23 only
+- [x] A5b1.2 GREEN: `admin_mount.py` + `mvp_readiness.py` (a missing build can degrade instead of failing: the admin SPA is built by B1, after this slice)
+- [x] A5b1.3 Verify: `-p test_admin_mount.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_mvp_readiness.py`
+
+A5b2 `feat/mvp-a5b2-serve-composition`: `src/forge/mvp_local.py` config-only `serve` (strict config, ports from one `MVP_PORTS`, no env discovery, secrets file, `DeliveryCoordinator(origin=client)`, `.eml` mailbox, allow-list policy, `MvpReadiness`, `/status`); test `test_mvp_local.py`, `test_postgres_mvp_local.py`. Deps: A5b1.
+- [ ] A5b2.1 RED: valid/missing/malformed/unknown-key config, env ignored, port occupied binds nothing, status ready, invite `.eml` with the client origin
+- [ ] A5b2.2 GREEN: `mvp_local.py` serve composition
+- [ ] A5b2.3 Verify: `-p test_mvp_local.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_mvp_local.py`
+
+A5b3 `feat/mvp-a5b3-local-supervisor`: Modify `fake_gateway.py` (`serve()`/CLI), `mvp_local.py` (supervised `up`: owned PG17 + schema + seed + fake gateway + control plane), `scripts/mvp-local.ps1`, `pyproject.toml` (package-data), `docs/mvp-local.md`. Deps: A5b2.
+- [ ] A5b3.1 RED: fake gateway serve/CLI (keys file, loopback only, port occupied), supervisor wiring
+- [ ] A5b3.2 GREEN + script/docs; real owned-container smoke
+- [ ] A5b3.3 Verify: `-p test_fake_gateway.py -v`, `-p test_mvp_local.py -v`, `scripts\test-postgres.ps1` modules one at a time
 
 ## A6 API isolation E2E (`a6-api-isolation`)
-Files: `tests/test_mvp_api_isolation.py` only. Deps: A5b.
+Files: `tests/test_mvp_api_isolation.py` only. Deps: A5b3.
 - [ ] A6.1 RED/GREEN: 2 orgs cross-org 404, key absent from responses/logs/stream, `fake-slow` suspend mid-stream denied, logout revokes, member sees only published aliases
 - [ ] A6.2 Verify: `scripts\test-postgres.ps1 -TestPattern test_mvp_api_isolation.py`; full `.venv\Scripts\python.exe -m unittest discover -s tests -v`
 

@@ -39,10 +39,10 @@ class MvpDatabase:
 
 
 @contextmanager
-def mvp_database():
+def mvp_database(*, migrations=(*MIGRATIONS, *MVP_ADDITIONS)):
     try:
         with separate_database() as admin:
-            for name in (*MIGRATIONS, *MVP_ADDITIONS):
+            for name in migrations:
                 admin.execute(migration_text(name))
             with ExitStack() as stack:
                 yield MvpDatabase(admin, stack)
