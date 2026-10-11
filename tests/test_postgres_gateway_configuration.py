@@ -87,7 +87,7 @@ class PostgresGatewayTests(unittest.TestCase):
                 bootstrap_reader=PostgresBootstrapReader(readers),authorization_reader=PostgresAuthorizationReader(readers),gateway_configuration=service)
             with TestClient(app,raise_server_exceptions=False) as client:
                 headers={'Authorization':'Bearer '+token};url='/forge/v1/orgs/'+str(ORG_A)+'/gateway'
-                self.assertEqual(client.get(url,headers=headers).json(),{'status':'NOT_CONFIGURED','revision':0,'endpoint':GATEWAY_ENDPOINT})
+                self.assertEqual(client.get(url,headers=headers).json(),{'status':'NOT_CONFIGURED','revision':0,'endpoint':GATEWAY_ENDPOINT,'allowed_endpoints':[GATEWAY_ENDPOINT]})
                 result=client.put(url,headers=headers,json={'expected_revision':0,'api_key':KEY})
                 self.assertEqual(result.status_code,200);self.assertNotIn(KEY,result.text)
                 self.assertEqual(result.json()['status'],'SAVED_UNVERIFIED')

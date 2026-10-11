@@ -1,4 +1,4 @@
-"""Bounded fixed-origin ID discovery; IDs do not establish capabilities."""
+"""Bounded allow-listed-origin ID discovery; IDs do not establish capabilities."""
 import asyncio
 import json
 import math
@@ -6,6 +6,7 @@ import re
 from time import monotonic
 import httpx
 from forge.gateway_configuration import GatewayCipher, GatewayUnavailable, GATEWAY_ENDPOINT
+from forge.gateway_origins import DEFAULT_POLICY, OriginPolicy
 
 MAX_MODELS = 500
 MAX_MODEL_ID = 255
@@ -30,7 +31,10 @@ class HttpxModelsAdapter:
     The optional smaller deadline is useful for labelled cancellation tests;
     no caller can increase the production ten-second ceiling.
     """
-    def __init__(self, *, transport=None, clock=monotonic, deadline_seconds=10.0):
+    def __init__(self, *, transport=None, clock=monotonic, deadline_seconds=10.0, policy=DEFAULT_POLICY):
+        if type(policy) is not OriginPolicy:
+            raise ValueError('Explicit gateway origin policy required.')
+        self._policy = policy
         if (type(deadline_seconds) not in (int, float) or not math.isfinite(deadline_seconds)
                 or not 0 < deadline_seconds <= 10.0):
             raise ValueError('Invalid discovery deadline.')
@@ -50,12 +54,15 @@ class HttpxModelsAdapter:
         GatewayCipher.validate_key(key)
         observed_deadline = self._clock() + self._deadline_seconds
         try:
+            # An opened GatewayKey carries its bound origin; a plain key is the fixed default.
+            # Re-checked here so a narrowed allow-list denies before any request leaves.
+            endpoint = self._policy.require(getattr(key, 'endpoint', GATEWAY_ENDPOINT))
             # Unlike per-read timeouts or clock observations, this cancellation
             # surrounds send, response headers and every awaited body fragment.
             async with asyncio.timeout(self._deadline_seconds):
                 async with httpx.AsyncClient(transport=self._transport, trust_env=False,
                         follow_redirects=False, timeout=httpx.Timeout(5, connect=2, write=2, pool=1)) as client:
-                    async with client.stream('GET', GATEWAY_ENDPOINT + '/v1/models',
+                    async with client.stream('GET', endpoint + '/v1/models',
                             headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json',
                                      'Accept-Encoding': 'identity'}) as response:
                         if (response.status_code != 200 or self._clock() >= observed_deadline

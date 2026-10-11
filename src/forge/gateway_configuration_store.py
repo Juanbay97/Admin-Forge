@@ -4,7 +4,7 @@ import math
 from psycopg.rows import tuple_row
 from psycopg.pq import TransactionStatus
 from forge.account_store import _ROLE,_KEYS
-from forge.gateway_configuration import GatewayRecord,GatewayDenied,GatewayConflict,GatewayUnavailable
+from forge.gateway_configuration import GatewayRecord,GatewayDenied,GatewayConflict,GatewayUnavailable,GATEWAY_ENDPOINT
 
 class GatewayConnection:
     def __init__(self,pool,*,acquisition_timeout=1.0):
@@ -44,10 +44,14 @@ class PostgresGatewayStore:
             row=cursor.fetchone()
             return None if row is None else GatewayRecord(*row)
 
-    def save(self,digest,organization_id,expected_revision,binding_id,encrypted_key):
+    def save(self,digest,organization_id,expected_revision,binding_id,encrypted_key,endpoint=GATEWAY_ENDPOINT):
+        values=(digest,organization_id,expected_revision,binding_id,encrypted_key)
         with self.connection.cursor() as cursor:
-            cursor.execute('SELECT * FROM forge.gateway_save(%s,%s,%s,%s,%s)',
-                (digest,organization_id,expected_revision,binding_id,encrypted_key))
+            if endpoint==GATEWAY_ENDPOINT:
+                # Original function: valid on every schema, with or without migration 0019.
+                cursor.execute('SELECT * FROM forge.gateway_save(%s,%s,%s,%s,%s)',values)
+            else:
+                cursor.execute('SELECT * FROM forge.gateway_save(%s,%s,%s,%s,%s,%s)',values+(endpoint,))
             row=cursor.fetchone()
             if row is None: raise GatewayUnavailable()
             return GatewayRecord(*row)

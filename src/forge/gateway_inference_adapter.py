@@ -1,11 +1,13 @@
-"""Labelled-transport-testable, fixed-origin cancellable text SSE adapter."""
+"""Labelled-transport-testable, allow-listed-origin cancellable text SSE adapter."""
 import asyncio
 import codecs
 import json
 import httpx
-from forge.gateway_configuration import GatewayUnavailable, GatewayCipher
+from forge.gateway_configuration import GatewayUnavailable, GatewayCipher, GATEWAY_ENDPOINT
+from forge.gateway_origins import DEFAULT_POLICY, OriginPolicy
 
-URL = 'https://ia.prometheonlab.com/v1/chat/completions'
+PATH = '/v1/chat/completions'
+URL = GATEWAY_ENDPOINT + PATH
 TOTAL_SECONDS = 60.0
 EVENT_SECONDS = 5.0
 MAX_BYTES = 1048576
@@ -35,19 +37,23 @@ class PrivateEchoGuard:
 
 
 class HttpxTextAdapter:
-    def __init__(self, *, transport=None):
+    def __init__(self, *, transport=None, policy=DEFAULT_POLICY):
         # Injection is for explicitly labelled test transports; never ambient URLs.
-        self._transport = transport
+        if type(policy) is not OriginPolicy:
+            raise ValueError('Explicit gateway origin policy required.')
+        self._transport, self._policy = transport, policy
 
     async def events(self, key, upstream_id, request):
         GatewayCipher.validate_key(key)
         guard = PrivateEchoGuard((key, upstream_id))
         try:
+            # An opened GatewayKey carries its bound origin; a plain key is the fixed default.
+            url = self._policy.require(getattr(key, 'endpoint', GATEWAY_ENDPOINT)) + PATH
             async with asyncio.timeout(TOTAL_SECONDS):
                 async with httpx.AsyncClient(transport=self._transport, trust_env=False,
                         follow_redirects=False,
                         timeout=httpx.Timeout(5.0, connect=3.0, pool=1.0)) as client:
-                    async with client.stream('POST', URL,
+                    async with client.stream('POST', url,
                             headers={'Authorization': 'Bearer ' + key, 'Accept': 'text/event-stream',
                                      'Accept-Encoding': 'identity'},
                             json={'model': upstream_id,

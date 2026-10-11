@@ -80,9 +80,9 @@ Files: `src/forge/fake_gateway.py`, `tests/test_fake_gateway.py`. Deps: A0b.
 
 ## A2a origin policy (`a2a-origin-policy`)
 Files: `src/forge/gateway_origins.py`; Modify `gateway_configuration.py`, `gateway_catalog_adapter.py`, `gateway_inference_adapter.py`, `account_api.py` (GatewayBody/Response +`endpoint`, `allowed_endpoints`), `gateway_configuration_store.py`; `tests/test_gateway_origins.py`. Deps: A1.
-- [ ] A2a.1 RED: allow-listed accepted, non-listed/look-alike denied, dev-vs-prod loopback http, cross-origin redirect refused, 422 on bad `endpoint`, record endpoint re-checked at call time (gateway-origin-policy)
-- [ ] A2a.2 GREEN: policy + injected `frozenset` allow-list; cipher payload binds endpoint; origin change without key rejected
-- [ ] A2a.3 Verify: `-p test_gateway_origins.py -v` plus `test_gateway_configuration*.py`, `test_gateway_catalog_adapter*.py`, `test_gateway_inference_adapter*.py` unchanged-green
+- [x] A2a.1 RED: allow-listed accepted, non-listed/look-alike denied, dev-vs-prod loopback http, cross-origin redirect refused, 422 on bad `endpoint`, record endpoint re-checked at call time (gateway-origin-policy)
+- [x] A2a.2 GREEN: policy + injected `frozenset` allow-list; cipher payload binds endpoint; origin change without key rejected
+- [x] A2a.3 Verify: `-p test_gateway_origins.py -v` plus `test_gateway_configuration*.py`, `test_gateway_catalog_adapter*.py`, `test_gateway_inference_adapter*.py` unchanged-green
 
 ## A2b migration 0019 (`a2b-origin-migration`)
 Files: `migrations/0019_gateway_origin.sql`, `src/forge/mvp_profile.py`, `tests/test_postgres_gateway_origin.py`. Deps: A2a. Must NOT mutate `dev_accounts_gateway` ADDITIONS/PROFILE.

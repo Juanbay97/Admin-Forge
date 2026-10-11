@@ -50,12 +50,18 @@ class LoginBody(InputModel):
 class GatewayBody(InputModel):
     expected_revision: Annotated[int,Field(strict=True,ge=0,le=2**63-3)]
     api_key: Annotated[str,Field(strict=True,min_length=1,max_length=4096,repr=False,json_schema_extra={'writeOnly':True})]
+    # Must exactly match the deployment allow-list; omitted means the fixed default origin.
+    endpoint: Annotated[str,Field(strict=True,min_length=1,max_length=255)]|None=None
 
 
 class GatewayResponse(InputModel):
     status: Literal['NOT_CONFIGURED','SAVED_UNVERIFIED']
     revision: Annotated[int,Field(strict=True,ge=0)]
-    endpoint: Literal['https://ia.prometheonlab.com']
+    endpoint: Annotated[str,Field(max_length=255)]
+
+
+class GatewayReadResponse(GatewayResponse):
+    allowed_endpoints: list[str]
 
 
 class CatalogPublishBody(InputModel):
@@ -323,7 +329,7 @@ def create_account_app(*,sessions: SessionService | None=None,
         # actual session and current administrator inside the mutation transaction.
         return actor[0]
 
-    @app.get('/forge/v1/orgs/{organization_id}/gateway',response_model=GatewayResponse,
+    @app.get('/forge/v1/orgs/{organization_id}/gateway',response_model=GatewayReadResponse,
               responses={status:{'model':ErrorEnvelope} for status in (401,404,422,503)},
               openapi_extra={'security':[{'ForgeBearer':[]}]})
     def get_gateway(organization_id: UUID,actor: Annotated[tuple,Depends(token)]):
@@ -335,8 +341,14 @@ def create_account_app(*,sessions: SessionService | None=None,
               openapi_extra={'security':[{'ForgeBearer':[]}]})
     def put_gateway(organization_id: UUID,body: GatewayBody,actor: Annotated[tuple,Depends(token)]):
         capability=gateway_actor(organization_id,actor)
-        return invoke(gateway_configuration.save,capability,organization_id,
-                      body.expected_revision,body.api_key)
+        if body.endpoint is None:
+            return invoke(gateway_configuration.save,capability,organization_id,
+                          body.expected_revision,body.api_key)
+        # Deny before any key handling or storage; the service re-checks under its own policy.
+        if body.endpoint not in gateway_configuration.allowed_endpoints:
+            raise ApiFailure(422,'INVALID_REQUEST')
+        return invoke(lambda: gateway_configuration.save(capability,organization_id,
+            body.expected_revision,body.api_key,endpoint=body.endpoint))
 
     def catalog_actor(organization_id,actor,*,admin=False):
         if gateway_catalog is None:
