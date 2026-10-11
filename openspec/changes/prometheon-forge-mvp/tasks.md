@@ -136,9 +136,9 @@ A5b1 `feat/mvp-a5b-mvp-local`: `src/forge/admin_mount.py` (CSP, SPA fallback, ca
 - [x] A5b1.3 Verify: `-p test_admin_mount.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_mvp_readiness.py`
 
 A5b2 `feat/mvp-a5b2-serve-composition`: `src/forge/mvp_local.py` config-only `serve` (strict config, ports from one `MVP_PORTS`, no env discovery, secrets file, `DeliveryCoordinator(origin=client)`, `.eml` mailbox, allow-list policy, `MvpReadiness`, `/status`); test `test_mvp_local.py`, `test_postgres_mvp_local.py`. Deps: A5b1.
-- [ ] A5b2.1 RED: valid/missing/malformed/unknown-key config, env ignored, port occupied binds nothing, status ready, invite `.eml` with the client origin
-- [ ] A5b2.2 GREEN: `mvp_local.py` serve composition
-- [ ] A5b2.3 Verify: `-p test_mvp_local.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_mvp_local.py`
+- [x] A5b2.1 RED: valid/missing/malformed/unknown-key config, env ignored, port occupied binds nothing, status ready, invite `.eml` with the client origin
+- [x] A5b2.2 GREEN: `mvp_local.py` serve composition (`load_config`/`load_secrets`/`assemble`/`compose`/`serve`; `main` drops every PG* variable from the process)
+- [x] A5b2.3 Verify: `-p test_mvp_local.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_mvp_local.py`
 
 A5b3 `feat/mvp-a5b3-local-supervisor`: Modify `fake_gateway.py` (`serve()`/CLI), `mvp_local.py` (supervised `up`: owned PG17 + schema + seed + fake gateway + control plane), `scripts/mvp-local.ps1`, `pyproject.toml` (package-data), `docs/mvp-local.md`. Deps: A5b2.
 - [ ] A5b3.1 RED: fake gateway serve/CLI (keys file, loopback only, port occupied), supervisor wiring
