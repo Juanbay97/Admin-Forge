@@ -72,11 +72,11 @@ Files: `openspec/changes/prometheon-forge-mvp/specs/*/spec.md` only.
 
 ## A1 fake gateway (`a1-fake-gateway`)
 Files: `src/forge/fake_gateway.py`, `tests/test_fake_gateway.py`. Deps: A0b.
-- [ ] A1.1 RED: tests for models list, streamed chat (role chunk, deltas, stop, `[DONE]`, no content-encoding), non-loopback bind refusal (fake-gateway: Models, Streamed chat, Non-loopback bind)
-- [ ] A1.2 RED: bad key 401, key recording/custody proof, no echo, `fake-error`/`fake-malformed`/`fake-slow`, reset isolation
-- [ ] A1.3 GREEN: implement `fake_gateway.py`; REFACTOR
-- [ ] A1.4 RED/GREEN: existing adapters (`gateway_catalog_adapter`, `gateway_inference_adapter`) parse fake output (16 KiB/event limit) within same test file
-- [ ] A1.5 Verify: `.venv\Scripts\python.exe -m unittest discover -s tests -p test_fake_gateway.py -v`
+- [x] A1.1 RED: tests for models list, streamed chat (role chunk, deltas, stop, `[DONE]`, no content-encoding), non-loopback bind refusal (fake-gateway: Models, Streamed chat, Non-loopback bind)
+- [x] A1.2 RED: bad key 401, key recording/custody proof, no echo, `fake-error`/`fake-malformed`/`fake-slow`, reset isolation
+- [x] A1.3 GREEN: implement `fake_gateway.py`; REFACTOR
+- [x] A1.4 RED/GREEN: existing adapters (`gateway_catalog_adapter`, `gateway_inference_adapter`) parse fake output (16 KiB/event limit) within same test file
+- [x] A1.5 Verify: `.venv\Scripts\python.exe -m unittest discover -s tests -p test_fake_gateway.py -v`
 
 ## A2a origin policy (`a2a-origin-policy`)
 Files: `src/forge/gateway_origins.py`; Modify `gateway_configuration.py`, `gateway_catalog_adapter.py`, `gateway_inference_adapter.py`, `account_api.py` (GatewayBody/Response +`endpoint`, `allowed_endpoints`), `gateway_configuration_store.py`; `tests/test_gateway_origins.py`. Deps: A1.
