@@ -8,3 +8,5 @@ __pycache__/
 .local/postgres-test/
 /.local/runtime-test/
 .atl/
+.codegraph/
+src/forge/web/admin/
