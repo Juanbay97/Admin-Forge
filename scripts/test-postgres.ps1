@@ -1,6 +1,9 @@
 # Own exactly one disposable local PostgreSQL container, including failure cleanup.
 [CmdletBinding()]
-param()
+param(
+    [ValidatePattern('^test_[A-Za-z0-9_*?]+\.py$')]
+    [string]$TestPattern = 'test_postgres_*.py'
+)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Root = Split-Path -Parent $PSScriptRoot
@@ -24,10 +27,15 @@ $Names = @('POSTGRES_PASSWORD', 'FORGE_PG_HARNESS', 'FORGE_PG_PORT', 'FORGE_PG_P
     'PGSERVICE', 'PGSERVICEFILE', 'PGPASSFILE', 'PGHOST', 'PGPORT', 'PGDATABASE', 'PGUSER',
     'PGPASSWORD', 'PGOPTIONS', 'PGSSLMODE', 'PGTARGETSESSIONATTRS')
 $Saved = @{}
-foreach ($Name in $Names) { $Saved[$Name] = [Environment]::GetEnvironmentVariable($Name, 'Process') }
+foreach ($Name in $Names) {
+    $Saved[$Name] = @{
+        Present = Test-Path -LiteralPath "Env:$Name"
+        Value = [Environment]::GetEnvironmentVariable($Name, 'Process')
+    }
+}
 try {
     # Do not forward ambient Docker contexts/auth or libpq session settings.
-    foreach ($Name in $Names) { [Environment]::SetEnvironmentVariable($Name, $null, 'Process') }
+    foreach ($Name in $Names) { Remove-Item -LiteralPath "Env:$Name" -ErrorAction SilentlyContinue }
     # Inspect only the explicitly pinned public image, never containers or ambient contexts.
     & $Docker @DockerOptions image inspect $Image --format '{{.Id}}' *> $null
     if ($LASTEXITCODE -ne 0) { throw 'Pinned PostgreSQL image is unavailable. Resolve the authorized official image explicitly; normal tests never pull.' }
@@ -63,11 +71,17 @@ try {
     [Environment]::SetEnvironmentVariable('FORGE_PG_PASSWORD', $Password, 'Process')
     Push-Location $Root
     try {
-        & $Python -m unittest discover -s tests -p test_postgres_*.py -v
+        & $Python -B -m unittest discover -s tests -p $TestPattern -v
         $Result = $LASTEXITCODE
     } finally { Pop-Location }
 } finally {
-    foreach ($Name in $Names) { [Environment]::SetEnvironmentVariable($Name, $Saved[$Name], 'Process') }
+    foreach ($Name in $Names) {
+        if ($Saved[$Name].Present) {
+            [Environment]::SetEnvironmentVariable($Name, $Saved[$Name].Value, 'Process')
+        } else {
+            Remove-Item -LiteralPath "Env:$Name" -ErrorAction SilentlyContinue
+        }
+    }
     if ($null -ne $ContainerId) {
         & $Docker @DockerOptions rm --force --volumes $ContainerId *> $null
         if ($LASTEXITCODE -ne 0) { throw 'Exact owned PostgreSQL container cleanup failed; preserve its ID for recovery.' }
