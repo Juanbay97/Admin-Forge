@@ -158,9 +158,9 @@ B1a `feat/mvp-b1-admin-scaffold`: `admin/{package.json,package-lock.json,tsconfi
 - [x] B1a.2 GREEN: implement; verify (cwd `admin`): `npm run test:unit` (30 unit), `npx tsc --noEmit`
 
 B1b `feat/mvp-b1b-admin-login`: `admin/{index.html,README.md}`, `src/{main,App}.tsx`, `src/api/runtime.ts`, `src/pages/{Login,Overview}.tsx`, `src/components/{Console,AccessDenied,NotFound}.tsx`, `tests/ui/{support,login.spec,hardening.spec}.ts`. Deps: B1a.
-- [ ] B1b.1 RED: login admin/member/wrong password/sign out, org picker (admin orgs only), org switch clears state + late reply ignored, 404 rendering, no storage/cookies/URL secret, reload = re-login, offline same-origin assets under CSP, keyboard-only, reduced motion (admin-web)
-- [ ] B1b.2 GREEN: implement; REFACTOR
-- [ ] B1b.3 Verify (cwd `admin`): `npm run test:unit`, `npx tsc --noEmit`, `npm run build` (output gitignored)
+- [x] B1b.1 RED: login admin/member/wrong password/sign out, org picker (admin orgs only), org switch clears state + late reply ignored, 404 rendering, no storage/cookies/URL secret, reload = re-login, offline same-origin assets under CSP, keyboard-only, reduced motion (admin-web)
+- [x] B1b.2 GREEN: implement; REFACTOR
+- [x] B1b.3 Verify (cwd `admin`): `npm run test:unit`, `npx tsc --noEmit`, `npm run build` (output gitignored)
 
 ## B2 members UI (`b2-admin-members`)
 Files: `admin/src/pages/Members.tsx`, `api/members.ts`, `components/{InviteDialog,MemberTable}.tsx`, tests. Deps: B1, A4b.
