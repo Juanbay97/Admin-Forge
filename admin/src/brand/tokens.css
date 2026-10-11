@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* Typefaces are self-hosted (SIL OFL, see public/fonts); nothing is fetched remotely. */
+@font-face {
+  font-family: "Montserrat";
+  src: url("/admin/fonts/montserrat-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/admin/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* Values come from the typed theme (brand/theme.ts) through --brand-* variables. */
+@theme inline {
+  --color-primary: var(--brand-primary);
+  --color-teal: var(--brand-teal);
+  --color-accent: var(--brand-accent);
+  --color-sand: var(--brand-sand);
+  --color-carbon: var(--brand-carbon);
+  --font-title: var(--brand-font-title);
+  --font-body: var(--brand-font-body);
+}
+
+@layer base {
+  body {
+    font-family: var(--brand-font-body);
+    background-color: var(--brand-sand);
+    color: var(--brand-carbon);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand-accent);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0s !important;
+  }
+}

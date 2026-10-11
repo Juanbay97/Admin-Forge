@@ -51,7 +51,7 @@ Rule: if any slice measures >800 at apply time, STOP, report, split by work unit
 
 ### Stacks (base = previous branch; A0 base = `main`)
 
-- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` (A4a) -> `a4b-member-lifecycle` -> `a5a-provisioning-contract` -> `a5a2-contract` -> `a5b-mvp-local` -> `a5b2-serve-composition` -> `a5b3-local-supervisor` -> `a6-api-isolation` -> `b1-admin-scaffold` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
+- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` (A4a) -> `a4b-member-lifecycle` -> `a5a-provisioning-contract` -> `a5a2-contract` -> `a5b-mvp-local` -> `a5b2-serve-composition` -> `a5b3-local-supervisor` -> `a6-api-isolation` -> `b1-admin-scaffold` (B1a) -> `b1b-admin-login` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
 - CL (`clients/openyak`): `feat/mvp-c1-remove-key-flow` -> `c2a-managed-launcher` -> `c2b-me-context-contract` -> `c3a-brand-tokens` -> `c3b-brand-strings` -> `c4-client-e2e`.
 - Dependencies: A1->A6 linear; B1 after A5b (needs mounted admin) but B2 after A4b, B3 after A2b; C1 independent; C2a after A3a; C2b after A5a (pin fixture until Final); C3/C4 after C2b; Final needs all.
 
@@ -150,11 +150,17 @@ Files: `tests/test_mvp_api_isolation.py` only. Deps: A5b3.
 - [x] A6.1 RED/GREEN (verification slice over existing code; bite proven by mutation: key logged on open, revocation interval 3600 s): 2 orgs cross-org 404, key absent from responses/logs/stream, `fake-slow` suspend mid-stream denied, logout revokes, member sees only published aliases
 - [x] A6.2 Verify: `scripts\test-postgres.ps1 -TestPattern test_mvp_api_isolation.py`; full `.venv\Scripts\python.exe -m unittest discover -s tests -v`
 
-## B1 admin scaffold/login (`b1-admin-scaffold`)
-Files (in `admin/`): `package.json`, lockfile, `vite.config.ts` (base `/admin/`), `tsconfig.json`, `index.html`, `src/{main,App}.tsx`, `api/client.ts`, `auth/session.ts`, `brand/{theme.ts,tokens.css}`, `pages/Login.tsx`, `public/fonts/*`+licenses, `playwright.unit.config.ts`, unit tests. Deps: A5b. Pins read from client lockfile; `npm ci` needs authorization.
-- [ ] B1.1 RED: login admin/member, org switch clears state, 404 rendering, memory-only token, no storage, offline assets (admin-web)
-- [ ] B1.2 GREEN: implement; REFACTOR
-- [ ] B1.3 Verify (cwd `admin`): `npm run test:unit`, `npx tsc --noEmit`, `npm run build` (output gitignored)
+## B1 admin scaffold/login (B1 was ~1,370 authored lines > 800: split at apply time into B1a/B1b; lockfile, fonts, PNGs and OFL licence text excluded)
+Test runner: `@playwright/test` 1.59.1 (client-consistent) with two projects in `playwright.unit.config.ts`: `unit` (browser-free) and `ui` (production bundle in system Chrome against a mocked same-origin API, served with the control-plane CSP). Pins from the client lockfile (React 19.2.4, TS 5.9.3, Tailwind 4.2.1, Playwright 1.59.1); Vite 7.3.7 (max supported by `@tailwindcss/vite` 4.2.1) + `@vitejs/plugin-react` 5.2.0.
+
+B1a `feat/mvp-b1-admin-scaffold`: `admin/{package.json,package-lock.json,tsconfig.json,vite.config.ts,playwright.unit.config.ts,.gitignore}`, `public/{fonts,brand}/*` (+OFL licences), `src/{api/client.ts,api/account.ts,auth/session.ts,auth/access.ts,brand/theme.ts,brand/tokens.css,scope/orgScope.ts}`, `tests/csp.ts`, `tests/unit/*.spec.ts`. Deps: A5b. No bundle entry yet (arrives in B1b).
+- [x] B1a.1 RED: session memory-only (storage trapped), API client (bearer, no credentials/referrer, typed errors, 401 ends session), entry resolution (admin-only orgs, auto-select, denied), org-scope reducer (switch clears, stale reply ignored), brand theme/tokens (single source, self-hosted fonts), CSP drift vs `admin_mount.py` (admin-web)
+- [x] B1a.2 GREEN: implement; verify (cwd `admin`): `npm run test:unit` (30 unit), `npx tsc --noEmit`
+
+B1b `feat/mvp-b1b-admin-login`: `admin/{index.html,README.md}`, `src/{main,App}.tsx`, `src/api/runtime.ts`, `src/pages/{Login,Overview}.tsx`, `src/components/{Console,AccessDenied,NotFound}.tsx`, `tests/ui/{support,login.spec,hardening.spec}.ts`. Deps: B1a.
+- [ ] B1b.1 RED: login admin/member/wrong password/sign out, org picker (admin orgs only), org switch clears state + late reply ignored, 404 rendering, no storage/cookies/URL secret, reload = re-login, offline same-origin assets under CSP, keyboard-only, reduced motion (admin-web)
+- [ ] B1b.2 GREEN: implement; REFACTOR
+- [ ] B1b.3 Verify (cwd `admin`): `npm run test:unit`, `npx tsc --noEmit`, `npm run build` (output gitignored)
 
 ## B2 members UI (`b2-admin-members`)
 Files: `admin/src/pages/Members.tsx`, `api/members.ts`, `components/{InviteDialog,MemberTable}.tsx`, tests. Deps: B1, A4b.
