@@ -147,8 +147,8 @@ A5b3 `feat/mvp-a5b3-local-supervisor`: Modify `fake_gateway.py` (`serve()`/CLI),
 
 ## A6 API isolation E2E (`a6-api-isolation`)
 Files: `tests/test_mvp_api_isolation.py` only. Deps: A5b3.
-- [ ] A6.1 RED/GREEN: 2 orgs cross-org 404, key absent from responses/logs/stream, `fake-slow` suspend mid-stream denied, logout revokes, member sees only published aliases
-- [ ] A6.2 Verify: `scripts\test-postgres.ps1 -TestPattern test_mvp_api_isolation.py`; full `.venv\Scripts\python.exe -m unittest discover -s tests -v`
+- [x] A6.1 RED/GREEN (verification slice over existing code; bite proven by mutation: key logged on open, revocation interval 3600 s): 2 orgs cross-org 404, key absent from responses/logs/stream, `fake-slow` suspend mid-stream denied, logout revokes, member sees only published aliases
+- [x] A6.2 Verify: `scripts\test-postgres.ps1 -TestPattern test_mvp_api_isolation.py`; full `.venv\Scripts\python.exe -m unittest discover -s tests -v`
 
 ## B1 admin scaffold/login (`b1-admin-scaffold`)
 Files (in `admin/`): `package.json`, lockfile, `vite.config.ts` (base `/admin/`), `tsconfig.json`, `index.html`, `src/{main,App}.tsx`, `api/client.ts`, `auth/session.ts`, `brand/{theme.ts,tokens.css}`, `pages/Login.tsx`, `public/fonts/*`+licenses, `playwright.unit.config.ts`, unit tests. Deps: A5b. Pins read from client lockfile; `npm ci` needs authorization.
