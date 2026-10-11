@@ -27,4 +27,4 @@ where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-forge = ["web/status.html", "web/status.css", "web/status.js"]
+forge = ["web/status.html", "web/status.css", "web/status.js", "web/admin/**/*"]

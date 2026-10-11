@@ -140,10 +140,10 @@ A5b2 `feat/mvp-a5b2-serve-composition`: `src/forge/mvp_local.py` config-only `se
 - [x] A5b2.2 GREEN: `mvp_local.py` serve composition (`load_config`/`load_secrets`/`assemble`/`compose`/`serve`; `main` drops every PG* variable from the process)
 - [x] A5b2.3 Verify: `-p test_mvp_local.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_mvp_local.py`
 
-A5b3 `feat/mvp-a5b3-local-supervisor`: Modify `fake_gateway.py` (`serve()`/CLI), `mvp_local.py` (supervised `up`: owned PG17 + schema + seed + fake gateway + control plane), `scripts/mvp-local.ps1`, `pyproject.toml` (package-data), `docs/mvp-local.md`. Deps: A5b2.
-- [ ] A5b3.1 RED: fake gateway serve/CLI (keys file, loopback only, port occupied), supervisor wiring
-- [ ] A5b3.2 GREEN + script/docs; real owned-container smoke
-- [ ] A5b3.3 Verify: `-p test_fake_gateway.py -v`, `-p test_mvp_local.py -v`, `scripts\test-postgres.ps1` modules one at a time
+A5b3 `feat/mvp-a5b3-local-supervisor`: Modify `fake_gateway.py` (`serve()`/CLI), `mvp_local.py` (`up` subcommand; canonical-module entry point), new `mvp_up.py` (supervised owned PG17 + schema + seed + fake gateway + control plane), `scripts/mvp-local.ps1`, `pyproject.toml` (package-data), `docs/mvp-local.md`; tests `test_fake_gateway_serve.py`, `test_mvp_up.py`, `test_postgres_mvp_up.py`. Deps: A5b2.
+- [x] A5b3.1 RED: fake gateway serve/CLI (keys file, loopback only, port occupied), supervisor wiring
+- [x] A5b3.2 GREEN + script/docs; real owned-container smoke (full stack: login, gateway PUT, catalogue refresh via the fake gateway, publish, member stream, clean stop with container absent)
+- [x] A5b3.3 Verify: `-p test_fake_gateway.py -v`, `-p test_mvp_local.py -v`, `scripts\test-postgres.ps1` modules one at a time
 
 ## A6 API isolation E2E (`a6-api-isolation`)
 Files: `tests/test_mvp_api_isolation.py` only. Deps: A5b3.

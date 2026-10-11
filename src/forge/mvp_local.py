@@ -21,6 +21,7 @@ from urllib.parse import urlsplit
 from cryptography.fernet import Fernet
 from fastapi.responses import JSONResponse
 
+from forge.dev_accounts import LocalFixtureError
 from forge.admin_mount import AdminBuildMissing, apply_guard, mount_admin
 from forge.gateway_origins import OriginPolicy
 from forge.mvp_profile import MVP_PROFILE
@@ -224,7 +225,7 @@ def compose(config, secrets, pools):
     return assemble(app, config, readiness)
 
 
-def _reserve(port):
+def reserve_loopback_port(port):
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
@@ -245,7 +246,7 @@ def serve(config_path, *, compose_fn=compose, stopping=None, announce=None):
     pools, listener = [], None
     try:
         app = compose_fn(config, secrets, pools)
-        listener = _reserve(config.control_plane_port)  # last: any earlier failure bound nothing
+        listener = reserve_loopback_port(config.control_plane_port)  # last: any earlier failure bound nothing
         import uvicorn
         server = uvicorn.Server(uvicorn.Config(app, host=LOOPBACK, port=config.control_plane_port, access_log=False,
                                                log_config=None, timeout_graceful_shutdown=10))
@@ -280,6 +281,9 @@ def main(argv=None):
         parser = _Parser(prog='forge.mvp_local', description='Local Forge MVP control plane; never production.')
         commands = parser.add_subparsers(dest='command', required=True, parser_class=_Parser)
         commands.add_parser('serve').add_argument('--config', required=True)
+        supervised = commands.add_parser('up')
+        supervised.add_argument('--require-admin-build', action='store_true')
+        supervised.add_argument('--supervised', action='store_true')
         arguments = parser.parse_args(sys.argv[1:] if argv is None else argv)
     except _Usage:
         emit({'status': 'failed', 'code': 'INVALID_ARGUMENTS'})
@@ -291,13 +295,21 @@ def main(argv=None):
         logger = logging.getLogger(name)
         logger.handlers, logger.propagate = [logging.NullHandler()], False
     try:
+        if arguments.command == 'up':
+            from forge.mvp_up import up
+            stopping = Event()
+            if arguments.supervised:
+                # The launcher closes stdin (or writes a line) to request a clean stop.
+                Thread(target=lambda: (sys.stdin.readline(), stopping.set()), daemon=True).start()
+            up(stopping, require_admin_build=arguments.require_admin_build)
+            return 0
         serve(arguments.config, announce=lambda config: emit({
             'status': 'ready', 'control_plane_origin': config.admin_origin, 'admin_url': config.admin_origin + '/admin/',
             'client_origin': config.client_origin}))
         return 0
     except KeyboardInterrupt:
         return 0
-    except ConfigError as error:
+    except (ConfigError, LocalFixtureError) as error:
         emit({'status': 'failed', 'code': str(error)})
         return 1
     except Exception:
@@ -306,4 +318,7 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    # Run the canonical module, not this __main__ copy: forge.mvp_up and forge.fake_gateway
+    # import forge.mvp_local, and their ConfigError must be the class main() catches.
+    from forge.mvp_local import main as canonical_main
+    raise SystemExit(canonical_main())

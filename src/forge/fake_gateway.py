@@ -5,13 +5,17 @@ chat) and records Authorization headers so tests can prove key custody. It binds
 to numeric loopback only, never echoes a bearer value, and proves nothing about
 the real OmniRoute gateway's strictness.
 """
+import argparse
 import asyncio
 from dataclasses import dataclass
 import hashlib
 import hmac
 from ipaddress import ip_address
 import json
+from pathlib import Path
 import re
+import sys
+from threading import Event, Thread
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -173,3 +177,85 @@ def create_fake_gateway(configuration: FakeGatewayConfiguration, *, sleep=None) 
     if type(configuration) is not FakeGatewayConfiguration:
         raise TypeError('Explicit fake gateway configuration required.')
     return FakeGateway(configuration, asyncio.sleep if sleep is None else sleep)
+
+
+class GatewayPortOccupied(RuntimeError):
+    def __init__(self):
+        super().__init__('PORT_OCCUPIED')
+
+
+def read_keys(path):
+    """One accepted key per line; blank lines ignored. Errors never echo file content."""
+    try:
+        keys = tuple(line.strip() for line in Path(path).read_text('utf-8').splitlines() if line.strip())
+        FakeGatewayConfiguration(keys=keys)
+    except (OSError, ValueError):
+        raise ValueError('KEYS_FILE_INVALID') from None
+    return keys
+
+
+def serve(configuration: FakeGatewayConfiguration, *, stopping=None, announce=None, sleep=None):
+    """Run the real HTTP server until ``stopping`` is set; the port is reserved before anything else."""
+    from forge.mvp_local import ConfigError, reserve_loopback_port
+    stopping = Event() if stopping is None else stopping
+    try:
+        listener = reserve_loopback_port(configuration.port)
+    except ConfigError:
+        raise GatewayPortOccupied() from None
+    try:
+        import uvicorn
+        server = uvicorn.Server(uvicorn.Config(create_fake_gateway(configuration, sleep=sleep).app,
+                                               host=configuration.host, port=configuration.port, access_log=False,
+                                               log_config=None, timeout_graceful_shutdown=5))
+
+        def watch():
+            stopping.wait()
+            server.should_exit = True
+        Thread(target=watch, daemon=True).start()
+        if announce is not None:
+            announce()
+        server.run(sockets=[listener])
+    finally:
+        stopping.set()
+        listener.close()
+
+
+class _Usage(Exception):
+    pass
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise _Usage()
+
+
+def main(argv=None, *, stopping=None):
+    emit = lambda document: print(json.dumps(document), flush=True)
+    try:
+        parser = _Parser(prog='forge.fake_gateway', description='Fake OpenAI-compatible gateway; never a real provider.')
+        parser.add_argument('--keys-file', required=True)
+        parser.add_argument('--port', type=int, default=DEFAULT_PORT)
+        arguments = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    except _Usage:
+        emit({'status': 'failed', 'code': 'INVALID_ARGUMENTS'})
+        return 2
+    try:
+        from forge.mvp_local import FORBIDDEN_PORTS
+        if arguments.port in FORBIDDEN_PORTS:
+            raise ValueError('PORT_FORBIDDEN')
+        configuration = FakeGatewayConfiguration(keys=read_keys(arguments.keys_file), port=arguments.port)
+        serve(configuration, stopping=stopping, announce=lambda: emit({
+            'status': 'ready', 'origin': 'http://%s:%d' % (configuration.host, configuration.port)}))
+        return 0
+    except KeyboardInterrupt:
+        return 0
+    except GatewayPortOccupied:
+        emit({'status': 'failed', 'code': 'PORT_OCCUPIED'})
+    except ValueError as error:
+        emit({'status': 'failed', 'code': str(error) if str(error) in ('KEYS_FILE_INVALID', 'PORT_FORBIDDEN')
+              else 'INVALID_CONFIGURATION'})
+    return 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
