@@ -1,0 +1,106 @@
+schema: spec-driven
+
+project: forge
+detected: 2026-10-05
+redetected: 2026-10-11
+
+# Canonical openspec location: this worktree (branch feat/forge-s3-outbox-recording).
+# The ROOT checkout has no openspec/ (the 2026-10-05 init note saying otherwise was stale).
+
+context: |
+  Product: Forge, a plug-and-play multi-tenant co-work platform with 3 fronts: (1) own-brand fork of OpenYak (clients/openyak, nested repo, branch feat/forge-client-shell, upstream v1.5.0-rc.3; final product name is an OPEN DECISION, OpenYak branding must be removed); (2) per-company administration web (FastAPI + PostgreSQL RLS control plane, this worktree); (3) OmniRoute (https://ia.prometheonlab.com) as central router for traffic, keys and model access. Admin configures; Forge backend holds protected keys; users never handle keys.
+  Priorities: security (default-deny, tenant isolation), token/model cost control, shared skills visible only to authorized users. Upstream OpenYak/OmniRoute stay behind adapters/ports.
+  Control plane stack: Python >=3.12, FastAPI 0.142.2 + uvicorn 0.54.0, PostgreSQL 17 RLS (psycopg 3.3.6 + psycopg-pool), Entra v2 via PyJWT[crypto]; setuptools src/ layout (package forge); migrations 0001-0018.
+  Client stack (clients/openyak): Next.js 15/React 19/Tailwind 4 frontend, FastAPI+SQLAlchemy/aiosqlite Python backend (pytest), Tauri 2 desktop shell (Rust). Tests: Playwright (unit/ui), pytest, eslint, tsc.
+  Architecture: pure domain policies + typed synchronous ports injected via explicit trusted composition (create_app/create_runtime_app); no env discovery, no fake auth.
+  Style: English code/tests/comments; neutral-Spanish planning docs (docs/, odd/tasks/); conventional commits, no AI attribution; local Git only (no push/PR/merge unless authorized).
+  Branches: chain feat/forge-foundation (root) -> feat/forge-api-bootstrap -> feat/forge-tenant-storage (48c3e8e) -> feat/forge-s3-outbox-recording (tip, ac16a21, worktree .worktrees/tenant-storage, has uncommitted edits).
+
+strict_tdd: true
+
+preflight:
+  execution_mode: interactive
+  artifact_store: both   # hybrid: openspec + Engram
+  delivery_strategy: force-chained
+  review_budget_lines: 800
+  chain_strategy: pending   # not chosen yet
+  models:
+    orchestrator: anthropic/claude-opus-5-5
+    sdd_phases_and_subagents: anthropic/claude-sonnet-5-5
+
+open_decisions:
+  - Final own-brand product name (replaces OpenYak; current C1 metadata uses interim "Prometheon Forge")
+  - chain_strategy (stacked-to-main vs feature-branch-chain)
+
+delivery:
+  strategy: force-chained
+  review_budget_lines: 800
+  chain_strategy: pending
+
+testing:
+  control_plane:
+    root: ".worktrees/tenant-storage"
+    runner: unittest (Python standard library)
+    test_command: "python -m unittest discover -s tests -v"
+    chain_tip_test_commands:
+      - ".\\.venv\\Scripts\\python.exe -m unittest discover -s tests -p test_<module>.py -v"
+      - "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\test-postgres.ps1"
+    layers:
+      unit: { available: true, tool: unittest }
+      integration: { available: true, tool: "httpx TestClient + real PostgreSQL 17 via owned Docker harness" }
+      e2e: { available: false, tool: "none" }
+    coverage: { available: false, command: "" }
+    quality:
+      linter: { available: false, command: "" }
+      type_checker: { available: false, command: "" }
+      formatter: { available: false, command: "" }
+      compile_check: { available: true, command: "python -m compileall -q src tests" }
+      dependency_check: { available: true, command: ".\\.venv\\Scripts\\python.exe -m pip check" }
+  client_openyak:
+    root: "clients/openyak (nested independent git repo, excluded from the control-plane repo)"
+    backend:
+      runner: pytest 8 + pytest-asyncio (asyncio_mode=auto)
+      test_command: "cd backend && .venv\\Scripts\\python.exe -m pytest -x --tb=short -q --ignore=tests/test_tool/test_code_execute.py"
+      testpaths: "backend/tests (108 test files) + evals/tests"
+      extra: "PYTHONPATH=backend:. python -m evals run-suite evals/suites/runtime-v0/tasks --output <dir>"
+    frontend:
+      unit: "cd frontend && npm run test:unit   # playwright -c playwright.unit.config.ts"
+      ui_e2e: "cd frontend && npm run test:ui    # Playwright; forge-accounts/prelogin/workspace configs exist"
+      type_check: "cd frontend && npx tsc --noEmit"
+      linter: "cd frontend && npm run lint   # eslint 9 + eslint-config-next"
+      install: "npm ci --legacy-peer-deps"
+    desktop:
+      tool: "Tauri 2 (cargo); build only: npm run build:desktop; no test command detected"
+    guard: "node scripts/forge-isolation.mjs (C1 isolation guard, run by dev/build scripts)"
+    coverage: { available: false }
+    formatter: { available: false }
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes (migrations, auth, routing)
+    - State security, tenant-isolation and cost impact explicitly
+    - Keep upstream OpenYak/OmniRoute behind adapters/ports; never expose provider keys to users or clients
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Cover cross-organization, suspended/unknown identity and secret-leak denial cases
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Default-deny; explicit trusted composition; no environment discovery or fake identity
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Each chained slice stays within review_budget_lines (800) including tests/docs
+  apply:
+    - Follow existing code patterns (frozen dataclasses, typed ports, redacted errors)
+    - RED -> GREEN -> REFACTOR; observe the failing test before implementing
+    tdd: true
+    test_command: "python -m unittest discover -s tests -v"
+  verify:
+    test_command: "python -m unittest discover -s tests -v"
+    build_command: "python -m compileall -q src tests"
+    coverage_threshold: 0
+    notes: On the chain tip, unqualified discovery requires the owned PostgreSQL harness; run per-module patterns plus scripts/test-postgres.ps1. Client changes use the client_openyak commands above.
+  archive:
+    - Warn before merging destructive deltas
