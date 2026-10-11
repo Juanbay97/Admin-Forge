@@ -86,10 +86,10 @@ Files: `src/forge/gateway_origins.py`; Modify `gateway_configuration.py`, `gatew
 
 ## A2b migration 0019 (`a2b-origin-migration`)
 Files: `migrations/0019_gateway_origin.sql`, `src/forge/mvp_profile.py`, `tests/test_postgres_gateway_origin.py`. Deps: A2a. Must NOT mutate `dev_accounts_gateway` ADDITIONS/PROFILE.
-- [ ] A2b.1 RED: widened CHECK, new `gateway_save(..., endpoint)`, existing rows survive, tenant isolation of origin
-- [ ] A2b.2 GREEN: 0019 SQL + `MVP_ADDITIONS`/`MVP_CHECKPOINTS`
-- [ ] A2b.3 GATE: fresh-apply 0001-5+0010-19 vs upgrade-from-0018 yield identical `catalog_fingerprint`; pin F19. FAIL or Docker down => STOP; fall back to B2 (fixed origin, no 0019)
-- [ ] A2b.4 Verify: `scripts\test-postgres.ps1 -TestPattern test_postgres_gateway_origin.py`; then `scripts\test-postgres.ps1` full (old upgrade/dev_accounts tests stay green)
+- [x] A2b.1 RED: widened CHECK, new `gateway_save(..., endpoint)`, existing rows survive, tenant isolation of origin
+- [x] A2b.2 GREEN: 0019 SQL + `MVP_ADDITIONS`/`MVP_CHECKPOINTS`
+- [x] A2b.3 GATE: fresh-apply 0001-5+0010-19 vs upgrade-from-0018 yield identical `catalog_fingerprint`; pin F19. FAIL or Docker down => STOP; fall back to B2 (fixed origin, no 0019)
+- [x] A2b.4 Verify: `scripts\test-postgres.ps1 -TestPattern test_postgres_gateway_origin.py`; then `scripts\test-postgres.ps1` full (old upgrade/dev_accounts tests stay green)
 
 ## A3 me + departments (`a3-me-departments`)
 Files: `migrations/0020_directory_identity.sql`, `src/forge/directory.py`, `directory_store.py`, Modify `account_api.py`, `mvp_profile.py` (F20); `tests/test_directory*.py`, `tests/test_postgres_directory.py`. Deps: A2b.
