@@ -9,11 +9,16 @@ previous checkpoint. Checkpoints are static; nothing is learned at runtime.
 from forge.dev_accounts_gateway import ADDITIONS, CHECKPOINTS
 
 ORIGIN_MIGRATION = '0019_gateway_origin.sql'
-MVP_ADDITIONS = (*ADDITIONS, ORIGIN_MIGRATION)
-MVP_PROFILE = '0001-0005+0010-0019/PG17'
+DIRECTORY_MIGRATION = '0020_directory_identity.sql'
+MVP_ADDITIONS = (*ADDITIONS, ORIGIN_MIGRATION, DIRECTORY_MIGRATION)
+MVP_PROFILE = '0001-0005+0010-0020/PG17'
 
 # Schema fingerprint after 0019 (F19): fresh apply of 0001-0005+0010-0019 and upgrade
 # from the 0018 profile were proven identical on the owned PG17 harness.
 F19 = '366249318981b950df80c7e958543877e9d2d83f0dae1b14b907a18b39df9d87'
 
-MVP_CHECKPOINTS = (*CHECKPOINTS, F19)
+# Schema fingerprint after 0020 (F20): fresh apply of 0001-0005+0010-0020 and upgrade
+# from the 0019 profile were proven identical on the owned PG17 harness.
+F20 = 'eb61cb72599654d7a1e7d959bb323e3a398d5c0197ee404e545ee83e1befe672'
+
+MVP_CHECKPOINTS = (*CHECKPOINTS, F19, F20)

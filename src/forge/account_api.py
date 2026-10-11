@@ -15,6 +15,7 @@ from forge.authorization import AuthorizationSnapshot,valid_snapshot
 from forge.foundation import AuthenticatedIdentity
 from forge.invitations import InvitationService,InvitationRequest,InvitationDenied,ExistingAccountAuthenticationRequired,InvitationUnavailable
 from forge.invitation_delivery import DeliveryCoordinator
+from forge.directory import DirectoryService,DirectoryDenied,DirectorySuspended,DirectoryUnavailable
 from forge.gateway_inference import GatewayInference,TextRequest
 from forge.gateway_catalog import GatewayCatalog
 from forge.gateway_configuration import GatewayConfiguration,GatewayDenied,GatewayConflict,GatewayUnavailable
@@ -129,6 +130,30 @@ class TextCompletionBody(InputModel):
         return value
 
 
+class DepartmentResponse(InputModel):
+    id: UUID
+    name: str
+
+
+class MeAccountResponse(InputModel):
+    id: UUID
+    email: str
+    display_name: str
+
+
+class MeOrganizationResponse(InputModel):
+    id: UUID
+    display_name: str
+    status: Literal['active']
+    roles: list[str]
+    departments: list[DepartmentResponse]
+
+
+class MeResponse(InputModel):
+    account: MeAccountResponse
+    organizations: list[MeOrganizationResponse]
+
+
 class AcceptBody(InputModel):
     invitation_id: UUID
     capability: Annotated[str,Field(strict=True,min_length=43,max_length=43,repr=False)]
@@ -229,7 +254,8 @@ def create_account_app(*,sessions: SessionService | None=None,
         readiness: ReadinessPort | None=None,
         gateway_configuration: GatewayConfiguration | None=None,
         gateway_catalog: GatewayCatalog | None=None,
-        gateway_inference: GatewayInference | None=None) -> FastAPI:
+        gateway_inference: GatewayInference | None=None,
+        directory: DirectoryService | None=None) -> FastAPI:
     """All synchronous ports run in worker threads. Unconfigured composition denies.
 
     Caller owns separate account/enrollment/bootstrap pools, private local mailbox
@@ -284,11 +310,13 @@ def create_account_app(*,sessions: SessionService | None=None,
     def invoke(operation,*args):
         try:
             return operation(*args)
-        except GatewayDenied:
+        except (GatewayDenied,DirectoryDenied):
             raise ApiFailure(404,'NOT_FOUND') from None
+        except DirectorySuspended:
+            raise ApiFailure(403,'MEMBERSHIP_SUSPENDED') from None
         except GatewayConflict:
             raise
-        except GatewayUnavailable:
+        except (GatewayUnavailable,DirectoryUnavailable):
             raise ApiFailure(503,'SERVICE_UNAVAILABLE') from None
         except LoginThrottled as exc:
             raise AccountFailure(429,'AUTHENTICATION_TEMPORARILY_BLOCKED',exc.retry_seconds) from None
@@ -349,6 +377,18 @@ def create_account_app(*,sessions: SessionService | None=None,
             raise ApiFailure(422,'INVALID_REQUEST')
         return invoke(lambda: gateway_configuration.save(capability,organization_id,
             body.expected_revision,body.api_key,endpoint=body.endpoint))
+
+    def directory_port():
+        if directory is None:
+            raise ApiFailure(503,'SERVICE_UNAVAILABLE')
+        return directory
+
+    @app.get('/forge/v1/accounts/me',response_model=MeResponse,
+              responses={status:{'model':ErrorEnvelope} for status in (401,403,404,503)},
+              openapi_extra={'security':[{'ForgeBearer':[]}]})
+    def accounts_me(actor: Annotated[tuple,Depends(token)]):
+        # The organization context comes only from the live session, never from the caller.
+        return invoke(directory_port().me,actor[0])
 
     def catalog_actor(organization_id,actor,*,admin=False):
         if gateway_catalog is None:

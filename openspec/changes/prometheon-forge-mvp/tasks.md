@@ -9,7 +9,7 @@ Two stacked-to-main chains, local only (no push/PR/merge). Strict TDD: every sli
 | Estimated changed lines | ~10,400 total (CP ~6,300 / CL ~4,100), 25 slices after splits |
 | 400-line budget risk | High (review_budget_lines = 800 per slice) |
 | Chained PRs recommended | Yes |
-| Suggested split | A2->A2a/A2b, A5->A5a/A5b, C2->C2a/C2b, A0->A0/A0b (see table) |
+| Suggested split | A2->A2a/A2b, A3->A3a/A3b, A5->A5a/A5b, C2->C2a/C2b, A0->A0/A0b (see table) |
 | Delivery strategy | auto-chain (force-chained) |
 | Chain strategy | stacked-to-main |
 
@@ -28,7 +28,8 @@ Chain strategy: stacked-to-main
 | A1 fake gateway | ~450 | no |
 | A2a policy+adapters | ~480 | no |
 | A2b 0019 + mvp_profile + PG gate | ~420 | no (A2 whole ~900: split) |
-| A3 me+departments | ~700 | no |
+| A3a me | ~490 | no (A3 whole 976: split at apply) |
+| A3b departments | ~490 | no |
 | A4 members | ~700 | no |
 | A5a provisioning+contract | ~520 | no |
 | A5b mvp_local+admin_mount+readiness+script | ~650 | no (A5 whole ~1,170: split; STOP if >800) |
@@ -49,9 +50,9 @@ Rule: if any slice measures >800 at apply time, STOP, report, split by work unit
 
 ### Stacks (base = previous branch; A0 base = `main`)
 
-- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` -> `a4-members` -> `a5a-provisioning-contract` -> `a5b-mvp-local` -> `a6-api-isolation` -> `b1-admin-scaffold` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
+- CP (`.worktrees/mvp`): `feat/mvp-a0-docs` -> `a0b-specs` -> `a1-fake-gateway` -> `a2a-origin-policy` -> `a2b-origin-migration` -> `a3-me-departments` (A3a) -> `a3b-departments` -> `a4-members` -> `a5a-provisioning-contract` -> `a5b-mvp-local` -> `a6-api-isolation` -> `b1-admin-scaffold` -> `b2-admin-members` -> `b3-admin-gateway` -> `b4-admin-e2e` -> `feat/mvp-final-smoke` (all prefixed `feat/mvp-`).
 - CL (`clients/openyak`): `feat/mvp-c1-remove-key-flow` -> `c2a-managed-launcher` -> `c2b-me-context-contract` -> `c3a-brand-tokens` -> `c3b-brand-strings` -> `c4-client-e2e`.
-- Dependencies: A1->A6 linear; B1 after A5b (needs mounted admin) but B2 after A4, B3 after A2b; C1 independent; C2a after A3; C2b after A5a (pin fixture until Final); C3/C4 after C2b; Final needs all.
+- Dependencies: A1->A6 linear; B1 after A5b (needs mounted admin) but B2 after A4, B3 after A2b; C1 independent; C2a after A3a; C2b after A5a (pin fixture until Final); C3/C4 after C2b; Final needs all.
 
 ## Slice 0: Setup (no source edits)
 
@@ -91,11 +92,17 @@ Files: `migrations/0019_gateway_origin.sql`, `src/forge/mvp_profile.py`, `tests/
 - [x] A2b.3 GATE: fresh-apply 0001-5+0010-19 vs upgrade-from-0018 yield identical `catalog_fingerprint`; pin F19. FAIL or Docker down => STOP; fall back to B2 (fixed origin, no 0019)
 - [x] A2b.4 Verify: `scripts\test-postgres.ps1 -TestPattern test_postgres_gateway_origin.py`; then `scripts\test-postgres.ps1` full (old upgrade/dev_accounts tests stay green)
 
-## A3 me + departments (`a3-me-departments`)
-Files: `migrations/0020_directory_identity.sql`, `src/forge/directory.py`, `directory_store.py`, Modify `account_api.py`, `mvp_profile.py` (F20); `tests/test_directory*.py`, `tests/test_postgres_directory.py`. Deps: A2b.
-- [ ] A3.1 RED: me for admin/multi-org/member, 401 no/invalid/logged-out session, 403 `MEMBERSHIP_SUSPENDED`, caller never supplies org id; departments list/create/duplicate/cross-org 404 (identity-discovery, member-administration)
-- [ ] A3.2 GREEN: 0020 (`forge_directory_authority` NOLOGIN, narrow RLS, EXECUTE to `forge_gateway_service`) + store + routes; pin F20 by fresh==upgrade rule
-- [ ] A3.3 Verify: `-p test_directory*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_directory.py`
+## A3a me (`a3-me-departments`, branch name retained; A3 split into A3a/A3b at apply time: 976 authored lines > 800)
+Files: `migrations/0020_directory_identity.sql` (role, narrow RLS, `directory_account`, `directory_me`), `src/forge/directory.py`, `directory_store.py`, Modify `account_api.py` (`GET /forge/v1/accounts/me`), `mvp_profile.py` (F20); `tests/test_directory.py`, `tests/test_directory_api.py`, `tests/test_postgres_directory.py`. Deps: A2b.
+- [x] A3a.1 RED: me for admin/multi-org/member, 401 no/invalid/logged-out session, 403 `MEMBERSHIP_SUSPENDED`, caller never supplies org id (identity-discovery)
+- [x] A3a.2 GREEN: 0020 (`forge_directory_authority` NOLOGIN, narrow RLS, EXECUTE to `forge_gateway_service`) + store + route; pin F20 by fresh==upgrade rule (F20 = `eb61cb72...befe672`)
+- [x] A3a.3 Verify: `-p test_directory*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_directory.py`
+
+## A3b departments (`feat/mvp-a3b-departments`, stacked on A3a)
+Files: `migrations/0021_department_directory.sql` (`directory_admin`, department list/create, case-insensitive unique name index, org-wide read + insert policies), Modify `directory.py`, `directory_store.py`, `account_api.py` (`GET|POST /forge/v1/orgs/{id}/departments`), `mvp_profile.py` (F21); extend the three `tests/test_directory*.py`/`test_postgres_directory.py` files. Deps: A3a. Departments get their own migration so reviewed 0020 bytes (and F20) stay immutable; consequently A4 moves to migration 0022/F22 and A5b pins F22.
+- [ ] A3b.1 RED: departments list/create/duplicate/cross-org+non-admin uniform 404, 409 `DEPARTMENT_EXISTS`, invalid name 422 (member-administration)
+- [ ] A3b.2 GREEN: 0021 + store + routes; pin F21 by fresh(0001-0005+0010-0021)==upgrade-from-0020
+- [ ] A3b.3 Verify: `-p test_directory*.py -v`; `scripts\test-postgres.ps1 -TestPattern test_postgres_directory.py`
 
 ## A4 members (`a4-members`)
 Files: `migrations/0021_member_administration.sql`, Modify `directory.py`, `directory_store.py`, `account_api.py`, `mvp_profile.py` (F21); `tests/test_member_administration*.py`, `tests/test_postgres_member_administration.py`. Deps: A3.
