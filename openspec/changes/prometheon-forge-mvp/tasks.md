@@ -68,7 +68,7 @@ Files: `openspec/changes/prometheon-forge-mvp/{exploration,proposal,design,tasks
 
 ## A0b specs (`a0b-specs`)
 Files: `openspec/changes/prometheon-forge-mvp/specs/*/spec.md` only.
-- [ ] A0b.1 Commit 8 specs as `docs(mvp): add MVP capability specs`
+- [x] A0b.1 Commit 8 specs as `docs(mvp): add MVP capability specs`
 
 ## A1 fake gateway (`a1-fake-gateway`)
 Files: `src/forge/fake_gateway.py`, `tests/test_fake_gateway.py`. Deps: A0b.
