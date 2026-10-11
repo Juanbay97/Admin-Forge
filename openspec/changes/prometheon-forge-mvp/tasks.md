@@ -125,9 +125,9 @@ Files: `src/forge/provisioning.py` (+ `provision.py` entry shim for `python -m f
 
 ## A5a2 contract pin (`feat/mvp-a5a2-contract`, stacked on A5a)
 Files: `src/forge/contract.py`, `contract/forge-mvp.contract.json`; Modify `account_api.py` (`GET /forge/v1/contract`); test `test_contract.py`. Hash = sha256 of canonical JSON (never file bytes: Windows autocrlf). Deps: A5a.
-- [ ] A5a2.1 RED: contract drift test (regenerate == committed, `contract_version: forge-mvp/1`), served hash tracks the serving app
-- [ ] A5a2.2 GREEN: generator from app routes + `GET /forge/v1/contract` + `python -m forge.contract --write|--check`
-- [ ] A5a2.3 Verify: `-p test_contract.py -v`; account/directory/member/gateway API suites unchanged-green
+- [x] A5a2.1 RED: contract drift test (regenerate == committed, `contract_version: forge-mvp/1`), served hash tracks the serving app
+- [x] A5a2.2 GREEN: generator from app routes + `GET /forge/v1/contract` + `python -m forge.contract --write|--check`
+- [x] A5a2.3 Verify: `-p test_contract.py -v`; account/directory/member/gateway API suites unchanged-green
 
 ## A5b mvp_local runtime (`a5b-mvp-local`)
 Files: `src/forge/mvp_local.py`, `mvp_readiness.py` (pins F23), `admin_mount.py`, `scripts/mvp-local.ps1`, Modify `pyproject.toml` (package-data), `docs/mvp-local.md`; tests `test_mvp_local.py`, `test_admin_mount.py`. Deps: A5a2. STOP and report if >800.

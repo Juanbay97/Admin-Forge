@@ -8,6 +8,7 @@ from fastapi import Depends,Request,FastAPI
 from fastapi.responses import JSONResponse,StreamingResponse
 from pydantic import BaseModel,ConfigDict,Field,field_validator
 
+from forge import contract as forge_contract
 from forge.api import BootstrapReader,create_app,ApiFailure,ErrorDetail,ErrorEnvelope,error_response
 from forge.account_sessions import AccountSession,SessionService,SessionDenied,LoginThrottled
 from forge.accounts import ACCOUNT_ISSUER,PasswordWorkUnavailable
@@ -174,6 +175,11 @@ class MeOrganizationResponse(InputModel):
 class MeResponse(InputModel):
     account: MeAccountResponse
     organizations: list[MeOrganizationResponse]
+
+
+class ContractResponse(InputModel):
+    contract_version: str
+    schema_sha256: Annotated[str,Field(pattern=r'^[0-9a-f]{64}$')]
 
 
 class AcceptBody(InputModel):
@@ -416,6 +422,17 @@ def create_account_app(*,sessions: SessionService | None=None,
             raise ApiFailure(422,'INVALID_REQUEST')
         return invoke(lambda: gateway_configuration.save(capability,organization_id,
             body.expected_revision,body.api_key,endpoint=body.endpoint))
+
+    pin={}
+
+    @app.get('/forge/v1/contract',response_model=ContractResponse)
+    def contract_pin():
+        # Public on purpose: it carries no tenant data, only the hash of the route contract
+        # this very app serves, so a client can fail closed on drift before it logs in.
+        if not pin:
+            pin['value']={'contract_version':forge_contract.CONTRACT_VERSION,
+                'schema_sha256':forge_contract.canonical_sha256(forge_contract.build(app))}
+        return pin['value']
 
     def directory_port():
         if directory is None:
