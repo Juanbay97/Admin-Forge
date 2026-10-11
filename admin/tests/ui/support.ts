@@ -21,9 +21,19 @@ export interface Department {
   name: string;
 }
 
+export interface Member {
+  id: string;
+  email: string;
+  display_name: string;
+  status: "active" | "suspended";
+  roles: string[];
+  departments: Department[];
+}
+
 export interface Backend {
   accounts: Record<string, Account>;
   departments: Record<string, { status: number; items: Department[] }>;
+  members?: Record<string, Member[]>;
 }
 
 export interface RecordedRequest {
@@ -36,9 +46,11 @@ const envelope = (code: string, message: string) => ({
   error: { code, message, request_id: "00000000-0000-4000-8000-000000000000", retryable: false },
 });
 
-/** A same-origin /forge/v1 double that records requests and can hold a department reply. */
-export async function installBackend(page: Page, backend: Backend) {
+/** A same-origin /forge/v1 double that records requests and can hold an organisation's replies. */
+export async function installBackend(page: Page, source: Backend) {
+  const backend = structuredClone(source); // members mutate; never leak between tests
   const requests: RecordedRequest[] = [];
+  const invitations: unknown[] = [];
   const held = new Map<string, Promise<void>>();
   const release = new Map<string, () => void>();
 
@@ -78,20 +90,48 @@ export async function installBackend(page: Page, backend: Backend) {
         })),
       });
     }
-    const departments = path.match(/^\/forge\/v1\/orgs\/([^/]+)\/departments$/);
-    if (departments) {
-      const orgId = decodeURIComponent(departments[1] ?? "");
+    if (path === "/forge/v1/accounts/invitations") {
+      const body = request.postDataJSON() as { email: string };
+      invitations.push(body);
+      if (body.email === "invalid@example.com") return reply(route, 422, envelope("INVALID_REQUEST", "Invalid."));
+      return reply(route, 201, {
+        invitation_id: "inv-1",
+        expires_at: "2099-01-01T00:00:00Z",
+        delivery_state: "pending",
+        delivery_channel: "local_mailbox",
+      });
+    }
+    const scoped = path.match(/^\/forge\/v1\/orgs\/([^/]+)\/(departments|members)(?:\/([^/]+)\/(suspend|reactivate))?$/);
+    if (scoped) {
+      const orgId = decodeURIComponent(scoped[1] ?? "");
       await held.get(orgId);
-      const configured = backend.departments[orgId];
-      if (!configured || configured.status !== 200) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
-      return reply(route, 200, { departments: configured.items });
+      const [, , collection, memberId, action] = scoped;
+      if (collection === "departments") {
+        const configured = backend.departments[orgId];
+        if (!configured || configured.status !== 200) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
+        return reply(route, 200, { departments: configured.items });
+      }
+      const members = backend.members?.[orgId];
+      if (!members) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
+      if (!action) return reply(route, 200, { members });
+      const target = members.find((m) => m.id === memberId);
+      if (!target) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
+      const otherAdmins = members.filter(
+        (m) => m !== target && m.status === "active" && m.roles.includes("organization_admin"),
+      );
+      if (action === "suspend" && target.roles.includes("organization_admin") && otherAdmins.length === 0) {
+        return reply(route, 409, envelope("LAST_ADMIN", "The last administrator cannot be suspended."));
+      }
+      target.status = action === "suspend" ? "suspended" : "active";
+      return reply(route, 200, target);
     }
     return reply(route, 404, envelope("NOT_FOUND", "Not found."));
   });
 
   return {
     requests,
-    /** Delay the department reply of one organisation until `letThrough` is called. */
+    invitations,
+    /** Delay every reply for one organisation until `letThrough` is called. */
     hold(orgId: string) {
       held.set(orgId, new Promise<void>((resolve) => release.set(orgId, resolve)));
     },
@@ -99,6 +139,10 @@ export async function installBackend(page: Page, backend: Backend) {
       release.get(orgId)?.();
     },
   };
+}
+
+function member(id: string, email: string, name: string, roles: string[], department: Department): Member {
+  return { id, email, display_name: name, status: "active", roles, departments: [department] };
 }
 
 export const ADMIN_BACKEND: Backend = {
@@ -126,6 +170,16 @@ export const ADMIN_BACKEND: Backend = {
   departments: {
     [ORG_A]: { status: 200, items: [{ id: "d-legal", name: "Legal" }] },
     [ORG_B]: { status: 200, items: [{ id: "d-finance", name: "Finance" }] },
+  },
+  members: {
+    [ORG_A]: [
+      member("m-alex", "alex@example.com", "Alex Admin", ["organization_admin"], { id: "d-legal", name: "Legal" }),
+      member("m-pat", "pat@example.com", "Pat Member", ["member"], { id: "d-legal", name: "Legal" }),
+    ],
+    [ORG_B]: [
+      member("m-bea", "bea@example.com", "Bea Banker", ["organization_admin"], { id: "d-finance", name: "Finance" }),
+      member("m-cy", "cy@example.com", "Cy Clerk", ["member"], { id: "d-finance", name: "Finance" }),
+    ],
   },
 };
 

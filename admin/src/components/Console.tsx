@@ -1,19 +1,26 @@
 import { useState } from "react";
 import type { AccountApi, Me } from "../api/account";
+import type { MembersApi } from "../api/members";
 import { resolveEntry } from "../auth/access";
 import { defaultTheme } from "../brand/theme";
+import { Members } from "../pages/Members";
 import { Overview } from "../pages/Overview";
 import { AccessDenied } from "./AccessDenied";
 
 interface ConsoleProps {
   api: AccountApi;
+  membersApi: MembersApi;
   me: Me;
   onSignOut: () => void;
 }
 
-export function Console({ api, me, onSignOut }: ConsoleProps) {
+const VIEWS = ["Overview", "Members"] as const;
+type View = (typeof VIEWS)[number];
+
+export function Console({ api, membersApi, me, onSignOut }: ConsoleProps) {
   const entry = resolveEntry(me);
   const [orgId, setOrgId] = useState(entry.kind === "ready" ? entry.organization.id : "");
+  const [view, setView] = useState<View>("Overview");
   if (entry.kind === "denied") return <AccessDenied onSignOut={onSignOut} />;
 
   const organizations = entry.kind === "ready" ? [entry.organization] : entry.organizations;
@@ -50,9 +57,26 @@ export function Console({ api, me, onSignOut }: ConsoleProps) {
           Sign out
         </button>
       </header>
+      <nav aria-label="Sections" className="flex gap-2 bg-teal px-6 py-2 text-white">
+        {VIEWS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            aria-current={view === name ? "page" : undefined}
+            onClick={() => setView(name)}
+            className="rounded px-3 py-1 transition-colors hover:bg-primary aria-[current=page]:bg-primary"
+          >
+            {name}
+          </button>
+        ))}
+      </nav>
       <main className="mx-auto max-w-4xl p-6">
         {selected ? (
-          <Overview key={selected.id} api={api} organization={selected} />
+          view === "Members" ? (
+            <Members key={selected.id} api={api} membersApi={membersApi} organization={selected} />
+          ) : (
+            <Overview key={selected.id} api={api} organization={selected} />
+          )
         ) : (
           <p>Select an organization to continue.</p>
         )}

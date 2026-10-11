@@ -164,7 +164,7 @@ B1b `feat/mvp-b1b-admin-login`: `admin/{index.html,README.md}`, `src/{main,App}.
 
 ## B2 members UI (`b2-admin-members`)
 Files: `admin/src/pages/Members.tsx`, `api/members.ts`, `components/{InviteDialog,MemberTable}.tsx`, tests. Deps: B1, A4b.
-- [ ] B2.1 RED: invite, suspend, last-admin error, keyboard/reduced-motion; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit`
+- [x] B2.1 RED: invite (pending row: the server lists members only after acceptance), suspend/reactivate, last-admin error, org-switch clears list, 404 rendering, keyboard/Escape focus return, reduced-motion (7 unit + 9 UI observed failing first); GREEN. Verify (cwd `admin`): `npm run test:unit` (59 pass), `npx tsc --noEmit`, `npm run build`. Also modified `src/api/runtime.ts`, `src/App.tsx`, `src/components/Console.tsx` (Overview/Members navigation), `src/members/model.ts` (pure helpers), `tests/ui/support.ts` (stateful members/invitations double)
 
 ## B3 gateway + catalog UI (`b3-admin-gateway`)
 Files: `admin/src/pages/{Gateway,Catalog}.tsx`, `api/gateway.ts`, tests. Deps: B2, A2b.
