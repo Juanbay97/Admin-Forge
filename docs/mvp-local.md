@@ -1,9 +1,9 @@
 # MVP local de Prometheon Forge
 
 > Estado: plano de control, puerta de enlace falsa y aprovisionamiento listos.
-> La administración web (`/admin/`) y el cliente se incorporan en las rebanadas B y C
-> de `openspec/changes/prometheon-forge-mvp/`; hasta entonces `/admin/` responde un
-> 503 con un mensaje claro y `/status` informa `"admin": "missing"`.
+> La administración web (`/admin/`) se compila desde `admin/`; sin compilación responde un
+> 503 con un mensaje claro y `/status` informa `"admin": "missing"`. El cliente se
+> incorpora en la rebanada C de `openspec/changes/prometheon-forge-mvp/`.
 
 ## Objetivo
 
@@ -57,9 +57,24 @@ $env:PYTHONPATH = 'src'
 con un código finito y sin abrir ningún puerto. `GET /forge/v1/contract` entrega la
 versión y el hash del contrato que el cliente fija.
 
+## Administración web de extremo a extremo
+
+```powershell
+scripts\admin-e2e.ps1   # compila /admin, levanta la pila propia, ejecuta Playwright y la detiene
+```
+
+Compila `admin/` (`src/forge/web/admin/`, ignorada por Git), arranca la misma pila que
+`scripts\mvp-local.ps1 -RequireAdminBuild` y ejecuta `admin/e2e/admin-flow.spec.ts` en Chrome
+del sistema contra el plano de control real y la puerta de enlace falsa: montaje con la CSP real
+(sin violaciones, fuente propia cargada, un script en línea bloqueado), inicio de sesión de la
+persona administradora de `org-a`, invitación y suspensión de miembros, guardado de la clave de
+puerta de enlace, actualización y publicación del catálogo, y el miembro viendo exactamente los
+alias publicados. Requiere `npm ci` previo en `admin/`, la imagen fijada de PostgreSQL en la
+caché local y Docker; no descarga nada. Cada espera tiene límite y al final confirma que el
+contenedor propio y el espacio de trabajo privado ya no existen.
+
 ## Pendiente
 
-- Compilación de la administración web (`src/forge/web/admin/`, ignorada por Git).
 - Prueba de humo de extremo a extremo (`scripts/mvp-smoke.ps1`).
 
 Diseño y especificaciones: `openspec/changes/prometheon-forge-mvp/`.

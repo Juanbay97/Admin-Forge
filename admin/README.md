@@ -15,6 +15,7 @@ storage, cookies or URLs, and no remote script, font or style is loaded.
 | Command | What it proves |
 |---------|----------------|
 | `npm run test:unit` | Logic units (`unit` project) and the production bundle in system Chrome against a mocked same-origin API (`ui` project) |
+| `npm run test:e2e` | Real flow in system Chrome against the running local stack; start it through `scripts\admin-e2e.ps1` (builds, starts the owned stack, runs, stops, confirms cleanup) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run build` | Production bundle |
 

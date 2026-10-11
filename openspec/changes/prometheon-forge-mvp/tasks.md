@@ -177,7 +177,7 @@ B3b `feat/mvp-b3b-admin-catalog`: `admin/src/{pages/Catalog.tsx,api/catalog.ts,c
 
 ## B4 admin Playwright (`b4-admin-e2e`)
 Files: `admin/playwright.config.ts`, `admin/e2e/admin-flow.spec.ts`, `scripts/admin-e2e.ps1`. Deps: B3.
-- [ ] B4.1 RED/GREEN: invite->gateway->publish flow against `mvp_local`+fake gateway. Verify: `scripts\admin-e2e.ps1`
+- [x] B4.1 RED/GREEN: login -> members invite/suspend/reactivate -> gateway key save -> catalogue refresh/publish -> member sees published aliases, against the real `mvp_local` control plane + fake gateway, plus real-CSP mount check (no violations, own font loaded, inline script blocked, no storage/cookies). RED: stack without admin build, both specs failed (503 mount; login never rendered). GREEN: `scripts\admin-e2e.ps1` (build, owned stack, Playwright, bounded waits, confirmed container/workspace removal). Also modified `admin/package.json` (`test:e2e`), `admin/tsconfig.json`, `admin/README.md`, `docs/mvp-local.md`. Verify: `scripts\admin-e2e.ps1` (2 e2e pass), `npm run test:unit` (92 pass), `npx tsc --noEmit`
 
 ## C1 remove key flow (`feat/mvp-c1-remove-key-flow`, CL)
 Files: Delete `backend/app/forge_managed.py`, `scripts/forge-gateway-dev.ps1`, `GatewayAdminView`+tests; Modify `scripts/forge-workspace-dev.mjs` (drop `--gateway-stdin`), `backend/app/forge_workspace_dev.py`, i18n, tests. Deps: Slice 0.
