@@ -181,32 +181,32 @@ Files: `admin/playwright.config.ts`, `admin/e2e/admin-flow.spec.ts`, `scripts/ad
 
 ## C1 remove key flow (`feat/mvp-c1-remove-key-flow`, CL)
 Files: Delete `backend/app/forge_managed.py`, `scripts/forge-gateway-dev.ps1`, `GatewayAdminView`+tests; Modify `scripts/forge-workspace-dev.mjs` (drop `--gateway-stdin`), `backend/app/forge_workspace_dev.py`, i18n, tests. Deps: Slice 0.
-- [ ] C1.1 RED: no key surface, admin route absent (managed-client-launch); GREEN by deletion. Verify: backend `pytest backend/tests -q -k forge`, `npm run test:unit`, `npx tsc --noEmit` (cwd `frontend`)
+- [x] C1.1 RED: no key surface, admin route absent (managed-client-launch); GREEN by deletion. Verify: backend `pytest backend/tests -q -k forge`, `npm run test:unit`, `npx tsc --noEmit` (cwd `frontend`) (CL commits 323be61 key flow, 96d8bfe gateway admin)
 
 ## C2a launcher + verifier (`c2a-managed-launcher`)
 Files: `scripts/forge-managed.mjs`, `scripts/forge-isolation.mjs` (-> `verifyIsolation()`), `package.json` scripts, tests; remove `forge-managed-web/accounts-dev/prelogin-dev/workspace-dev.mjs`. Deps: C1, A3.
-- [ ] C2a.1 RED: one test per refusal (non-loopback origin, legacy ports 3319/3320/3331/3332, port busy, env allow-list, `.env`, relative/in-repo/real-OpenYak data dir, pin mismatch); valid launch OK
-- [ ] C2a.2 GREEN; Verify: `npm run test:unit`, `npx tsc --noEmit`
+- [x] C2a.1 RED: one test per refusal (non-loopback origin, legacy ports 3319/3320/3331/3332, port busy, env allow-list, `.env`, relative/in-repo/real-OpenYak data dir, pin mismatch); valid launch OK
+- [x] C2a.2 GREEN; Verify: `npm run test:unit`, `npx tsc --noEmit` (CL ec88ac1, 6fbaaf1, 2f733cb, 8487345)
 
 ## C2b me-context + contract pin (`c2b-me-context-contract`)
 Files: `frontend/src/lib/forge-context.ts`, `contract/forge-contract.pin.json`, `backend/app/forge_workspace.py`, `forge_contract.py`, Modify `forge-accounts.ts`; tests. Deps: C2a, A5a (fixture).
-- [ ] C2b.1 RED: login+discovery, suspended/invalid, logout, mid-stream stop, over-limit, unpublished alias; backend fails closed on sha mismatch
-- [ ] C2b.2 GREEN; Verify: backend `pytest backend/tests -q -k forge`, `npm run test:unit`, `npx tsc --noEmit`
+- [x] C2b.1 RED: login+discovery, suspended/invalid, logout, mid-stream stop, over-limit, unpublished alias; backend fails closed on sha mismatch
+- [x] C2b.2 GREEN; Verify: backend `pytest backend/tests -q -k forge`, `npm run test:unit`, `npx tsc --noEmit` (CL 047b328, f4908ee, 131452a, 7951542 invitation acceptance)
 
 ## C3a tokens/assets (`c3a-brand-tokens`)
 Files: `frontend/src/lib/brand.ts`, `public/{fonts/*,favicon.svg,manifest.json}`, `globals.css`, Tauri icons. Deps: C2b.
-- [ ] C3a.1 RED: tokens, contrast, local fonts only, single-source theme, manifest; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit`
+- [x] C3a.1 RED: tokens, contrast, local fonts only, single-source theme, manifest; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit` (CL 4895ebf)
 
 ## C3b strings (`c3b-brand-strings`)
 Files: `components/brand/BrandMark.tsx` (replaces `OpenYakLogo`, 7 usages), splash, title bar, `locales/{en,zh}`, `(mobile)/layout.tsx` notFound, `docs` tech-debt note, visible-string sweep test. Deps: C3a.
-- [ ] C3b.1 RED: rendered-text scan has no "OpenYak", mobile `/m` 404, attribution/legal kept; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit`, `npm run lint`
+- [x] C3b.1 RED: rendered-text scan has no "OpenYak", mobile `/m` 404, attribution/legal kept; GREEN. Verify: `npm run test:unit`, `npx tsc --noEmit`, `npm run lint` (CL d5fbe58)
 
 ## C4 client E2E (`c4-client-e2e`)
 Files: `frontend/tests/ui/forge-managed-flow.spec.ts`, Playwright config. Deps: C3b.
-- [ ] C4.1 RED/GREEN: `next build && next start`; member login -> published models -> streamed chat. Verify: `npm run test:ui -- forge-managed-flow`
+- [x] C4.1 RED/GREEN: `next build && next start`; member login -> published models -> streamed chat. Verify: `npm run test:ui -- forge-managed-flow` Delivered as CL `feat/mvp-c4-client-e2e` 9a82f8e + 69efef3: `frontend/tests/ui/forge-managed-flow.spec.ts` with `frontend/playwright.forge-managed-flow.config.ts` (run `npx playwright test -c playwright.forge-managed-flow.config.ts`, not `npm run test:ui`, whose default config starts a dev server). RED: spec against the real stack failed on invitation activation (quoted-printable link), a second member refused by the one-profile backend, and stream chunking assumptions; GREEN: 3 e2e pass inside `scripts\mvp-smoke.ps1`. Also fixed the two stale unit failures (`playwright.unit.managed.config.ts`, layout assertion).
 
 ## Final smoke (`feat/mvp-final-smoke`, CP + CL)
 Files: `docs/mvp-local.md`, `scripts/mvp-smoke.ps1`, contract equality check. Deps: B4, C4.
-- [ ] F.1 RED: contract file equality (CP vs CL pin byte-identical); GREEN: smoke script boots CP+fake gateway+client, runs acceptance flow
-- [ ] F.2 Verify: `scripts\mvp-smoke.ps1`; full control-plane suite + `scripts\test-postgres.ps1`; client `npm run test:unit`, `npx tsc --noEmit`
-- [ ] F.3 Verify success criteria: key absent everywhere, no visible "OpenYak", all slices <=800
+- [x] F.1 RED: contract file equality (CP vs CL pin byte-identical); GREEN: smoke script boots CP+fake gateway+client, runs acceptance flow RED: `tests/test_mvp_smoke.py` (4 failures: runner and docs absent); GREEN: 6 OK (pin equals contract, EOL-independent hash, runner safety, docs) and `scripts\mvp-smoke.ps1` PASS.
+- [x] F.2 Verify: `scripts\mvp-smoke.ps1`; full control-plane suite + `scripts\test-postgres.ps1`; client `npm run test:unit`, `npx tsc --noEmit` Control-plane plain suite: 505 tests, only the 48 harness-less PostgreSQL errors; PostgreSQL harness not re-run (no schema or control-plane source change in the final slice). Client: node 58/58, `test:unit` 135 + managed 7, `tsc` and eslint on changed files clean.
+- [x] F.3 Verify success criteria: key absent everywhere, no visible "OpenYak", all slices <=800 Key and gateway host absent from DOM, storage, cookies, network URLs/headers/bodies in the real browser; no "OpenYak" in rendered text of `/` and `/onboarding`; slices <=800 (A-series splits recorded above).

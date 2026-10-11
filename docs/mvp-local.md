@@ -1,9 +1,8 @@
 # MVP local de Prometheon Forge
 
-> Estado: plano de control, puerta de enlace falsa y aprovisionamiento listos.
-> La administración web (`/admin/`) se compila desde `admin/`; sin compilación responde un
-> 503 con un mensaje claro y `/status` informa `"admin": "missing"`. El cliente se
-> incorpora en la rebanada C de `openspec/changes/prometheon-forge-mvp/`.
+> Estado: recorrido funcional completo en local. Plano de control, administración web, puerta de enlace
+> falsa y cliente (compilación de producción) se levantan y se prueban de extremo a extremo en Chrome real
+> con scripts\mvp-smoke.ps1. Cada rebanada está en openspec/changes/prometheon-forge-mvp/.
 
 ## Objetivo
 
@@ -73,8 +72,65 @@ alias publicados. Requiere `npm ci` previo en `admin/`, la imagen fijada de Post
 caché local y Docker; no descarga nada. Cada espera tiene límite y al final confirma que el
 contenedor propio y el espacio de trabajo privado ya no existen.
 
-## Pendiente
+## Cómo ejecutar el MVP
 
-- Prueba de humo de extremo a extremo (`scripts/mvp-smoke.ps1`).
+Todo es solo loopback y usa recursos propios (contenedor, espacio de trabajo privado, directorio de datos del
+cliente) que se eliminan al detener. Nunca se usan 3319, 3320, 3331 ni 3332.
+
+**Requisitos (una vez):** Docker Desktop en marcha con la imagen fijada de PostgreSQL 17 en la caché local
+(`scripts/postgres-image.txt`), Chrome instalado, y las dependencias ya instaladas: `npm ci` en `admin/`,
+`npm ci` en `clients\openyak\frontend` y el entorno `clients\openyak\backend\.venv`.
+
+### Opción 1: prueba completa automática
+
+```powershell
+scripts\mvp-smoke.ps1    # unos 6 a 10 minutos; la compilación de producción del cliente es lo más lento
+```
+
+Compila `/admin`, levanta la pila propia, ejecuta el flujo de administración en Chrome (alta de miembro,
+clave de puerta de enlace, publicación), arranca el cliente con su lanzador (`next build` + `next start`),
+ejecuta el flujo del miembro (activar cuenta, iniciar sesión, ver solo lo publicado, chat con tokens en
+streaming, sin clave ni host de la puerta de enlace en el navegador, otra organización sin acceso) y
+detiene y elimina todo. Termina con `mvp-smoke: PASS` y código 0. Cada espera tiene límite.
+
+### Opción 2: a mano
+
+1. Pila (terminal 1, desde la raíz de este repositorio; compile `admin` antes con `npm run build`):
+
+   ```powershell
+   scripts\mvp-local.ps1 -RequireAdminBuild
+   ```
+
+   Imprime una línea JSON `ready` con `admin_url`, `workspace` y `credentials_file`.
+2. Cliente (terminal 2, desde `clients\openyak`; el directorio de datos debe ser absoluto, estar fuera del
+   repositorio y no ser el de OpenYak real):
+
+   ```powershell
+   node scripts/forge-managed.mjs --control-plane-origin http://127.0.0.1:3410 --data-dir "$env:TEMP\forge-client-data"
+   ```
+
+   Hace la compilación de producción (varios minutos) y escribe `{"stage":"ready",...}` cuando 3411 responde.
+3. Abrir la administración: `http://127.0.0.1:3410/admin/`. Abrir el cliente: `http://127.0.0.1:3411`.
+4. Credenciales: archivo `credentials.json` dentro del espacio de trabajo privado que informa la línea
+   `ready` (`credentials_file`). Ábralo solo en local; no lo pegue ni lo imprima. Contiene las cuentas de
+   `org-a` y `org-b` y la clave de puerta de enlace de cada una.
+5. Recorrido: en la administración inicie sesión como administrador de `org-a`, invite a un miembro
+   (Members), guarde la puerta de enlace `http://127.0.0.1:3413` con la clave de `org-a` (Gateway), actualice
+   y publique el catálogo (Catalog). El correo queda en `<espacio de trabajo>\mailbox\*.eml`: abra el enlace
+   `http://127.0.0.1:3411/onboarding#...` que contiene, active la cuenta y entre en el cliente.
+6. Detener: `Ctrl+C` en cada terminal (cliente primero). La pila elimina su contenedor y su espacio de
+   trabajo; borre el directorio de datos del cliente.
+
+### Límites conocidos
+
+- Un proceso del cliente se une a un solo perfil de miembro: para entrar como otra persona (u otra
+  organización) reinicie el cliente. El segundo inicio de sesión recibe una denegación, sin datos del primero.
+- `next build` reescribe `frontend/next-env.d.ts` y `frontend/tsconfig.json` (archivos versionados); descarte
+  esos cambios con `git checkout` antes de confirmar.
+- El inicio de sesión tiene un límite por cuenta en ventanas de 15 minutos; repetir ejecuciones contra la misma
+  pila puede bloquear temporalmente a la persona administradora (una pila nueva lo restablece).
+- Docker Desktop (almacén containerd) puede fallar en `docker image inspect` por resumen hasta usar la imagen
+  una vez (`CACHED_PINNED_IMAGE_REQUIRED`): `scripts\mvp-smoke.ps1` lo resuelve con un contenedor descartable;
+  a mano, ejecute `docker run --rm --pull never --entrypoint postgres <imagen> --version` y reintente.
 
 Diseño y especificaciones: `openspec/changes/prometheon-forge-mvp/`.
