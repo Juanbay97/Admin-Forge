@@ -9,7 +9,8 @@ and a company that sets nothing keeps the Prometheon default.
 1. Sign in to the admin console (`/admin/`) and pick your organization.
 2. Open **Branding**.
 3. Set the product name and login message, three colors and two fonts. Optionally upload up to three logos.
-4. Watch the **Light** and **Dark** previews. They update as you type; the rest of the page waits for a save.
+4. Watch the live preview: the client **sign-in screen** in **Light** and **Dark**, and the **browser tab**
+   (company name and icon). They update as you type; the rest of the page waits for a save.
 5. **Save branding**. Employees get it on their next launch or sign-in, and running clients pick it up within
    about 5 minutes.
 6. Give employees your **company code** (the organization's short code, for example `org-a`). They type it once.
@@ -29,8 +30,19 @@ every save and reset is kept in the revision history.
 | Heading and body font | One of Inter, Montserrat, Source Sans 3, IBM Plex Sans, Nunito Sans, Roboto. |
 
 You choose **three colors**; the app derives every light and dark shade from them and checks that text stays
-readable. If the combination cannot be made readable, **the server refuses the save** and says so. The preview
-shows the same warning as you type. Fonts are bundled with the apps, so there is nothing to host.
+readable. The page checks this with the same generator the server uses, **as you type**: a color that is not
+readable is explained right beside its field, before you press Save. The check never replaces the server: if a
+combination cannot be made readable, **the server still refuses the save** and says so. Fonts are bundled with
+the apps, so there is nothing to host.
+
+## The live preview
+
+| Part | What it shows |
+|------|---------------|
+| Sign-in screen (Light and Dark) | The client sign-in as employees see it: company mark and name, "Welcome to your company", your login message, the email and password fields, the **Sign in** button. |
+| Browser tab | The tab title (your product name) and the icon (your isotipo, or the Prometheon icon when none is set). |
+
+The preview is only a picture: it has no working fields and nothing in it is saved until you press **Save branding**.
 
 ## Logos
 

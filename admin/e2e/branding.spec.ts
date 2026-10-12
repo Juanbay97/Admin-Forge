@@ -130,6 +130,10 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     await expect(preview("Dark").getByTestId("preview-button")).toHaveCSS("background-color", ACME.darkBrand);
     await expect(preview("Light")).toContainText(ACME.name);
     await expect(preview("Light").locator("canvas")).toBeVisible();
+    // The client sign-in screen and the browser tab follow the draft too.
+    await expect(preview("Light").getByRole("heading", { name: `Welcome to ${ACME.name}` })).toBeVisible();
+    await expect(preview("Light")).toContainText(ACME.loginCopy);
+    await expect(page.getByRole("group", { name: "Browser tab preview" })).toContainText(ACME.name);
     // Nothing is saved yet: the shell, the title and the public endpoint still show the seeded branding.
     expect(await rootVar(page, "--brand-teal")).toBe(SEEDED_A.primary);
     expect(await page.title()).toBe(SEEDED_A.title);
@@ -266,6 +270,8 @@ test("hostile inputs are refused with the server's own message and nothing is sa
   await test.step("a color the apps cannot render readably never leaves the page", async () => {
     await field(page, "Accent color").fill("#FFEB3B");
     await expect(page.getByTestId("preview-unavailable")).toBeVisible();
+    // Flagged live by the shared generator, before Save; the server then gives its own refusal.
+    await expect(page.getByTestId("issue-accent")).toContainText("3:1");
     await page.getByRole("button", { name: "Save branding" }).click();
     await expect(page.getByRole("alert")).toContainText("cannot produce a readable theme");
     await field(page, "Accent color").fill(before.theme.accent ?? "#E07A2D");
