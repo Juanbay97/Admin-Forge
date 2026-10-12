@@ -19,7 +19,6 @@ from types import MappingProxyType
 from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
-from fastapi.responses import JSONResponse
 
 from forge.dev_accounts import LocalFixtureError
 from forge.admin_mount import AdminBuildMissing, apply_guard, mount_admin
@@ -159,14 +158,8 @@ def role_settings(config, secrets, role):
 
 def assemble(app, config, readiness):
     """Status, admin mount and the loopback guard around an already composed application."""
-    built = (Path(config.admin_dir)/'index.html').is_file()
-
-    @app.get('/status', include_in_schema=False)
-    def status():
-        ready = readiness.check()
-        return JSONResponse({'status': 'ready' if ready else 'not_ready', 'profile': MVP_PROFILE,
-                             'admin': 'ready' if built else 'missing'},
-                            status_code=200 if ready else 503, headers={'Cache-Control': 'no-store'})
+    from forge.composition import add_status
+    add_status(app, readiness, config.admin_dir)
     try:
         mount_admin(app, config.admin_dir, required=config.require_admin_build)
     except AdminBuildMissing:

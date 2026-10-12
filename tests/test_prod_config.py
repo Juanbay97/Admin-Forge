@@ -137,6 +137,20 @@ class DerivedValueTests(unittest.TestCase):
             self.assertEqual(f.load(FORGE_PUBLIC_ORIGIN='https://forge.example.test:443').trusted_hosts,
                              frozenset({'forge.example.test', 'forge.example.test:443'}))
 
+    def test_public_host_is_the_authority_a_browser_sends(self):
+        with Fixture() as f:
+            self.assertEqual(f.load().public_host, 'forge.example.test')
+            self.assertEqual(f.load(FORGE_PUBLIC_ORIGIN='https://forge.example.test:8443').public_host, 'forge.example.test:8443')
+            self.assertEqual(f.load(FORGE_PUBLIC_ORIGIN='https://forge.example.test:443').public_host, 'forge.example.test')
+
+    def test_log_level_defaults_to_info_and_accepts_only_known_levels(self):
+        with Fixture() as f:
+            self.assertEqual(f.load().log_level, 'INFO')
+            self.assertEqual(f.load(FORGE_LOG_LEVEL='WARNING').log_level, 'WARNING')
+            for value in ('info', 'TRACE', '', '10'):
+                with self.subTest(level=value):
+                    f.refused(self, 'FORGE_LOG_LEVEL', FORGE_LOG_LEVEL=value)
+
     def test_role_settings_are_explicit_libpq_parameters(self):
         with Fixture() as f:
             settings = f.load(FORGE_DB_PORT='6543', FORGE_DB_SSLMODE='verify-full').role_settings(ROLES[0])

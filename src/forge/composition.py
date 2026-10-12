@@ -6,9 +6,13 @@ application over them. Everything profile-specific stays with the profile: how s
 obtained, which delivery channel and onboarding origin are used, and the status route, admin
 mount and host guard around the returned application.
 """
+from pathlib import Path
 from typing import NamedTuple
 
+from fastapi.responses import JSONResponse
+
 from forge.mvp_local import ConfigError, ROLES
+from forge.mvp_profile import MVP_PROFILE
 
 
 class RolePools(NamedTuple):
@@ -45,6 +49,18 @@ def attest(pools, *, readiness_factory=None):
     if not readiness.check():
         raise ConfigError('SCHEMA_ATTESTATION_FAILED')
     return readiness
+
+
+def add_status(app, readiness, admin_dir):
+    """``/status``: schema-attested readiness (503 when not ready) and whether the admin build exists."""
+    built = (Path(admin_dir)/'index.html').is_file()
+
+    @app.get('/status', include_in_schema=False)
+    def status():
+        ready = readiness.check()
+        return JSONResponse({'status': 'ready' if ready else 'not_ready', 'profile': MVP_PROFILE,
+                             'admin': 'ready' if built else 'missing'},
+                            status_code=200 if ready else 503, headers={'Cache-Control': 'no-store'})
 
 
 def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery_key, gateway_key, gateway_policy):

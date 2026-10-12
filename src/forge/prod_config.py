@@ -21,10 +21,11 @@ DEFAULT_PORT = 3410
 DEFAULT_BIND_HOST = '0.0.0.0'
 DEFAULT_ADMIN_DIR = str(Path(__file__).resolve().parent/'web'/'admin')
 SSL_MODES = ('disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full')
+LOG_LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
 _SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_DB_ADMIN_PASSWORD')
 _PLAIN = ('FORGE_PUBLIC_ORIGIN', 'FORGE_DB_HOST', 'FORGE_DB_PORT', 'FORGE_DB_NAME', 'FORGE_DB_SSLMODE',
           'FORGE_DB_ADMIN_USER', 'FORGE_ROLE_PASSWORDS_DIR', 'FORGE_ADMIN_DIR', 'FORGE_PORT', 'FORGE_BIND_HOST',
-          'FORGE_WORKERS', ORIGINS_VARIABLE)
+          'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE)
 # Later changes that add settings extend this tuple; any other FORGE_* name is a typo and refused.
 KNOWN_KEYS = (*_PLAIN, *_SECRETS, *(name + '_FILE' for name in _SECRETS))
 _DB_HOST = re.compile(r'[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?')
@@ -52,6 +53,7 @@ class ProdConfig:
     admin_dir: str
     port: int = DEFAULT_PORT
     bind_host: str = DEFAULT_BIND_HOST
+    log_level: str = 'INFO'
 
     @property
     def trusted_hosts(self):
@@ -61,6 +63,12 @@ class ProdConfig:
             return frozenset({parts.hostname})
         authority = '%s:%d' % (parts.hostname, parts.port)
         return frozenset({parts.hostname, authority}) if parts.port == 443 else frozenset({authority})
+
+    @property
+    def public_host(self):
+        """The Host header browsers (and the healthcheck) send for the public origin."""
+        parts = urlsplit(self.public_origin)
+        return parts.hostname if parts.port in (None, 443) else '%s:%d' % (parts.hostname, parts.port)
 
     @property
     def browser_origins(self):
@@ -184,4 +192,7 @@ def load_prod_config(environ):
     bind = env.get('FORGE_BIND_HOST', DEFAULT_BIND_HOST)
     if not _is_ip(bind):
         _fail('FORGE_BIND_HOST')
-    return ProdConfig(public, db, roles, delivery, gateway, policy, admin_dir, port, bind)
+    level = env.get('FORGE_LOG_LEVEL', 'INFO')
+    if level not in LOG_LEVELS:
+        _fail('FORGE_LOG_LEVEL')
+    return ProdConfig(public, db, roles, delivery, gateway, policy, admin_dir, port, bind, level)

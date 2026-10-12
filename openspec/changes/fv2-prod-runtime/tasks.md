@@ -43,7 +43,7 @@ Chain strategy: stacked-to-main
 ## Phase 4: Serve (S4)
 - [x] 4.1 RED `tests/test_logging_json.py` (fields, redaction, request-id).
 - [x] 4.2 GREEN `logging_json.py`; silence uvicorn handlers, route to JSON.
-- [ ] 4.3 RED `tests/test_serve_prod.py` (`/livez`, `/status` 503, foreign Host 403, healthcheck exit codes, port bind injected).
+- [x] 4.3 RED `tests/test_serve_prod.py` (`/livez`, `/status` 503, foreign Host 403, healthcheck exit codes, port bind injected).
 - [ ] 4.4 GREEN `serve_prod.py`; PG integration on harness; docstring explaining single worker.
 
 ## Phase 5: Origin DB pin (S5, conditional)
