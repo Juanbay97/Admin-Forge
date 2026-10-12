@@ -14,7 +14,8 @@ from forge.account_readiness import catalog_fingerprint
 from forge.account_sessions import PostgresSessionStore, SessionService
 from forge.dev_accounts import MIGRATIONS
 from forge.invitations import capability_digest
-from forge.mvp_profile import F24, F25, MVP_ADDITIONS, MVP_CHECKPOINTS, MVP_PROFILE, ORG_BRANDING_MIGRATION
+from forge.mvp_profile import (F24, F25, F26, MVP_ADDITIONS, MVP_CHECKPOINTS, MVP_PROFILE, ORG_BRANDING_CODE_MIGRATION,
+                              ORG_BRANDING_MIGRATION)
 from forge.provisioning import SEED, provision
 from mvp_support import mvp_database
 from postgres_support import connect
@@ -38,14 +39,17 @@ def drop_authorities():
 
 
 class BrandingProfileTests(unittest.TestCase):
-    def test_profile_appends_the_branding_migration_and_checkpoint(self):
+    def test_profile_appends_the_branding_migrations_and_checkpoints(self):
         self.assertEqual(ORG_BRANDING_MIGRATION, '0025_org_branding.sql')
-        self.assertEqual(MVP_ADDITIONS[-1], ORG_BRANDING_MIGRATION)
-        self.assertEqual(MVP_CHECKPOINTS[-2:], (F24, F25))
-        self.assertRegex(F25 or '', r'^[0-9a-f]{64}$', 'F25 must be pinned')
+        self.assertEqual(ORG_BRANDING_CODE_MIGRATION, '0026_branding_member_code.sql')
+        self.assertEqual(MVP_ADDITIONS[-2:], (ORG_BRANDING_MIGRATION, ORG_BRANDING_CODE_MIGRATION))
+        self.assertEqual(MVP_CHECKPOINTS[-3:], (F24, F25, F26))
+        for pinned in (F25, F26):
+            self.assertRegex(pinned or '', r'^[0-9a-f]{64}$', 'checkpoints must be pinned')
         self.assertNotEqual(F25, F24)
+        self.assertNotEqual(F26, F25)
         self.assertEqual(len(MVP_CHECKPOINTS), len(MVP_ADDITIONS) + 1)
-        self.assertTrue(MVP_PROFILE.startswith('0001-0005+0010-0025/'))
+        self.assertTrue(MVP_PROFILE.startswith('0001-0005+0010-0026/'))
 
 
 class BrandingFingerprintGateTests(unittest.TestCase):
@@ -56,7 +60,7 @@ class BrandingFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0024_share_the_pinned_fingerprint(self):
-        prefix = (*MIGRATIONS, *MVP_ADDITIONS[:-1])
+        prefix = (*MIGRATIONS, *MVP_ADDITIONS[:-2])
         with separate_database() as conn:
             for name in (*prefix, ORG_BRANDING_MIGRATION):
                 conn.execute(migration_text(name))
@@ -86,6 +90,43 @@ class BrandingFingerprintGateTests(unittest.TestCase):
         self.assertEqual(fresh, upgraded, 'fresh apply and upgrade-from-0024 must be identical')
         self.assertEqual(fresh, F25, 'F25 must be pinned to the reviewed value')
         self.assertNotEqual(fresh, F24)
+
+
+class BrandingCodeFingerprintGateTests(unittest.TestCase):
+    """Fresh apply of 0026 == upgrade from the 0025 profile, pinned as F26; the upgrade keeps saved branding."""
+
+    def fingerprint(self, conn):
+        with conn.cursor() as cursor:
+            return catalog_fingerprint(cursor)
+
+    def test_fresh_apply_and_upgrade_from_0025_share_the_pinned_fingerprint(self):
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-1])
+        with separate_database() as conn:
+            for name in (*previous, ORG_BRANDING_CODE_MIGRATION):
+                conn.execute(migration_text(name))
+            fresh = self.fingerprint(conn)
+        drop_authorities()
+        with separate_database() as conn:
+            for name in previous:
+                conn.execute(migration_text(name))
+            self.assertEqual(self.fingerprint(conn), F25)
+            organization, identity = uuid4(), uuid4()
+            with conn.transaction():
+                conn.execute("INSERT INTO forge.identities(id,provider,issuer,subject) VALUES(%s,'test','issuer','u')", (identity,))
+                conn.execute("INSERT INTO forge.organizations VALUES(%s,'up','Up',true,1)", (organization,))
+                conn.execute('INSERT INTO forge.configuration_revisions VALUES(%s,1)', (organization,))
+                conn.execute("INSERT INTO forge.organization_branding(organization_id,revision,name,login_copy,primary_color,"
+                             "accent_color,tint_color,heading_font,body_font,updated_by) "
+                             "VALUES(%s,1,'Up Co','Hi','#0B1D26','#E07A2D','#E8DCC1','inter','inter',%s)", (organization, identity))
+            conn.execute(migration_text(ORG_BRANDING_CODE_MIGRATION))
+            self.assertEqual(conn.execute('SELECT name FROM forge.organization_branding').fetchall(), [('Up Co',)])
+            self.assertEqual(conn.execute('SELECT slug FROM forge.branding_codes').fetchall(), [('up',)])
+            upgraded = self.fingerprint(conn)
+        drop_authorities()
+        print('Reviewed PG17 0026 branding member code checkpoint F26:', fresh)
+        self.assertEqual(fresh, upgraded, 'fresh apply and upgrade-from-0025 must be identical')
+        self.assertEqual(fresh, F26, 'F26 must be pinned to the reviewed value')
+        self.assertNotEqual(fresh, F25)
 
 
 def refusal(test, call):
@@ -237,7 +278,24 @@ class PostgresBrandingFunctionTests(unittest.TestCase):
             digests = self.world(db)
             for role in ('member', 'organization_admin'):
                 rows = self.gateway(db, 'SELECT * FROM forge.branding_member_read(%s,%s)', (digests[('org-a', role)], self.orgs['org-a']))
-                self.assertEqual(rows, [(0, None, None, None, None, None, None, None, None, None, None)])
+                self.assertEqual(rows, [(0, None, None, None, None, None, None, None, None, None, None, 'org-a')],
+                                 'revision 0 still carries the company code employees type')
+
+    def test_members_read_only_their_own_company_code_and_the_public_read_never_returns_it(self):
+        with mvp_database() as db:
+            digests = self.world(db)
+            for slug in ('org-a', 'org-b'):
+                for role in ('member', 'organization_admin'):
+                    with self.subTest(slug=slug, role=role):
+                        rows = self.gateway(db, 'SELECT code FROM forge.branding_member_read(%s,%s)',
+                                            (digests[(slug, role)], self.orgs[slug]))
+                        self.assertEqual(rows, [(slug,)])
+            self.assertEqual(refusal(self, lambda: self.gateway(db, 'SELECT code FROM forge.branding_member_read(%s,%s)',
+                                                                (digests[('org-a', 'member')], self.orgs['org-b']))),
+                             'BRANDING_DENIED')
+            self.save(db, digests[('org-a', 'organization_admin')], self.orgs['org-a'], 0)
+            (result,) = db.admin.execute("SELECT pg_get_function_result('forge.branding_public_read(text)'::regprocedure)").fetchone()
+            self.assertNotIn('code', result, 'the public lookup is keyed by the code and never echoes it')
 
     def test_save_is_admin_only_cas_and_leaves_an_audit_row_naming_the_actor(self):
         with mvp_database() as db:
@@ -250,7 +308,7 @@ class PostgresBrandingFunctionTests(unittest.TestCase):
             self.assertEqual(self.history(db, org), [(1, 'save', 'Acme Labs', self.actors[('org-a', 'organization_admin')]),
                                                      (2, 'save', 'Acme Two', self.actors[('org-a', 'organization_admin')])])
             member_view = self.gateway(db, 'SELECT * FROM forge.branding_member_read(%s,%s)', (digests[('org-a', 'member')], org))
-            self.assertEqual(member_view, [(2, *theme2, None, None, None)])
+            self.assertEqual(member_view, [(2, *theme2, None, None, None, 'org-a')])
 
     def test_stale_or_future_revisions_conflict_and_change_nothing(self):
         with mvp_database() as db:
