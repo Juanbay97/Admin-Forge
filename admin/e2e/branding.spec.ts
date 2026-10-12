@@ -69,6 +69,16 @@ async function token(request: APIRequestContext, account: { email: string; passw
   return ((await login.json()) as { access_token: string }).access_token;
 }
 
+/** The control plane keeps at most 8 live sessions per account and this suite shares the stack with others: leave none behind. */
+async function revoke(request: APIRequestContext, headers: { Authorization: string }) {
+  expect((await request.post("/forge/v1/accounts/logout", { headers })).status()).toBe(204);
+}
+
+async function signOut(page: Page) {
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+}
+
 async function publicBranding(request: APIRequestContext, slug: string) {
   const response = await request.get(`/forge/v1/branding?org=${slug}`);
   expect(response.status()).toBe(200);
@@ -195,6 +205,7 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
       await expect(second.locator("header")).not.toContainText(ACME.name);
       expect(await rootVar(second, "--brand-teal")).toBe(SEEDED_B.primary);
       expect(await second.title()).toBe(SEEDED_B.title);
+      await signOut(second);
     } finally {
       await other.close();
     }
@@ -205,6 +216,7 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     const crossWrite = await request.post(`/forge/v1/orgs/${orgB.id}/branding/reset`, { headers: bearer, data: { expectedRevision: 1 } });
     expect(crossWrite.status()).toBe(404);
     expect((await publicBranding(request, "org-b")).revision).toBe(1);
+    await revoke(request, bearer);
   });
 
   await test.step("reset restores the Prometheon default as a new revision", async () => {
@@ -225,6 +237,7 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     expect((await request.get(logoUrl)).status()).toBe(404);
   });
 
+  await signOut(page);
   expect(await violations()).toEqual([]);
 });
 
@@ -276,6 +289,7 @@ test("hostile inputs are refused with the server's own message and nothing is sa
 
   expect(await publicBranding(request, "org-a")).toEqual(before);
   expect(await page.locator("script:not([src])").count()).toBe(0);
+  await signOut(page);
   expect(await violations()).toEqual([]);
 });
 
@@ -300,6 +314,7 @@ test("a stale revision shows a reload prompt and the other administrator's save 
     data: { expectedRevision: opened.revision, branding: theirs },
   });
   expect(theirSave.status()).toBe(200);
+  await revoke(request, bearer);
 
   await field(page, "Product name").fill("My Co");
   await page.getByRole("button", { name: "Save branding" }).click();
@@ -313,5 +328,6 @@ test("a stale revision shows a reload prompt and the other administrator's save 
   await expect(page.getByText(`Revision ${opened.revision + 1}`, { exact: true })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(await rootVar(page, "--brand-teal")).toBe("#7C3AED");
+  await signOut(page);
   expect(await violations()).toEqual([]);
 });
