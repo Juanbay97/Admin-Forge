@@ -114,6 +114,11 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     await page.getByRole("button", { name: "Branding" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Branding" })).toBeVisible();
     await expect(field(page, "Product name")).toHaveValue(SEEDED_A.name);
+    // The real control plane tells the administrator which code employees type: the seeded slug.
+    const companyCode = page.getByRole("group", { name: "Company code" });
+    await expect(companyCode.getByTestId("company-code")).toHaveText(orgA.slug);
+    await expect(companyCode).toContainText("Employees type this code the first time they open the app");
+    await expect(companyCode.getByRole("button", { name: "Copy company code" })).toBeVisible();
 
     await field(page, "Product name").fill(ACME.name);
     await field(page, "Login message").fill(ACME.loginCopy);
@@ -148,6 +153,7 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     expect(await rootVar(page, "--brand-primary")).toBe(ACME.ink);
     await expect(page.locator("header")).toContainText(ACME.name);
     expect(await page.title()).toBe("Acme Labs Admin");
+    await expect(page.getByTestId("company-code")).toHaveText(orgA.slug);
     logoUrl = (await publicBranding(request, "org-a")).assets.logoLight ?? "";
     expect(logoUrl).toMatch(ASSET_URL);
     await expect(page.locator("header img")).toHaveAttribute("src", logoUrl);

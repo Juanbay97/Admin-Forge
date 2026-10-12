@@ -155,6 +155,26 @@ test.describe("branding failures", () => {
     expect(describeBrandingFailure(new ApiError(422, "UNKNOWN", "Request failed (422)."))).toBe("Something went wrong. Try again.");
   });
 });
+test.describe("company code", () => {
+  test("the authenticated read may carry a valid company code; the public and save shapes have none", () => {
+    expect(parseBranding({ ...served(), code: "acme" }).code).toBe("acme");
+    expect(parseBranding({ ...served(), code: "org-a-2" }).code).toBe("org-a-2");
+    expect(parseBranding(served()).code).toBeUndefined();
+  });
+
+  test("a code that is not a plain lowercase company code is rejected whole", () => {
+    for (const code of ["", "Acme", "-acme", "a b", "a_b", "<b>", "acme\n", "x".repeat(64), 5, null, {}]) {
+      expect(() => parseBranding({ ...served(), code }), JSON.stringify(code)).toThrow();
+    }
+  });
+
+  test("a draft never turns the code into something that is sent on save", () => {
+    const record = parseBranding({ ...served(), code: "acme" });
+    expect(JSON.stringify(draftToDocument(draftFrom(record)))).not.toContain("acme\"");
+    expect(Object.keys(draftToDocument(draftFrom(record)))).toEqual(["name", "loginCopy", "theme", "assets"]);
+  });
+});
+
 test.describe("live palette readability", () => {
   const draft = (change: Record<string, string> = {}) => ({ ...draftFrom(parseBranding(served())), ...change });
 

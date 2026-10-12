@@ -13,7 +13,8 @@ and a company that sets nothing keeps the Prometheon default.
    (company name and icon). They update as you type; the rest of the page waits for a save.
 5. **Save branding**. Employees get it on their next launch or sign-in, and running clients pick it up within
    about 5 minutes.
-6. Give employees your **company code** (the organization's short code, for example `org-a`). They type it once.
+6. Give employees your **company code**. The Branding page shows it at the top, with a **Copy company code**
+   button (for example `org-a`). They type it once, the first time they open the app.
 
 Made a mistake? **Reset to default** publishes the Prometheon look as a new revision. Nothing is ever lost:
 every save and reset is kept in the revision history.

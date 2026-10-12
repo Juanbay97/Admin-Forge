@@ -10,6 +10,8 @@ const PREVIEW_PORT = 3415;
 
 export const ORG_A = "11111111-1111-4111-8111-111111111111";
 export const ORG_B = "22222222-2222-4222-8222-222222222222";
+/** The company code (slug) the real server returns on the authenticated branding read. */
+export const ORG_CODES: Record<string, string> = { [ORG_A]: "org-a", [ORG_B]: "org-b" };
 export const PROD = "https://ia.prometheonlab.com";
 export const LOCAL = "http://127.0.0.1:3413";
 export const ORG_C = "33333333-3333-4333-8333-333333333333";
@@ -162,7 +164,8 @@ export async function installBackend(page: Page, source: Backend) {
         assets: Object.fromEntries(Object.entries(current.assets).map(([kind, sha]) => [kind, `/forge/v1/branding/assets/${sha}`])),
       });
       const refuse = (key: string) => reply(route, 422, envelope("INVALID_REQUEST", BRANDING_MESSAGES[key] ?? ""));
-      if (request.method() === "GET") return reply(route, 200, view());
+      // Only the authenticated read carries the company code; save and reset answer without it.
+      if (request.method() === "GET") return reply(route, 200, { ...view(), ...(ORG_CODES[orgId] ? { code: ORG_CODES[orgId] } : {}) });
       if (brandingMatch[2] === "/assets") {
         const kind = new URL(request.url()).searchParams.get("kind") ?? "";
         const bytes = request.postDataBuffer() ?? Buffer.alloc(0);

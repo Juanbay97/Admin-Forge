@@ -92,6 +92,57 @@ test.describe("branding page", () => {
     await expect(field(page, "Primary color")).not.toHaveAttribute("aria-invalid", "true");
     await expect(page.getByTestId("preview-unavailable")).toHaveCount(0);
   });
+  test("the page shows the company code employees type, with a one-line explanation", async ({ page, adminUrl }) => {
+    await installBackend(page, ADMIN_BACKEND);
+    await openBranding(page, adminUrl);
+    const section = page.getByRole("group", { name: "Company code" });
+    await expect(section.getByTestId("company-code")).toHaveText("org-a");
+    await expect(section).toContainText("Employees type this code the first time they open the app");
+    await expect(section.getByRole("button", { name: "Copy company code" })).toBeVisible();
+    // It is a property of the organization: saving or resetting never loses it.
+    await field(page, "Product name").fill("Violet Co");
+    await page.getByRole("button", { name: "Save branding" }).click();
+    await expect(page.getByText("Branding saved (revision 1).")).toBeVisible();
+    await expect(section.getByTestId("company-code")).toHaveText("org-a");
+    await page.getByRole("button", { name: "Reset to default" }).click();
+    await page.getByRole("button", { name: "Confirm reset" }).click();
+    await expect(page.getByText("Branding reset to the Prometheon default (revision 2).")).toBeVisible();
+    await expect(section.getByTestId("company-code")).toHaveText("org-a");
+  });
+
+  test("the copy button puts the code on the clipboard and says so", async ({ page, adminUrl }) => {
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await installBackend(page, ADMIN_BACKEND);
+    await openBranding(page, adminUrl);
+    await page.getByRole("button", { name: "Copy company code" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Company code copied." })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("org-a");
+  });
+
+  test("when the clipboard is refused the page says so and the code stays selectable", async ({ page, adminUrl }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("denied")) } });
+    });
+    await installBackend(page, ADMIN_BACKEND);
+    await openBranding(page, adminUrl);
+    await page.getByRole("button", { name: "Copy company code" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Could not copy" })).toBeVisible();
+    await expect(page.getByTestId("company-code")).toHaveText("org-a");
+  });
+
+  test("each organization shows its own code", async ({ page, adminUrl }) => {
+    await installBackend(page, ADMIN_BACKEND);
+    await page.goto(adminUrl);
+    await page.getByLabel("Email").fill("multi@example.com");
+    await page.getByLabel("Password").fill("correct-horse-battery");
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByLabel("Organization").selectOption({ label: "Org B" });
+    await page.getByRole("button", { name: "Branding" }).click();
+    await expect(page.getByTestId("company-code")).toHaveText("org-b");
+    await page.getByLabel("Organization").selectOption({ label: "Org A" });
+    await expect(page.getByTestId("company-code")).toHaveText("org-a");
+  });
+
   test("the preview shows the client sign-in screen as employees will see it", async ({ page, adminUrl }) => {
     await installBackend(page, { ...ADMIN_BACKEND, brandings: { [ORG_A]: structuredClone(ACME) } });
     await openBranding(page, adminUrl);

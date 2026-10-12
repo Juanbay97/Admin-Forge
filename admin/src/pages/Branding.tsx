@@ -103,6 +103,41 @@ function FontField({ label, value, onChange }: { label: string; value: FontId; o
   );
 }
 
+type CopyState = "idle" | "copied" | "failed";
+
+// The organization's company code: the one thing employees type in the client before they see the branding.
+function CompanyCode({ code }: { code: string }) {
+  const [copy, setCopy] = useState<CopyState>("idle");
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopy("copied");
+    } catch {
+      setCopy("failed");
+    }
+  }
+  return (
+    <div role="group" aria-label="Company code" className="flex max-w-2xl flex-col gap-2 rounded-lg bg-white p-6 shadow">
+      <h2 className="text-sm font-medium">Company code</h2>
+      <div className="flex flex-wrap items-center gap-3">
+        <code data-testid="company-code" className="select-all rounded bg-sand px-3 py-2 font-mono text-lg">
+          {code}
+        </code>
+        <button type="button" onClick={() => void copyCode()} className={SECONDARY_BUTTON}>
+          Copy company code
+        </button>
+      </div>
+      <p className="text-sm">Employees type this code the first time they open the app so it shows your company&apos;s branding.</p>
+      {copy === "copied" && <p role="status">Company code copied.</p>}
+      {copy === "failed" && (
+        <p role="alert" className="text-sm font-medium text-red-800">
+          Could not copy the code. Select it and copy it manually.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function releaseBitmaps(uploads: Uploads) {
   for (const upload of Object.values(uploads)) upload.bitmap?.close();
 }
@@ -133,7 +168,9 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
     setNotice(null);
   };
 
-  function adopt(next: BrandingRecord) {
+  function adopt(received: BrandingRecord) {
+    // Save and reset answers carry no company code; it belongs to the organization, so it is kept.
+    const next = received.code === undefined && saved.code !== undefined ? { ...received, code: saved.code } : received;
     releaseBitmaps(uploads);
     setSaved(next);
     setDraft(draftFrom(next));
@@ -218,6 +255,7 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
     <section className="flex flex-col gap-6">
       <h1 className="font-title text-2xl font-bold text-primary">Branding</h1>
       <p>Revision {saved.revision}</p>
+      {saved.code !== undefined && <CompanyCode code={saved.code} />}
       <form onSubmit={save} className="flex max-w-2xl flex-col gap-4 rounded-lg bg-white p-6 shadow">
         <div className="flex flex-col gap-1 text-sm font-medium">
           <label htmlFor="brand-name">Product name</label>

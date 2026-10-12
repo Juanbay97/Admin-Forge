@@ -19,6 +19,8 @@ export interface Branding {
   theme: PaletteInput;
   /** Same-origin content-addressed URLs, `/forge/v1/branding/assets/<sha256>`. */
   assets: Partial<Record<AssetKind, string>>;
+  /** The company code employees type. Only the authenticated read carries it; save and reset answers do not. */
+  code?: string;
 }
 
 /** Mirrors `forge.branding.DEFAULT`: the Prometheon look at revision 0. */
@@ -37,6 +39,7 @@ const FORBIDDEN_TEXT = /[\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u2028\u202
 
 const THEME_KEYS = ["primary", "accent", "tint", "heading", "body"];
 const TOP_KEYS = ["revision", "name", "loginCopy", "theme", "assets"];
+const COMPANY_CODE = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 export class BrandingParseError extends Error {
   constructor(readonly field: string) {
@@ -67,7 +70,9 @@ function text(value: unknown, min: number, max: number, field: string): string {
 
 export function parseBranding(raw: unknown): Branding {
   const top = record(raw, "document");
-  exact(top, TOP_KEYS, "document");
+  exact(top, [...TOP_KEYS, "code"], "document", true);
+  if (TOP_KEYS.some((key) => !(key in top))) throw new BrandingParseError("document");
+  if ("code" in top && (typeof top.code !== "string" || !COMPANY_CODE.test(top.code))) throw new BrandingParseError("code");
   const { revision } = top;
   if (typeof revision !== "number" || !Number.isInteger(revision) || revision < 0 || revision > 2 ** 53 - 1) {
     throw new BrandingParseError("revision");
@@ -103,6 +108,7 @@ export function parseBranding(raw: unknown): Branding {
       body: theme.body as FontId,
     },
     assets: checked,
+    ...(typeof top.code === "string" ? { code: top.code } : {}),
   };
 }
 
