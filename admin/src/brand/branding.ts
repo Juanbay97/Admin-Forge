@@ -3,7 +3,7 @@
 // throws; nothing here builds CSS or markup from it.
 
 import { ApiError } from "../api/client";
-import { contrastOfHex, FONT_IDS, generatePalette, type FontId, type PaletteInput } from "./palette";
+import { FONT_IDS, type FontId, type PaletteInput } from "./palette";
 
 export const ASSET_URL_PREFIX = "/forge/v1/branding/assets/";
 export const ASSET_KINDS = ["logoLight", "logoDark", "isotipo"] as const;
@@ -147,20 +147,8 @@ export const draftTheme = (draft: Draft): PaletteInput => ({
   body: draft.body,
 });
 
-const UNREADABLE =
-  "These colors cannot produce a readable theme in the apps: the accent needs 3:1 contrast on white and the background tint must carry dark text. Adjust them to save.";
-
-/**
- * The server is the authority on syntax and on the primary color's contrast, so those drafts go through
- * and its error is shown. What the server cannot judge is whether the apps can derive a readable palette;
- * a draft the server would accept but the generator refuses is blocked here, since the apps would silently
- * ignore it.
- */
-export function saveBlocker(draft: Draft): string | null {
-  if (![draft.primary, draft.accent, draft.tint].every((color) => HEX.test(color))) return null;
-  if (contrastOfHex(draft.primary, "#FFFFFF") < MIN_PRIMARY_CONTRAST) return null;
-  return generatePalette(draftTheme(draft)) ? null : UNREADABLE;
-}
+// There is no client-side save gate: the control plane runs the same palette generator and answers with
+// its own message, which is what the page shows. The preview flags an unreadable combination as you type.
 
 export function isDefaultLook(theme: PaletteInput): boolean {
   const base = DEFAULT_BRANDING.theme;

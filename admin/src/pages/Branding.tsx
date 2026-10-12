@@ -8,7 +8,6 @@ import {
   describeBrandingFailure,
   draftFrom,
   draftToDocument,
-  saveBlocker,
   type AssetKind,
   type Branding as BrandingRecord,
   type Draft,
@@ -174,12 +173,6 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    const blocked = saveBlocker(draft);
-    if (blocked) {
-      setFailure(blocked);
-      setNotice(null);
-      return;
-    }
     await run(async () => {
       const next = await api.save(orgId, saved.revision, draftToDocument(draft));
       adopt(next);

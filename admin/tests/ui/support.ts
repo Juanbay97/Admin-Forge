@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { test as base, type Page, type Route } from "@playwright/test";
 import { build, preview } from "vite";
 import { ADMIN_CSP } from "../csp";
-import { contrastOfHex } from "../../src/brand/palette";
+import { contrastOfHex, generatePalette, type PaletteInput } from "../../src/brand/palette";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const PREVIEW_PORT = 3415;
@@ -77,6 +77,8 @@ const BRANDING_MESSAGES: Record<string, string> = {
   font: "The font is not in the vetted list.",
   name: "The product name must be 1 to 40 plain characters.",
   contrast: "The primary color must reach 3:1 contrast against white.",
+  unreadable:
+    "These colors cannot produce a readable theme: the accent needs 3:1 contrast against white and the background tint must carry dark text.",
   unknownAsset: "The referenced logo was not uploaded for this organization.",
   type: "Only PNG and WebP images are accepted.",
   size: "The image is larger than the allowed size.",
@@ -194,6 +196,7 @@ export async function installBackend(page: Page, source: Backend) {
       if (![next.theme.primary, next.theme.accent, next.theme.tint].every((color) => HEX_COLOR.test(color))) return refuse("color");
       if (!BRANDING_FONTS.includes(next.theme.heading) || !BRANDING_FONTS.includes(next.theme.body)) return refuse("font");
       if (contrastOfHex(next.theme.primary, "#FFFFFF") < 3) return refuse("contrast");
+      if (!generatePalette(next.theme as PaletteInput)) return refuse("unreadable");
       if (Object.values(next.assets).some((sha) => !uploads.has(sha))) return refuse("unknownAsset");
       Object.assign(current, { revision: current.revision + 1, name: next.name, loginCopy: next.loginCopy, theme: next.theme, assets: next.assets });
       return reply(route, 200, view());

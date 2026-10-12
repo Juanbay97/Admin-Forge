@@ -9,7 +9,6 @@ import {
   draftToDocument,
   isDefaultLook,
   parseBranding,
-  saveBlocker,
 } from "../../src/brand/branding";
 import { generatePalette } from "../../src/brand/palette";
 import { defaultTheme, themeFromBranding } from "../../src/brand/theme";
@@ -85,17 +84,6 @@ test.describe("branding model", () => {
     const draft = { ...draftFrom(DEFAULT_BRANDING), name: "  spaced  " };
     expect(draftToDocument(draft).name).toBe("  spaced  ");
     expect(draftToDocument(draft).assets).toEqual({});
-  });
-
-  test("saving is blocked only when the server would accept but the apps could not build a readable theme", () => {
-    const draft = draftFrom(DEFAULT_BRANDING);
-    expect(saveBlocker(draft)).toBeNull();
-    expect(saveBlocker({ ...draft, accent: "#FFEB3B" })).toMatch(/readable/);
-    expect(saveBlocker({ ...draft, tint: "#000000" })).toMatch(/readable/);
-    // The server is the authority for syntax and primary contrast: those go through so its error is shown.
-    expect(saveBlocker({ ...draft, primary: "red" })).toBeNull();
-    expect(saveBlocker({ ...draft, primary: "#FFFF00" })).toBeNull();
-    expect(saveBlocker({ ...draft, accent: "#12" })).toBeNull();
   });
 
   test("default knobs keep the Prometheon look; anything else maps from the generated palette", () => {

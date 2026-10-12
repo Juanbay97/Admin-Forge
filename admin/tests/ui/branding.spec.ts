@@ -59,14 +59,15 @@ test.describe("branding page", () => {
     expect(await page.title()).toBe("Prometheon Forge Admin");
   });
 
-  test("an unreadable color combination says so in the preview and blocks the save before any request", async ({ page, adminUrl }) => {
+  test("an unreadable color combination is flagged in the preview and refused by the server's own message", async ({ page, adminUrl }) => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await openBranding(page, adminUrl);
     await field(page, "Accent color").fill("#FFEB3B");
     await expect(page.getByTestId("preview-unavailable")).toBeVisible();
     await page.getByRole("button", { name: "Save branding" }).click();
     await expect(page.getByRole("alert")).toContainText("cannot produce a readable theme");
-    expect(api.requests.filter((r) => r.method === "PUT")).toEqual([]);
+    expect(api.requests.filter((r) => r.method === "PUT")).toHaveLength(1);
+    expect(api.branding(ORG_A)?.revision ?? 0).toBe(0);
   });
 
   test("saving publishes with the expected revision and re-themes the shell", async ({ page, adminUrl }) => {
