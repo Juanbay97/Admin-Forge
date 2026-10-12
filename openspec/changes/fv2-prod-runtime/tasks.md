@@ -37,8 +37,8 @@ Chain strategy: stacked-to-main
 - [x] 2.3 Unit tests for CLI exit codes/JSON with fake connection.
 
 ## Phase 3: Composition (S3)
-- [ ] 3.1 Extract `src/forge/composition.py`; `mvp_local.compose` delegates; `tests/test_mvp_local.py` + PG mvp_local tests stay green (RED = new `test_composition.py`).
-- [ ] 3.2 RED/GREEN `apply_guard(hosts=)` in `admin_mount.py` + `test_admin_mount.py` cases.
+- [x] 3.1 Extract `src/forge/composition.py`; `mvp_local.compose` delegates; `tests/test_mvp_local.py` + PG mvp_local tests stay green (RED = new `test_composition.py`).
+- [x] 3.2 RED/GREEN `apply_guard(hosts=)` in `admin_mount.py` + `test_admin_mount.py` cases.
 
 ## Phase 4: Serve (S4)
 - [ ] 4.1 RED `tests/test_logging_json.py` (fields, redaction, request-id).

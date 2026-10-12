@@ -155,5 +155,61 @@ class GuardTests(unittest.TestCase):
             self.assertEqual(client.get('/forge/v1/probe', headers={'Origin': CLIENT}).headers['access-control-allow-origin'], CLIENT)
 
 
+PUBLIC = 'https://forge.example.test'
+HOSTS = frozenset({'forge.example.test', 'forge.example.test:8443'})
+
+
+def public_client(**kwargs):
+    """The production shape: a trusted-host set, the public origin only, no CORS grants."""
+    app = FastAPI()
+
+    @app.api_route('/forge/v1/probe', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+    def probe():
+        return {'ok': True}
+    apply_guard(app, **{'hosts': HOSTS, 'origins': (PUBLIC,), 'cors_origins': (), **kwargs})
+    return TestClient(app, base_url=PUBLIC)
+
+
+class HostSetGuardTests(unittest.TestCase):
+    def test_every_trusted_host_is_served_and_any_other_is_forbidden(self):
+        with public_client() as client:
+            for host in sorted(HOSTS):
+                with self.subTest(host=host):
+                    self.assertEqual(client.get('/forge/v1/probe', headers={'Host': host}).json(), {'ok': True})
+            for host in ('evil.test', 'forge.example.test:9999', 'forge.example.test.evil.test', 'FORGE.EXAMPLE.TEST',
+                         '127.0.0.1:3410', 'forge.example.test:'):
+                with self.subTest(host=host):
+                    response = client.get('/forge/v1/probe', headers={'Host': host})
+                    self.assertEqual((response.status_code, response.json()['error']['code']), (403, 'FORBIDDEN_HOST'))
+
+    def test_a_missing_host_header_is_forbidden(self):
+        with public_client() as client:
+            self.assertEqual(client.get('/forge/v1/probe', headers={'Host': ''}).status_code, 403)
+
+    def test_origins_are_checked_against_the_given_allow_list_only(self):
+        with public_client() as client:
+            self.assertEqual(client.post('/forge/v1/probe', headers={'Origin': PUBLIC}).status_code, 200)
+            self.assertEqual(client.post('/forge/v1/probe').status_code, 200)
+            for origin in ('http://forge.example.test', 'https://evil.test', 'http://127.0.0.1:3411'):
+                with self.subTest(origin=origin):
+                    response = client.post('/forge/v1/probe', headers={'Origin': origin})
+                    self.assertEqual((response.status_code, response.json()['error']['code']), (403, 'FORBIDDEN_ORIGIN'))
+
+    def test_no_cors_grant_exists_without_cors_origins(self):
+        with public_client() as client:
+            response = client.options('/forge/v1/probe', headers={'Origin': PUBLIC, 'Access-Control-Request-Method': 'PUT'})
+            self.assertNotIn('access-control-allow-origin', response.headers)
+
+    def test_host_and_hosts_are_mutually_exclusive_and_one_is_required(self):
+        for change in ({'host': 'forge.example.test'}, {'hosts': None}, {'hosts': frozenset()}, {'hosts': ['forge.example.test']}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                public_client(**change)
+
+    def test_the_single_host_form_still_works(self):
+        with public_client(hosts=None, host='forge.example.test') as client:
+            self.assertEqual(client.get('/forge/v1/probe').json(), {'ok': True})
+            self.assertEqual(client.get('/forge/v1/probe', headers={'Host': 'evil.test'}).status_code, 403)
+
+
 if __name__ == '__main__':
     unittest.main()

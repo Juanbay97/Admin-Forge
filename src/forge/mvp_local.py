@@ -177,56 +177,17 @@ def assemble(app, config, readiness):
 
 def compose(config, secrets, pools):
     """Real independent restricted pools; F26 readiness must pass before anything is served."""
-    from psycopg_pool import ConnectionPool
-    from forge.account_api import create_account_app
-    from forge.account_sessions import PostgresSessionStore, SessionService
-    from forge.account_store import PostgresEnrollmentStore
-    from forge.authorization_store import PostgresAuthorizationReader
-    from forge.branding_api import mount_branding
-    from forge.branding_store import PostgresBrandingStore
-    from forge.directory import DirectoryService
-    from forge.directory_store import PostgresDirectoryStore
-    from forge.gateway_catalog import GatewayCatalog
-    from forge.gateway_catalog_adapter import HttpxModelsAdapter
-    from forge.gateway_catalog_store import PostgresGatewayCatalogStore
-    from forge.gateway_configuration import GatewayCipher, GatewayConfiguration
-    from forge.gateway_configuration_store import PostgresGatewayStore
-    from forge.gateway_inference import GatewayInference
-    from forge.gateway_inference_adapter import HttpxTextAdapter
-    from forge.gateway_inference_store import PostgresGatewayInferenceStore
-    from forge.invitation_delivery import DeliveryCoordinator, LocalTestMailbox, PostgresDeliveryStore
-    from forge.invitation_store import PostgresInvitationStore
-    from forge.invitations import InvitationService
-    from forge.mvp_readiness import MvpReadiness
-    from forge.postgres import PostgresBootstrapReader
-    owned = []
-    for role in ROLES:
-        pool = ConnectionPool('', kwargs=role_settings(config, secrets, role), min_size=1, max_size=2, timeout=1,
-                              max_waiting=4, reconnect_timeout=1, open=False)
-        pools.append(pool)
-        owned.append(pool)
-        pool.open(wait=True, timeout=5)
-    accounts, enrollment, bootstrap, gateway, branding = owned
-    readiness = MvpReadiness(accounts, bootstrap, gateway)
-    if not readiness.check():
-        raise ConfigError('SCHEMA_ATTESTATION_FAILED')
+    from forge import composition
+    from forge.invitation_delivery import LocalTestMailbox
+    owned = composition.open_pools(lambda role: role_settings(config, secrets, role), pools)
+    readiness = composition.attest(owned)
     mailbox = Path(config.mailbox_dir)
     if not mailbox.is_dir():
         raise ConfigError('MAILBOX_MISSING')
-    policy = config.gateway_policy
-    cipher = GatewayCipher(secrets.gateway_key, policy=policy)
-    sessions = SessionService(PostgresSessionStore(accounts))
-    app = create_account_app(
-        sessions=sessions,
-        invitations=InvitationService(PostgresInvitationStore(enrollment), PostgresEnrollmentStore(enrollment)),
-        delivery=DeliveryCoordinator(PostgresDeliveryStore(accounts), LocalTestMailbox(mailbox, sender='forge@local.test'),
-                                     origin=config.client_origin, encryption_key=secrets.delivery_key),
-        bootstrap_reader=PostgresBootstrapReader(bootstrap), authorization_reader=PostgresAuthorizationReader(bootstrap),
-        readiness=readiness, gateway_configuration=GatewayConfiguration(PostgresGatewayStore(gateway), cipher),
-        gateway_catalog=GatewayCatalog(PostgresGatewayCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=policy)),
-        gateway_inference=GatewayInference(PostgresGatewayInferenceStore(gateway), cipher, HttpxTextAdapter(policy=policy)),
-        directory=DirectoryService(PostgresDirectoryStore(gateway)))
-    mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
+    app = composition.build_app(
+        owned, readiness=readiness, delivery_adapter=LocalTestMailbox(mailbox, sender='forge@local.test'),
+        onboarding_origin=config.client_origin, delivery_key=secrets.delivery_key, gateway_key=secrets.gateway_key,
+        gateway_policy=config.gateway_policy)
     return assemble(app, config, readiness)
 
 

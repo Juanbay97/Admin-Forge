@@ -78,15 +78,22 @@ def mount_admin(app: FastAPI, directory, *, required: bool):
                         headers=_headers(cache))
 
 
-def apply_guard(app: FastAPI, *, host: str, origins, cors_origins):
-    """CORS first (innermost), guard last (outermost): a foreign Host never reaches either."""
+def apply_guard(app: FastAPI, *, host: str | None = None, hosts=None, origins, cors_origins):
+    """CORS first (innermost), guard last (outermost): a foreign Host never reaches either.
+
+    Exactly one of ``host`` (the single loopback authority) or ``hosts`` (a non-empty frozenset of
+    trusted public authorities) names what a request's Host header may be; compared exactly.
+    """
+    if (host is None) == (hosts is None) or (hosts is not None and (type(hosts) is not frozenset or not hosts)):
+        raise ValueError('Exactly one of host or a non-empty frozenset of hosts is required.')
+    trusted = frozenset({host}) if hosts is None else hosts
     allowed = frozenset(origins)
     app.add_middleware(CORSMiddleware, allow_origins=list(cors_origins), allow_methods=['GET', 'POST', 'PUT', 'OPTIONS'],
                        allow_headers=['Authorization', 'Content-Type'], allow_credentials=False)
 
     @app.middleware('http')
     async def loopback_guard(request, call_next):
-        if request.headers.get('host') != host:
+        if request.headers.get('host') not in trusted:
             return _refusal('FORBIDDEN_HOST', 'The request host is not permitted.')
         if request.method in MUTATING and request.url.path.startswith('/forge/v1/'):
             origin = request.headers.get('origin')
