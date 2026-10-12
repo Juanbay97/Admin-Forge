@@ -51,8 +51,8 @@ Budget 800 lines/slice. **Dependency**: apply after `v1-multiuser`. W1 stacks on
 
 ## Phase 3: Client (C1-C3)
 
-- [ ] 3.1 RED/GREEN `theme/brand-input.ts` (exact-key schema, hostile payload tests)
-- [ ] 3.2 `theme/palette.ts` vs vectors; replace `applyTheme` `textContent` with `setProperty`; keep `themeToCss` drift test
+- [x] 3.1 RED/GREEN `theme/brand-input.ts` (exact-key schema, hostile payload tests)
+- [x] 3.2 `theme/palette.ts` vs vectors; replace `applyTheme` `textContent` with `setProperty`; keep `themeToCss` drift test
 - [ ] 3.3 `backend/app/forge_branding.py` + pytest (size caps, cache, offline); `branding-routes.ts` + 1-line middleware mount
 - [ ] 3.4 `branding-store.ts`, `company-code-gate.tsx`, `brand-provider.tsx`; BrandMark, title, favicon, login copy
 - [ ] 3.5 `npm run test:unit`, `npx tsc --noEmit`
