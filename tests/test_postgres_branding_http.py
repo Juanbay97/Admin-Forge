@@ -13,7 +13,7 @@ from test_postgres_mvp_local import ADMIN, CLIENT, login, stack
 
 ACME = {**BRANDING, 'name': 'Acme Labs'}
 GLOBEX = {'name': 'Globex', 'loginCopy': 'Globex portal.', 'assets': {},
-          'theme': {'primary': '#123456', 'accent': '#ABCDEF', 'tint': '#FEDCBA', 'heading': 'roboto', 'body': 'nunito-sans'}}
+          'theme': {'primary': '#123456', 'accent': '#B45309', 'tint': '#FEDCBA', 'heading': 'roboto', 'body': 'nunito-sans'}}
 
 
 def save(client, headers, org, expected, document):

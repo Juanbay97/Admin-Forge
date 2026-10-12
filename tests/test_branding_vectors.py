@@ -1,8 +1,8 @@
 """The shared palette vectors: one file for the Python validators, the admin SPA and the client.
 
 The generators live in TypeScript (admin and client). Here the control plane proves that the vectors are
-well formed, that the server accepts every `valid` input and refuses what its own rules refuse, and that
-the client's copy of the palette vectors has not drifted (line endings normalised).
+well formed, that the server accepts every `valid` input and refuses every `infeasible` one (the generator
+port itself is proven against the vectors in test_branding_palette), and that the client's copy of the palette vectors has not drifted (line endings normalised).
 """
 import json
 from pathlib import Path
@@ -76,25 +76,14 @@ class ServerAgreementTests(unittest.TestCase):
                 self.assertEqual((parsed.primary, parsed.accent, parsed.tint, parsed.heading, parsed.body),
                                  (theme['primary'], theme['accent'], theme['tint'], theme['heading'], theme['body']))
 
-    def test_the_primary_the_server_refuses_is_infeasible_for_the_generator_too(self):
+    def test_the_server_refuses_every_infeasible_vector_with_the_most_specific_reason(self):
         for item in VECTORS['infeasible']:
             with self.subTest(item=item['name']):
-                low = branding.contrast_ratio(item['input']['primary'], '#FFFFFF') < branding.MIN_PRIMARY_CONTRAST
-                try:
+                low_primary = (branding.contrast_ratio(item['input']['primary'], '#FFFFFF')
+                               < branding.MIN_PRIMARY_CONTRAST)
+                with self.assertRaises(BrandingInvalid) as caught:
                     branding.parse(document(item))
-                    refused = False
-                except BrandingInvalid as error:
-                    self.assertEqual(error.reason, 'contrast')
-                    refused = True
-                self.assertEqual(refused, low)
-
-    def test_known_gap_the_server_checks_only_the_primary_so_the_admin_blocks_the_rest(self):
-        # An accent below 3:1 or a tint that cannot carry charcoal text passes the server but the palette
-        # generator returns null; the admin Branding page refuses to save those before they reach clients.
-        server_accepts = [item['name'] for item in VECTORS['infeasible']
-                          if branding.contrast_ratio(item['input']['primary'], '#FFFFFF') >= branding.MIN_PRIMARY_CONTRAST]
-        self.assertEqual(sorted(server_accepts),
-                         ['accent below 3:1 against white', 'tint black', 'tint too dark for charcoal text'])
+                self.assertEqual(caught.exception.reason, 'contrast' if low_primary else 'unreadable')
 
 
 class DriftTests(unittest.TestCase):

@@ -319,6 +319,8 @@ class AdminSaveTests(unittest.TestCase):
             'short color': {**BRANDING, 'theme': {**BRANDING['theme'], 'tint': '#12'}},
             'font': {**BRANDING, 'theme': {**BRANDING['theme'], 'heading': 'Comic'}},
             'contrast': {**BRANDING, 'theme': {**BRANDING['theme'], 'primary': '#FFFF00'}},
+            'unreadable accent': {**BRANDING, 'theme': {**BRANDING['theme'], 'accent': '#FFEB3B'}},
+            'unreadable tint': {**BRANDING, 'theme': {**BRANDING['theme'], 'tint': '#000000'}},
             'control chars': {**BRANDING, 'name': 'Acme\x00Labs'},
             'long name': {**BRANDING, 'name': 'x' * 41},
             'long copy': {**BRANDING, 'loginCopy': 'x' * 281},
@@ -338,6 +340,14 @@ class AdminSaveTests(unittest.TestCase):
                 self.assertEqual((response.status_code, response.json()['error']['code']), (422, 'INVALID_REQUEST'))
                 for echoed in ('script', 'evil.test', 'Comic', 'onerror', 'body{'):
                     self.assertNotIn(echoed, response.text)
+        self.assertEqual(world.store.public('acme'), DEFAULT)
+
+    def test_an_unreadable_palette_is_refused_with_its_own_message_and_nothing_is_stored(self):
+        world = World()
+        for color in ({'accent': '#FFEB3B'}, {'tint': '#4A5568'}):
+            response = world.put('admin_a', world.org_a, 0, {**BRANDING, 'theme': {**BRANDING['theme'], **color}})
+            self.assertEqual(response.status_code, 422)
+            self.assertIn('readable theme', response.json()['error']['message'])
         self.assertEqual(world.store.public('acme'), DEFAULT)
 
     def test_malformed_envelopes_and_transports_are_refused(self):

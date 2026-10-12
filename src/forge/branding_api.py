@@ -36,6 +36,8 @@ _MESSAGES = {
     'name': 'The product name must be 1 to 40 plain characters.',
     'login_copy': 'The login copy must be at most 280 plain characters.',
     'contrast': 'The primary color must reach 3:1 contrast against white.',
+    'unreadable': 'These colors cannot produce a readable theme: the accent needs 3:1 contrast against white and '
+                  'the background tint must carry dark text.',
     'asset': 'An asset reference must be the content hash of an uploaded logo.',
     'shape': 'The branding document has an unexpected shape.',
     'unknown_asset': 'The referenced logo was not uploaded for this organization.',

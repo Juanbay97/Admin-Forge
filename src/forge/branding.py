@@ -3,12 +3,15 @@
 Nothing here touches a database or the network. Servers never emit CSS: they store and serve these
 typed values, and every client re-validates and applies them with ``style.setProperty``. The
 palette expansion lives in the clients; the server only decides whether the three color knobs are
-feasible (the primary must reach 3:1 against white) and which text and fonts are acceptable.
+feasible (``branding_palette`` runs the same generator and refuses what it refuses: a primary or accent under
+3:1 against white, a tint that cannot carry dark text) and which text and fonts are acceptable.
 Reasons are finite codes, never echoes of the submitted value.
 """
 from dataclasses import dataclass, field
 import re
 import unicodedata
+
+from forge import branding_palette
 
 FONT_IDS = ('inter', 'montserrat', 'source-sans-3', 'ibm-plex-sans', 'nunito-sans', 'roboto')
 ASSET_KINDS = ('logoLight', 'logoDark', 'isotipo')
@@ -28,8 +31,8 @@ _REFUSED_CATEGORIES = frozenset({'Cc', 'Cf', 'Cs', 'Co', 'Cn', 'Zl', 'Zp'})
 
 
 class BrandingInvalid(ValueError):
-    """``reason`` is one of a finite set of codes: color, font, name, login_copy, contrast, asset, type,
-    unknown_key, missing_key."""
+    """``reason`` is one of a finite set of codes: color, font, name, login_copy, contrast, unreadable, asset,
+    type, unknown_key, missing_key."""
 
     def __init__(self, reason):
         super().__init__(reason)
@@ -152,11 +155,14 @@ def parse(document):
         raise BrandingInvalid('type')
     if set(assets) - set(ASSET_KINDS):
         raise BrandingInvalid('unknown_key')
-    return BrandingInput(
+    parsed = BrandingInput(
         name=validate_name(document['name']), login_copy=validate_login_copy(document['loginCopy']),
         primary=validate_primary(theme['primary']), accent=validate_color(theme['accent']),
         tint=validate_color(theme['tint']), heading=validate_font(theme['heading']), body=validate_font(theme['body']),
         assets={kind: validate_asset_hash(assets[kind]) for kind in ASSET_KINDS if kind in assets})
+    if branding_palette.generate(parsed.primary, parsed.accent, parsed.tint, parsed.heading, parsed.body) is None:
+        raise BrandingInvalid('unreadable')
+    return parsed
 
 
 def public_view(value):
