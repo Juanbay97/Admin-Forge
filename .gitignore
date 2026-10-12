@@ -18,3 +18,4 @@ deploy/backups/
 deploy/downloads/*
 !deploy/downloads/.gitkeep
 !deploy/.env.example
+!deploy/.env.dev.example

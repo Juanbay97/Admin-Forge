@@ -18,7 +18,11 @@ from forge.mvp_local import ROLES
 ROOT = Path(__file__).resolve().parents[1]
 DIGEST = re.compile(r'@sha256:[0-9a-f]{64}\b')
 SECRET_NAME = re.compile(r'(SECRET|PASSWORD|PASSWD|TOKEN|KEY|CREDENTIAL)', re.I)
-SECRET_FILES = ('pg_superuser', *('role_' + role for role in ROLES), 'role_backup', 'delivery_key', 'gateway_key')
+SECRET_FILES = ('pg_superuser', *('role_' + role for role in ROLES), 'role_backup', 'delivery_key', 'gateway_key',
+                'smtp_password')
+# The SMTP relay password is chosen by the operator (a Resend/SES credential): the generator only creates the empty
+# placeholder a Docker file secret needs, and an empty file is refused loudly if the operator forgot to fill it in.
+OPERATOR_SECRETS = ('smtp_password',)
 
 
 def text(relative):
@@ -135,13 +139,16 @@ class SecretsGeneratorContract:
         files = {path.name for path in Path(self.directory).iterdir()}
         self.assertEqual(files, set(SECRET_FILES))
         values = {name: (Path(self.directory)/name).read_text('ascii').strip() for name in SECRET_FILES}
-        self.assertEqual(len(set(values.values())), len(SECRET_FILES), 'every secret must be distinct')
+        generated = [name for name in SECRET_FILES if name not in OPERATOR_SECRETS]
+        self.assertEqual(len({values[name] for name in generated}), len(generated), 'every secret must be distinct')
         for name in ('delivery_key', 'gateway_key'):
             Fernet(values[name].encode('ascii'))  # raises when the key is not a valid Fernet key
-        for name in SECRET_FILES:
+        for name in generated:
             if name not in ('delivery_key', 'gateway_key'):
                 self.assertRegex(values[name], r'[A-Za-z0-9]{32,}')
-        for value in values.values():
+        for name in OPERATOR_SECRETS:
+            self.assertEqual((Path(self.directory)/name).read_bytes(), b'')  # a placeholder the operator fills in
+        for value in filter(None, values.values()):
             self.assertNotIn(value, result.stdout + result.stderr)  # secrets are never printed
 
     def test_second_run_changes_nothing_and_a_missing_file_is_filled_in(self):
@@ -236,11 +243,11 @@ def depends_on(block):
     return found
 
 
-def env_keys(source):
-    """Keys of the shared ``x-forge-env`` mapping."""
+def env_keys(source, anchor='x-forge-env'):
+    """Keys of a shared ``x-...`` environment mapping."""
     keys, inside = [], False
     for line in source.splitlines():
-        if line.startswith('x-forge-env:'):
+        if line.startswith(anchor + ':'):
             inside = True
         elif inside and re.match(r'^\S', line):
             break
@@ -325,7 +332,7 @@ class ComposePolicy(unittest.TestCase):
         declared = top_level(self.source, 'secrets')
         files = re.findall(r'(?m)^    file: \$\{FORGE_SECRETS_DIR:-\./secrets\}/(\S+)$', declared)
         self.assertEqual(sorted(files), sorted(SECRET_FILES))
-        self.assertNotRegex(self.source, r'(?m)^\s+[A-Z_]*(PASSWORD|KEY|SECRET)[A-Z_]*:\s+(?!/run/secrets|\$\{)\S')
+        self.assertNotRegex(self.source, r'(?m)^[ \t]+[A-Z_]*(PASSWORD|KEY|SECRET)[A-Z_]*:[ \t]+(?!/run/secrets|\$\{)\S')
 
     def test_the_shared_environment_only_uses_keys_the_runtime_accepts(self):
         from forge.prod_config import KNOWN_KEYS
@@ -333,6 +340,20 @@ class ComposePolicy(unittest.TestCase):
         self.assertGreaterEqual(len(keys), 8)
         self.assertEqual([key for key in keys if key not in KNOWN_KEYS], [])
         self.assertNotIn('FORGE_WORKERS', keys)  # one worker is the default and the only accepted value
+
+    def test_smtp_is_configured_by_environment_and_one_optional_secret_for_the_control_plane_only(self):
+        from forge.prod_config import KNOWN_KEYS
+        keys = env_keys(self.source, 'x-forge-smtp')
+        self.assertEqual(sorted(keys), sorted(['FORGE_SMTP_HOST', 'FORGE_SMTP_FROM', 'FORGE_SMTP_SECURITY', 'FORGE_SMTP_PORT',
+                                               'FORGE_SMTP_USER', 'FORGE_SMTP_PASSWORD_FILE', 'FORGE_SMTP_CA_FILE']))
+        self.assertEqual([key for key in keys if key not in KNOWN_KEYS], [])
+        self.assertRegex(self.source, r'(?m)^  FORGE_SMTP_HOST: \$\{FORGE_SMTP_HOST:\?[^}]+\}$')  # required, like the domain
+        self.assertRegex(self.source, r'(?m)^  FORGE_SMTP_SECURITY: \$\{FORGE_SMTP_SECURITY:-starttls\}$')
+        self.assertRegex(self.source, r'(?m)^  FORGE_SMTP_PASSWORD_FILE:$')  # null: only present when .env sets it
+        self.assertIn('smtp_password', self.services['control-plane'])
+        self.assertIn('<<: [*forge-env, *forge-smtp]', self.services['control-plane'])
+        self.assertNotIn('smtp_password', self.services['migrate'])  # the one-shot job never needs the relay
+        self.assertNotIn('forge-smtp', self.services['migrate'])
 
     def test_the_public_origin_comes_from_the_domain_variables_alone(self):
         origin = re.search(r'(?m)^  FORGE_PUBLIC_ORIGIN: (.+)$', self.source).group(1)
@@ -343,6 +364,7 @@ class ComposePolicy(unittest.TestCase):
                          'deploy/Caddyfile'):
             with self.subTest(file=relative):
                 self.assertEqual(concrete_domains(text(relative)), [])
+        self.assertEqual(concrete_domains(text('deploy/.env.dev.example')), [])
         self.assertNotRegex(text('deploy/.env.example') + text(COMPOSE), r'(?i)prometh?eonlab\.(?!example)')
 
     def test_volumes_and_networks_isolate_the_database(self):
@@ -391,10 +413,15 @@ class EnvExample(unittest.TestCase):
         self.assertEqual(values['FORGE_DOMAIN'], 'forge.example.test')
         self.assertEqual(values['FORGE_PORT_SUFFIX'], '')
         self.assertIn(values['FORGE_TLS'], ('acme', 'internal'))
-        self.assertTrue({'FORGE_ACME_EMAIL', 'FORGE_GATEWAY_ORIGINS', 'FORGE_HTTP_PORT', 'FORGE_HTTPS_PORT'} <= set(values))
+        self.assertTrue({'FORGE_ACME_EMAIL', 'FORGE_GATEWAY_ORIGINS', 'FORGE_HTTP_PORT', 'FORGE_HTTPS_PORT', 'FORGE_SMTP_HOST',
+                         'FORGE_SMTP_FROM', 'FORGE_SMTP_SECURITY', 'FORGE_SMTP_PORT'} <= set(values))
+        self.assertTrue(values['FORGE_SMTP_FROM'].endswith('@example.test'))
+        self.assertTrue(values['FORGE_SMTP_HOST'].endswith('.example.test'))
         self.assertTrue(values['FORGE_ACME_EMAIL'].endswith('@example.test'))
         for key, value in values.items():
-            self.assertFalse(SECRET_NAME.search(key) and not key.endswith('_DIR') and value, key + ' must not carry a value')
+            if key.endswith('_FILE'):  # a path to a Docker secret, never the secret itself
+                self.assertRegex(value, r'^/run/secrets/[a-z_]+$')
+            self.assertFalse(SECRET_NAME.search(key) and not key.endswith(('_DIR', '_FILE')) and value, key + ' must not carry a value')
 
 
 @unittest.skipUnless(shutil.which('docker'), 'the docker CLI is required')
@@ -409,7 +436,9 @@ class ComposeConfigRendering(unittest.TestCase):
                 values[name] = 'v-%s-%s' % (name, hashlib.sha256(name.encode()).hexdigest()[:24])
                 secrets_dir.mkdir(exist_ok=True)
                 (secrets_dir/name).write_text(values[name] + '\n', 'utf-8')
-            environment = {**os.environ, 'FORGE_DOMAIN': 'forge.example.test', 'FORGE_SECRETS_DIR': str(secrets_dir)}
+            environment = {**os.environ, 'FORGE_DOMAIN': 'forge.example.test', 'FORGE_SECRETS_DIR': str(secrets_dir),
+                           'FORGE_SMTP_HOST': 'smtp.resend.com', 'FORGE_SMTP_FROM': 'forge@example.test',
+                           'FORGE_SMTP_USER': 'resend', 'FORGE_SMTP_PASSWORD_FILE': '/run/secrets/smtp_password'}
             result = subprocess.run(['docker', 'compose', '-p', 'forge-static-check', '-f', str(ROOT/COMPOSE), 'config'],
                                     capture_output=True, text=True, timeout=60, env=environment)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -555,11 +584,22 @@ class RunbookDocument(unittest.TestCase):
     def setUp(self):
         self.doc = text('docs/deploy.md')
 
+    def test_the_email_section_documents_both_providers_domain_verification_and_failure_triage(self):
+        section = self.doc[self.doc.index('## Email delivery (SMTP)'):self.doc.index('## First platform owner')]
+        for needle in ('smtp.resend.com', 'FORGE_SMTP_PORT=465', 'FORGE_SMTP_SECURITY=tls', 'FORGE_SMTP_PORT=587',
+                       'FORGE_SMTP_USER=resend', 'email-smtp.<region>.amazonaws.com', 'smtp_password', 'SPF', 'DKIM',
+                       'FORGE_SMTP_FROM', 'delivery_state', 'SMTP_AUTH', 'SMTP_TLS', 'SMTP_STARTTLS_REQUIRED',
+                       'SMTP_RECIPIENT', 'SMTP_TIMEOUT'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, section)
+        self.assertRegex(section, r'(?i)verify (the|your) (sending )?domain')
+        self.assertNotIn('re_', section)  # no provider API key, not even an example one
+
     def test_it_leads_with_the_quick_path_and_covers_every_operation(self):
         self.assertTrue(self.doc.startswith('# '))
         self.assertLess(self.doc.index('## Quick path'), self.doc.index('## Prerequisites'))
         for heading in ('## Prerequisites', '## DNS and firewall', '## Configuration and secrets',
-                        '## Choose the TLS mode', '## First platform owner', '## Provision the first company',
+                        '## Choose the TLS mode', '## Email delivery (SMTP)', '## First platform owner', '## Provision the first company',
                         '## Publish installers', '## Backup and restore', '## Upgrade and roll back', '## Logs',
                         '## Troubleshooting', '## Why one worker'):
             with self.subTest(heading=heading):
@@ -588,6 +628,16 @@ class RunbookDocument(unittest.TestCase):
             self.assertIn('run --rm %s' % service if service != 'backup' else 'exec backup', self.doc)
 
 
+class SmokeInvitationPhase(unittest.TestCase):
+    def test_the_smoke_provisions_logs_in_invites_and_reads_the_message_from_mailpit_with_a_working_link(self):
+        script = text('scripts/deploy-smoke.ps1')
+        for needle in ('/forge/v1/accounts/login', '/forge/v1/accounts/invitations', '/forge/v1/accounts/invitations/accept',
+                       '/api/v1/messages', '/api/v1/message/', 'FORGE_MAILPIT_PORT', 'delivery_channel', "'smtp'",
+                       'invitation email captured by Mailpit', 'the emailed link activates the account'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, script)
+
+
 class SmokeBackupPhase(unittest.TestCase):
     def test_the_smoke_proves_dump_retention_refusal_and_round_trip_and_checks_dumps_for_secrets(self):
         script = text('scripts/deploy-smoke.ps1')
@@ -607,7 +657,7 @@ class DevOverlayPolicy(unittest.TestCase):
         self.services = services(self.source)
 
     def test_the_overlay_publishes_only_caddy_on_loopback_with_alternate_ports(self):
-        self.assertEqual(sorted(name for name, block in self.services.items() if 'ports:' in block), ['caddy'])
+        self.assertEqual(sorted(name for name, block in self.services.items() if 'ports:' in block), ['caddy', 'mailpit'])
         block = self.services['caddy']
         self.assertIn('ports: !override', block)
         self.assertEqual(len(re.findall(r'- "127\.0\.0\.1:\$\{FORGE_HTTPS?_PORT:-(8080|8443)\}:(80|443)(/udp)?"', block)), 3)
@@ -618,9 +668,30 @@ class DevOverlayPolicy(unittest.TestCase):
         self.assertIn('FORGE_TLS: ${FORGE_TLS:-internal}', self.services['caddy'])
         self.assertEqual(concrete_domains(self.source), [])
 
-    def test_the_overlay_does_not_weaken_hardening(self):
-        for name in ('read_only', 'cap_drop', 'privileged', 'security_opt'):
-            self.assertNotIn(name, self.source)
+    def test_the_overlay_does_not_weaken_the_existing_services(self):
+        for name in ('caddy', 'control-plane', 'migrate', 'postgres'):
+            for key in ('read_only', 'cap_drop', 'privileged', 'security_opt', 'cap_add'):
+                self.assertNotIn(key, self.services.get(name, ''))
+        self.assertNotIn('privileged', self.source)
+
+    def test_mailpit_catches_mail_for_the_proof_on_loopback_with_a_pinned_image_and_full_hardening(self):
+        block = self.services['mailpit']
+        self.assertRegex(block, r'(?m)^    image: axllent/mailpit@sha256:[0-9a-f]{64}$')
+        self.assertEqual(re.findall(r'- "(127\.0\.0\.1:[^"]+)"', block), ['127.0.0.1:${FORGE_MAILPIT_PORT:-8025}:8025'])
+        self.assertRegex(block, r'(?m)^    read_only: true$')
+        self.assertRegex(block, r'(?m)^    cap_drop:\n      - ALL$')
+        self.assertRegex(block, r'(?m)^      - no-new-privileges:true$')
+        self.assertIn('- edge', block)  # reachable from the control plane, but not on the database network
+        self.assertNotIn('- data', block)
+        self.assertRegex(block, r'(?m)^    healthcheck:')
+
+    def test_the_dev_env_template_points_the_control_plane_at_mailpit_without_credentials(self):
+        values = dict(line.split('=', 1) for line in text('deploy/.env.dev.example').splitlines() if line and not line.startswith('#'))
+        self.assertEqual((values['FORGE_DOMAIN'], values['FORGE_TLS'], values['FORGE_PORT_SUFFIX']), ('localhost', 'internal', ':8443'))
+        self.assertEqual((values['FORGE_SMTP_HOST'], values['FORGE_SMTP_SECURITY'], values['FORGE_SMTP_PORT']), ('mailpit', 'none', '1025'))
+        self.assertTrue(values['FORGE_SMTP_FROM'].endswith('@example.test'))
+        for key in ('FORGE_SMTP_USER', 'FORGE_SMTP_PASSWORD_FILE'):
+            self.assertNotIn(key, values)  # cleartext relays never take credentials
 
 
 class ProvisionTool(unittest.TestCase):

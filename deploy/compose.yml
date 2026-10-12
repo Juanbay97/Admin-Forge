@@ -25,6 +25,18 @@ x-forge-env: &forge-env
   FORGE_GATEWAY_ORIGINS: ${FORGE_GATEWAY_ORIGINS:-}
   FORGE_LOG_LEVEL: ${FORGE_LOG_LEVEL:-INFO}
 
+# Mail relay settings (control plane only). The password is the optional Docker secret smtp_password: set
+# FORGE_SMTP_USER and FORGE_SMTP_PASSWORD_FILE=/run/secrets/smtp_password in deploy/.env for an authenticated relay.
+# A key left null here is passed through only when deploy/.env sets it.
+x-forge-smtp: &forge-smtp
+  FORGE_SMTP_HOST: ${FORGE_SMTP_HOST:?set FORGE_SMTP_HOST in deploy/.env (see docs/deploy.md)}
+  FORGE_SMTP_FROM: ${FORGE_SMTP_FROM:?set FORGE_SMTP_FROM in deploy/.env (see docs/deploy.md)}
+  FORGE_SMTP_SECURITY: ${FORGE_SMTP_SECURITY:-starttls}
+  FORGE_SMTP_PORT:
+  FORGE_SMTP_USER:
+  FORGE_SMTP_PASSWORD_FILE:
+  FORGE_SMTP_CA_FILE:
+
 services:
   postgres:
     image: ${POSTGRES_IMAGE:-postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652}
@@ -104,7 +116,8 @@ services:
     restart: unless-stopped
     init: true
     stop_grace_period: 20s
-    environment: *forge-env
+    environment:
+      <<: [*forge-env, *forge-smtp]
     secrets:  # no database administrator secret: the serving process never holds DDL rights
       - forge_account_service
       - forge_enrollment
@@ -113,6 +126,7 @@ services:
       - forge_branding_service
       - delivery_key
       - gateway_key
+      - smtp_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,9 +145,9 @@ services:
     healthcheck:
       test: ["CMD", "python", "-m", "forge.serve_prod", "healthcheck"]
       interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 20s
+      timeout: 10s  # the check starts a Python process; a loaded host needs more than a few seconds
+      retries: 10
+      start_period: 30s
     logging: *logging
 
   caddy:
@@ -285,3 +299,5 @@ secrets:
     file: ${FORGE_SECRETS_DIR:-./secrets}/delivery_key
   gateway_key:
     file: ${FORGE_SECRETS_DIR:-./secrets}/gateway_key
+  smtp_password:  # empty unless you use an authenticated relay
+    file: ${FORGE_SECRETS_DIR:-./secrets}/smtp_password

@@ -5,6 +5,33 @@
 # Needs Docker Compose 2.24+ (`!override`). The matching .env.dev sets FORGE_DOMAIN=localhost and
 # FORGE_PORT_SUFFIX=:8443 so the public origin is https://localhost:8443 (scripts/deploy-smoke.ps1 does exactly this).
 services:
+  # Catches every outgoing message (FORGE_SMTP_SECURITY=none, no credentials) so the proof can read the invitation
+  # email and open its link. Messages stay in memory; web UI and API on loopback only.
+  mailpit:
+    image: axllent/mailpit@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FORGE_MAILPIT_PORT:-8025}:8025"
+    networks:
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
   caddy:
     environment:
       FORGE_TLS: ${FORGE_TLS:-internal}

@@ -10,7 +10,7 @@ Replace `forge.example.test` with your real name. Run everything as a user who c
 
 ```bash
 git clone <repository-url> /opt/forge && cd /opt/forge/deploy
-cp .env.example .env                      # set FORGE_DOMAIN, FORGE_TLS, FORGE_ACME_EMAIL
+cp .env.example .env                      # set FORGE_DOMAIN, FORGE_TLS, FORGE_ACME_EMAIL and the FORGE_SMTP_* mail relay
 printf 'FORGE_UID=%s\nFORGE_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
 mkdir -p backups credentials              # owned by you: backups and first-company credentials land here
 ../scripts/deploy-secrets.sh              # creates deploy/secrets/ (once; never overwritten)
@@ -64,13 +64,14 @@ only Caddy. PostgreSQL and the control plane have no published port and live on 
 | `FORGE_PORT_SUFFIX` | Empty in production; `:8443` only when HTTPS is published on a non-standard port |
 | `FORGE_TLS` | `acme` or `internal` ([Choose the TLS mode](#choose-the-tls-mode)); anything else stops Caddy |
 | `FORGE_ACME_EMAIL` | Contact address Let's Encrypt uses for expiry notices (`acme` only) |
+| `FORGE_SMTP_*` | The mail relay for invitations and password resets ([Email delivery](#email-delivery-smtp)); required |
 | `FORGE_GATEWAY_ORIGINS` | Comma-separated https origins of your model gateway; empty keeps the built-in default |
 | `FORGE_BACKUP_CRON`, `FORGE_BACKUP_KEEP` | Backup schedule (UTC, 5 fields) and how many dumps to keep (default 14) |
 | `FORGE_UID`, `FORGE_GID` | Your user, so `backups/` and `credentials/` stay readable by you |
 
-`scripts/deploy-secrets.sh` writes nine files: the PostgreSQL administrator password, one password per service role
-(five), the backup role password, and two Fernet keys (`delivery_key` for queued messages, `gateway_key` for stored
-gateway keys). It never overwrites an existing file, prints names only, and makes the directory owner-only (0700).
+`scripts/deploy-secrets.sh` writes ten files: the PostgreSQL administrator password, one password per service role
+(five), the backup role password, two Fernet keys (`delivery_key` for queued messages, `gateway_key` for stored
+gateway keys) and an empty `smtp_password` for you to fill in. It never overwrites an existing file, prints names only, and makes the directory owner-only (0700).
 The files themselves are world-readable inside that directory because the unprivileged containers read them as
 Docker secrets.
 
@@ -93,6 +94,67 @@ docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.
 
 Switching modes later is a `.env` edit and `docker compose up -d`; no file changes. If you start with `acme` and
 issuance fails (for example port 80 is not reachable), set `FORGE_TLS=internal` to keep working while you fix DNS.
+
+## Email delivery (SMTP)
+
+Forge emails invitations and password resets through any standard SMTP relay. There is no fallback: the control plane
+refuses to start without one (`CONFIG_INVALID:FORGE_SMTP_HOST`), because a message that goes nowhere is a lost invitation.
+The message holds only the person's name and a private one-time link, never a password.
+
+| Setting | Meaning |
+|---------|---------|
+| `FORGE_SMTP_HOST` / `FORGE_SMTP_PORT` | Relay and port (587 by default for `starttls`, 465 for `tls`) |
+| `FORGE_SMTP_SECURITY` | `starttls` (default: upgrades before logging in, refuses a relay without STARTTLS), `tls` (implicit TLS) or `none` (cleartext, never with credentials) |
+| `FORGE_SMTP_USER` + `FORGE_SMTP_PASSWORD_FILE` | Relay credentials; the password is read from `deploy/secrets/smtp_password` |
+| `FORGE_SMTP_FROM` | Sender address, on a domain the relay has verified |
+| `FORGE_SMTP_CA_FILE` | Optional CA bundle for a private relay (certificates are always verified) |
+
+| Provider | `.env` values | `smtp_password` holds |
+|----------|---------------|------------------------|
+| Resend, implicit TLS | `FORGE_SMTP_HOST=smtp.resend.com`, `FORGE_SMTP_PORT=465`, `FORGE_SMTP_SECURITY=tls`, `FORGE_SMTP_USER=resend` | Your Resend API key |
+| Resend, STARTTLS | same host, `FORGE_SMTP_PORT=587`, `FORGE_SMTP_SECURITY=starttls`, `FORGE_SMTP_USER=resend` | Your Resend API key |
+| Amazon SES | `FORGE_SMTP_HOST=email-smtp.<region>.amazonaws.com`, `FORGE_SMTP_PORT=587`, `FORGE_SMTP_SECURITY=starttls`, `FORGE_SMTP_USER=<SES SMTP user name>` | The SES SMTP password (not an IAM secret key) |
+
+Set it up:
+
+1. Verify the sending domain with the provider: publish the SPF and DKIM DNS records it gives you and wait until it
+   shows the domain as verified. Set `FORGE_SMTP_FROM` to an address on that domain.
+2. Put the relay password in the secret file without leaving it in your shell history, then keep the permissions:
+   `read -rs P && printf '%s' "$P" > secrets/smtp_password && unset P`.
+3. Add `FORGE_SMTP_PASSWORD_FILE=/run/secrets/smtp_password` and the values above to `.env`, then `docker compose up -d`.
+4. Send a test message (it prints one word: `sent` or the failure category):
+
+```bash
+docker compose exec -T -e TO=you@example.test control-plane python - <<'PY'
+import os, uuid
+from forge.smtp_delivery import SmtpDelivery, SmtpDeliveryError, load_smtp_settings
+try:
+    SmtpDelivery(load_smtp_settings(os.environ)).deliver(
+        uuid.uuid4(), os.environ['TO'], 'Smoke test', os.environ['FORGE_PUBLIC_ORIGIN'] + '/onboarding#smtp-check')
+    print('sent')
+except SmtpDeliveryError as error:
+    print(error)
+PY
+```
+
+When an invitation answers `delivery_state: failed`, nothing is written to the logs (a relay's answer could name the
+recipient or the account), so run the check above and read the category:
+
+| Category | Meaning | Fix |
+|----------|---------|-----|
+| `SMTP_AUTH` | The relay refused the credentials, or wants them and none were sent | Check `FORGE_SMTP_USER` and `smtp_password`; for Resend the user is exactly `resend` |
+| `SMTP_TLS` | Certificate not trusted, name mismatch, or `tls` on a port that is not implicit TLS | Match port and mode (465 + `tls`, 587 + `starttls`); use `FORGE_SMTP_CA_FILE` for a private relay |
+| `SMTP_STARTTLS_REQUIRED` | `starttls` on a relay that does not offer it; nothing was sent | Use the TLS port, or `FORGE_SMTP_SECURITY=tls` |
+| `SMTP_RECIPIENT` / `SMTP_SENDER` | The relay refused the address, or the `From` domain is not verified | Verify the sending domain; check the address |
+| `SMTP_TIMEOUT` / `SMTP_CONNECT` | No answer within 10 s, or the connection failed | The server must reach the relay outbound on 465/587; check the firewall and DNS |
+| `SMTP_REJECTED` / `SMTP_UNAVAILABLE` | The relay refused the message or answered unexpectedly | Read your provider's sending dashboard |
+
+Delivery is synchronous: a slow relay delays the request that sends the invitation by up to 10 seconds, then it is
+recorded as failed (invite again once the relay is fixed).
+
+Placeholder: there is no platform-owner sign-in yet. Until the platform administration change
+(`fv2-platform-core`) lands, whoever has shell access to this server and the `deploy/secrets/pg_superuser` file is
+the platform owner, and companies are created from the command line as described next. Keep that access limited.
 
 ## First platform owner
 
@@ -211,7 +273,7 @@ Container logs rotate at 10 MB x 5 files per service.
 | `bind: address already in use` | Another service uses 80/443 | Stop it, or change `FORGE_HTTP_PORT`/`FORGE_HTTPS_PORT` and set `FORGE_PORT_SUFFIX=:<port>` |
 | Browser shows a certificate warning | `FORGE_TLS=internal` without the root installed, or issuance failed | Install the root ([Choose the TLS mode](#choose-the-tls-mode)); for `acme` read `docker compose logs caddy` |
 | `421 Misdirected request` | Request used a name other than `FORGE_DOMAIN` | Use the configured name; an IP address is refused on purpose |
-| Healthcheck unhealthy right after start | Control plane waiting for the database | Wait for `start_period` (20 s); then `docker compose logs control-plane` |
+| Healthcheck unhealthy right after start | Control plane waiting for the database | Wait for `start_period` (30 s); then `docker compose logs control-plane` |
 | `permission denied` writing `backups/` | `FORGE_UID`/`FORGE_GID` do not match the directory owner | Set them to `id -u` / `id -g` and recreate the service |
 
 ## Why one worker
@@ -232,4 +294,4 @@ unverified, so the supported way to handle more load today is a larger server.
 ## Next step
 
 Local rehearsal on a workstation with Docker: `scripts/deploy-smoke.ps1` runs this same stack with
-`deploy/compose.dev.yml` (internal CA, loopback ports), proves it, and removes everything it created.
+`deploy/compose.dev.yml` (internal CA, loopback ports, Mailpit as the mail relay), proves it - including an invitation email and its link - and removes everything it created.

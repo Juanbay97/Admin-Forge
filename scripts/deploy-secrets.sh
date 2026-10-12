@@ -40,5 +40,15 @@ done
 create delivery_key fernet
 create gateway_key fernet
 
+# The mail relay password is yours (a Resend or SES credential): only the empty placeholder a Docker file secret needs
+# is created here. An empty file is refused at start-up, so forgetting to fill it in is loud, never silent.
+if [ -e "$dir/smtp_password" ]; then
+    echo "kept     smtp_password"
+else
+    ( umask 077; : > "$dir/smtp_password" )
+    chmod 644 "$dir/smtp_password"
+    echo "created  smtp_password (empty: put the mail relay password in it when you use authenticated SMTP)"
+fi
+
 echo "secrets directory: $dir"
 echo "Back it up OFFLINE: losing delivery_key/gateway_key makes stored gateway keys and queued messages unrecoverable."

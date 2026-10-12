@@ -101,18 +101,20 @@ try {
     $work = (Resolve-Path -LiteralPath $work).Path
     & (Join-Path $PSScriptRoot 'deploy-secrets.ps1') -Directory (Join-Path $work 'secrets') | Out-Null
     Set-Content -LiteralPath (Join-Path $work 'downloads/latest.json') -Value '{"version":"0.0.0-smoke"}' -Encoding ascii
-    $httpPort, $httpsPort = (Get-FreePort), (Get-FreePort)
+    $httpPort, $httpsPort, $mailpitPort = (Get-FreePort), (Get-FreePort), (Get-FreePort)
     while ($httpsPort -eq $httpPort) { $httpsPort = Get-FreePort }
+    while ($mailpitPort -eq $httpPort -or $mailpitPort -eq $httpsPort) { $mailpitPort = Get-FreePort }
     $forward = { param($path) $path.Replace('\', '/') }
     @(
         'FORGE_DOMAIN=localhost', "FORGE_PORT_SUFFIX=:$httpsPort", 'FORGE_TLS=internal',
-        "FORGE_HTTP_PORT=$httpPort", "FORGE_HTTPS_PORT=$httpsPort", "FORGE_IMAGE=$image",
+        "FORGE_HTTP_PORT=$httpPort", "FORGE_HTTPS_PORT=$httpsPort", "FORGE_MAILPIT_PORT=$mailpitPort", "FORGE_IMAGE=$image",
+        'FORGE_SMTP_HOST=mailpit', 'FORGE_SMTP_FROM=forge@smoke.example.test', 'FORGE_SMTP_SECURITY=none', 'FORGE_SMTP_PORT=1025',
         ('FORGE_SECRETS_DIR=' + (& $forward (Join-Path $work 'secrets'))),
         ('FORGE_DOWNLOADS_DIR=' + (& $forward (Join-Path $work 'downloads'))),
         ('FORGE_CREDENTIALS_DIR=' + (& $forward (Join-Path $work 'credentials'))),
         ('FORGE_BACKUPS_DIR=' + (& $forward (Join-Path $work 'backups')))
     ) | Set-Content -LiteralPath $envFile -Encoding ascii
-    $secretValues = Get-ChildItem -LiteralPath (Join-Path $work 'secrets') -File | ForEach-Object { (Get-Content -LiteralPath $_.FullName -Raw).Trim() }
+    $secretValues = Get-ChildItem -LiteralPath (Join-Path $work 'secrets') -File | ForEach-Object { (Get-Content -LiteralPath $_.FullName -Raw) } | ForEach-Object { "$_".Trim() } | Where-Object { $_ }
 
     # compose config must render and never print a secret value.
     $rendered = (Invoke-Compose @('config')).Output
@@ -142,9 +144,13 @@ try {
     Assert-True ($hardening -eq 'true 10001:10001 [ALL]') "control plane hardening is '$hardening'"
     $published = (Invoke-Docker @('ps', '--filter', "label=com.docker.compose.project=$project", '--format', '{{.Names}} {{.Ports}}')).Output
     foreach ($line in ($published -split "`n" | Where-Object { $_.Trim() })) {
-        if ($line -notmatch '-caddy-\d+ ') { Assert-True ($line -notmatch '->') "a non-caddy service publishes a port: $line" }
+        if ($line -match '-mailpit-\d+ ') {  # the dev-only mail catcher: its web UI and API on loopback, nothing else
+            Assert-True ((@([regex]::Matches($line, '(\S+)->') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -notmatch '^127\.0\.0\.1:' })).Count -eq 0) "mailpit publishes beyond loopback: $line"
+        } elseif ($line -notmatch '-caddy-\d+ ') {
+            Assert-True ($line -notmatch '->') "a non-caddy service publishes a port: $line"
+        }
     }
-    Write-Pass 'control plane is non-root, read-only, capability-free; only caddy publishes'
+    Write-Pass 'control plane is non-root, read-only, capability-free; only caddy (and the dev mail catcher, loopback) publishes'
 
     Assert-True ((Invoke-Compose @('cp', 'caddy:/data/caddy/pki/authorities/local/root.crt', $rootCert)).Code -eq 0) 'cannot extract the Caddy root certificate'
     $status = Invoke-Curl '/status'
@@ -174,6 +180,47 @@ try {
     Assert-True ($again -match '"created": false' -and @(Get-ChildItem -LiteralPath (Join-Path $work 'credentials') -File).Count -eq 1) 'a rerun created something'
     Write-Pass 'first company provisioned through the tools profile (rerun is a no-op)'
 
+    # Invitation email: sign in as the new company's administrator, invite someone, read the message from Mailpit and
+    # follow its link (the invited person sets a password and signs in).
+    $mailpit = "http://127.0.0.1:$mailpitPort"
+    $check = (Invoke-Compose @('exec', '-T', '-e', 'TO=check@smoke.example.test', 'control-plane', 'python', '-c',
+            "import os, uuid; from forge.smtp_delivery import SmtpDelivery, load_smtp_settings; SmtpDelivery(load_smtp_settings(os.environ)).deliver(uuid.uuid4(), os.environ['TO'], 'Smoke test', os.environ['FORGE_PUBLIC_ORIGIN'] + '/onboarding#smtp-check'); print('sent')")).Output.Trim()
+    Assert-True ($check -eq 'sent') "the SMTP check command did not print 'sent': $check"
+    $credentials = Get-Content -LiteralPath $issued[0].FullName -Raw | ConvertFrom-Json
+    $company = $credentials.organizations[0]
+    $administrator = @($company.accounts | Where-Object { $_.role -eq 'organization_admin' })[0]
+    $department = (Invoke-Compose @('exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'forge', '-tAc', "SELECT id FROM forge.departments WHERE organization_id = '$($company.organization_id)'")).Output.Trim()
+    $origin = "https://localhost:$httpsPort"
+    function Invoke-Json([string]$Path, $Body, [string]$Token = '') {
+        $file = Join-Path $work ('j-' + [Guid]::NewGuid().ToString('N'))
+        Set-Content -LiteralPath $file -Value ($Body | ConvertTo-Json -Compress) -Encoding ascii
+        $arguments = @('-X', 'POST', '-H', 'Content-Type: application/json', '-H', "Origin: $origin", '--data-binary', "@$file")
+        if ($Token) { $arguments += @('-H', "Authorization: Bearer $Token") }
+        $reply = Invoke-Curl $Path -Arguments $arguments
+        Remove-Item -LiteralPath $file -Force
+        return $reply
+    }
+    $login = Invoke-Json '/forge/v1/accounts/login' @{ email = $administrator.email; password = $administrator.password }
+    Assert-True ($login.Status -eq 200) "the administrator could not sign in ($($login.Status))"
+    $token = ($login.Body | ConvertFrom-Json).access_token
+    $invited = Invoke-Json '/forge/v1/accounts/invitations' @{ organization_id = $company.organization_id; department_id = $department; email = 'newhire@smoke.example.test'; name = 'New Hire' } $token
+    $invitation = $invited.Body | ConvertFrom-Json
+    Assert-True ($invited.Status -eq 201 -and $invitation.delivery_state -eq 'delivered' -and $invitation.delivery_channel -eq 'smtp') "the invitation was not delivered over smtp ($($invited.Status) $($invited.Body))"
+    $found = @((Invoke-RestMethod -Uri "$mailpit/api/v1/messages" -TimeoutSec 20).messages | Where-Object { @($_.To | ForEach-Object { $_.Address }) -contains 'newhire@smoke.example.test' })
+    Assert-True ($found.Count -eq 1 -and $found[0].Subject -eq 'Your Forge invitation') 'Mailpit did not capture exactly one invitation for the invited person'
+    $message = Invoke-RestMethod -Uri "$mailpit/api/v1/message/$($found[0].ID)" -TimeoutSec 20
+    Assert-True ($message.From.Address -eq 'forge@smoke.example.test' -and $message.Text -match 'Hello New Hire') 'the captured message has the wrong sender or content'
+    Assert-True ($message.Text -match '(https://localhost:\d+)/onboarding#invitation_id=([0-9a-f-]{36})&capability=([A-Za-z0-9_-]{43})') 'the message holds no onboarding link'
+    Assert-True ($Matches[1] -eq $origin -and $Matches[2] -eq $invitation.invitation_id) 'the link does not use the public origin and the issued invitation'
+    $capability = $Matches[3]
+    Assert-True (-not $message.Text.Contains($administrator.password) -and -not $message.HTML.Contains($administrator.password)) 'the message carries a password'
+    Write-Pass 'invitation email captured by Mailpit over smtp with the link on the public origin'
+
+    $accepted = Invoke-Json '/forge/v1/accounts/invitations/accept' @{ invitation_id = $invitation.invitation_id; capability = $capability; password = 'a-long-new-hire-passphrase-1' }
+    Assert-True ($accepted.Status -eq 201) "the emailed link did not activate the account ($($accepted.Status))"
+    $newLogin = Invoke-Json '/forge/v1/accounts/login' @{ email = 'newhire@smoke.example.test'; password = 'a-long-new-hire-passphrase-1' }
+    Assert-True ($newLogin.Status -eq 200) 'the invited person could not sign in after following the link'
+    Write-Pass 'the emailed link activates the account and the invited person signs in'
     # Backups: a verified dump, retention, restore refusing a used database, and a round trip into a fresh volume.
     $backups = Join-Path $work 'backups'
     $backupScript = @('exec', '-T', 'backup', '/bin/sh', '/opt/forge/backup.sh')
