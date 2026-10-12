@@ -32,9 +32,9 @@ Chain strategy: stacked-to-main
 - [x] 1.3 RED/GREEN `policy_from_env` in `gateway_origins.py` (default `DEFAULT_ENDPOINT`; http refused) + extend `test_gateway_origins.py`.
 
 ## Phase 2: Runner (S2)
-- [ ] 2.1 RED `tests/test_postgres_migrate.py`: fresh, rerun no-op, checksum tamper, adopt known fingerprint, unknown schema, crash-between, concurrent, password rotation.
-- [ ] 2.2 GREEN `src/forge/migrate.py` (canonical order = `MIGRATIONS`+`MVP_ADDITIONS`; advisory lock; final fingerprint).
-- [ ] 2.3 Unit tests for CLI exit codes/JSON with fake connection.
+- [x] 2.1 RED `tests/test_postgres_migrate.py`: fresh, rerun no-op, checksum tamper, adopt known fingerprint, unknown schema, crash-between, concurrent, password rotation.
+- [x] 2.2 GREEN `src/forge/migrate.py` (canonical order = `MIGRATIONS`+`MVP_ADDITIONS`; advisory lock; final fingerprint). Bookkeeping table is `forge_ops.schema_migrations`, not `forge.*`: the catalog fingerprint covers every relation in `forge`.
+- [x] 2.3 Unit tests for CLI exit codes/JSON with fake connection.
 
 ## Phase 3: Composition (S3)
 - [ ] 3.1 Extract `src/forge/composition.py`; `mvp_local.compose` delegates; `tests/test_mvp_local.py` + PG mvp_local tests stay green (RED = new `test_composition.py`).
