@@ -59,7 +59,7 @@ Budget 800 lines/slice. **Dependency**: apply after `v1-multiuser`. W1 stacks on
 
 ## Phase 4: Seed, security, E2E (W6, C4)
 
-- [ ] 4.1 Seed acme/globex branding + `docs/white-label.md`
+- [x] 4.1 Seed branding for org-a (Northwind Logistics) and org-b (Lumen Finance) + `docs/white-label.md`
 - [ ] 4.2 `next.config.ts` CSP; test header and no violation; tighten Tauri CSP after smoke
 - [ ] 4.3 Replace `src-tauri/icons` with Prometheon art (source from `Marca\Logos`); delete `OpenYak logo`; test LICENSE/NOTICE hashes
 - [ ] 4.4 `scripts/branding-smoke.ps1` + Playwright: two orgs visible in admin and client
