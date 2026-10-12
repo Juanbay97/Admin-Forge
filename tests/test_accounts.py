@@ -5,11 +5,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 import secrets
 import sys
+import threading
+import time
 import unittest
 from unittest.mock import patch
 from uuid import UUID
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from forge import accounts
 from forge.accounts import (
     ACCOUNT_ISSUER, Enrollment, PasswordHasher, PasswordWorkUnavailable,
     canonical_email, display_name,
@@ -90,6 +93,51 @@ class AccountTests(unittest.TestCase):
                 PasswordHasher().hash(PASSWORD)
             kdf.assert_not_called()
             slot.release.assert_not_called()
+
+    def test_simultaneous_sign_ins_queue_for_the_single_memory_slot_instead_of_failing(self):
+        # Several members sign in at once: one derivation at a time (memory bound), everybody is served.
+        encoded = PasswordHasher().hash(PASSWORD)
+        running, peak, outcomes = [0], [0], []
+        lock = threading.Lock()
+
+        class SlowKdf:
+            def __init__(self, **_):
+                pass
+
+            def verify(self, *_):
+                with lock:
+                    running[0] += 1
+                    peak[0] = max(peak[0], running[0])
+                time.sleep(0.1)
+                with lock:
+                    running[0] -= 1
+
+        def sign_in():
+            try:
+                outcomes.append(PasswordHasher().verify(PASSWORD, encoded))
+            except PasswordWorkUnavailable:
+                outcomes.append("unavailable")
+        with patch("forge.accounts.Scrypt", SlowKdf):
+            workers = [threading.Thread(target=sign_in) for _ in range(4)]
+            for worker in workers:
+                worker.start()
+            for worker in workers:
+                worker.join(10)
+        self.assertEqual(outcomes, [True] * 4)
+        self.assertEqual(peak[0], 1)
+
+    def test_the_wait_for_the_memory_slot_is_bounded(self):
+        encoded = PasswordHasher().hash(PASSWORD)
+        with patch("forge.accounts._KDF_WAIT", 0.05), patch("forge.accounts.Scrypt") as kdf:
+            self.assertTrue(accounts._KDF_SLOT.acquire(blocking=False))
+            try:
+                started = time.monotonic()
+                with self.assertRaises(PasswordWorkUnavailable):
+                    PasswordHasher().verify(PASSWORD, encoded)
+                self.assertLess(time.monotonic() - started, 2)
+            finally:
+                accounts._KDF_SLOT.release()
+            kdf.assert_not_called()
 
     def test_kdf_failure_releases_memory_slot(self):
         with patch("forge.accounts._KDF_SLOT") as slot, patch("forge.accounts.Scrypt") as kdf:

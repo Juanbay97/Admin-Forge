@@ -15,7 +15,10 @@ ACCOUNT_ISSUER = "urn:prometheon:forge:accounts:v1"
 _PREFIX = "forge$scrypt$v1$131072$8$1$"
 # Bound aggregate KDF memory to one ~128MiB derivation per worker process.
 # HTTP rate/admission policy and fleet-level concurrency belong to U2 deployment.
+# Members signing in at the same moment queue for the slot (bounded wait) instead of being refused: a refusal
+# here is a 503 for a legitimate login. Past the wait the work is still refused without allocating.
 _KDF_SLOT = BoundedSemaphore(1)
+_KDF_WAIT = 5.0
 
 
 class PasswordWorkUnavailable(RuntimeError):
@@ -86,7 +89,7 @@ def password_record(encoded: str) -> tuple[bytes, bytes]:
 class PasswordHasher:
     def hash(self, password: str) -> str:
         data, salt = password_bytes(password), secrets.token_bytes(16)
-        if not _KDF_SLOT.acquire(blocking=False):
+        if not _KDF_SLOT.acquire(timeout=_KDF_WAIT):
             raise PasswordWorkUnavailable()
         try:
             derived = Scrypt(salt=salt, length=32, n=2**17, r=8, p=1).derive(data)
@@ -100,7 +103,7 @@ class PasswordHasher:
             salt, expected = password_record(encoded)
         except (ValueError, TypeError):
             return False
-        if not _KDF_SLOT.acquire(blocking=False):
+        if not _KDF_SLOT.acquire(timeout=_KDF_WAIT):
             raise PasswordWorkUnavailable()
         try:
             Scrypt(salt=salt, length=32, n=2**17, r=8, p=1).verify(data, expected)
