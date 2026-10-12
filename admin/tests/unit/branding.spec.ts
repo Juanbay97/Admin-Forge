@@ -8,6 +8,7 @@ import {
   draftFrom,
   draftToDocument,
   isDefaultLook,
+  paletteIssues,
   parseBranding,
 } from "../../src/brand/branding";
 import { generatePalette } from "../../src/brand/palette";
@@ -152,5 +153,41 @@ test.describe("branding failures", () => {
   test("a message the server did not author is never echoed", () => {
     // 422 with an unexpected code (a proxy page, say) is not shown verbatim.
     expect(describeBrandingFailure(new ApiError(422, "UNKNOWN", "Request failed (422)."))).toBe("Something went wrong. Try again.");
+  });
+});
+test.describe("live palette readability", () => {
+  const draft = (change: Record<string, string> = {}) => ({ ...draftFrom(parseBranding(served())), ...change });
+
+  test("a readable draft has no issue, and the rule is the shared generator's", () => {
+    expect(paletteIssues(draft())).toEqual({});
+    for (const vector of vectors.valid) {
+      const { primary, accent, tint, heading, body } = vector.input;
+      expect(paletteIssues({ ...draft(), primary, accent, tint, heading, body })).toEqual({});
+    }
+  });
+
+  test("a malformed color names the field and shows an example", () => {
+    const issues = paletteIssues(draft({ primary: "blue", tint: "#12" }));
+    expect(issues.primary).toContain("hex color");
+    expect(issues.tint).toContain("hex color");
+    expect(issues.accent).toBeUndefined();
+  });
+
+  test("a primary or accent below 3:1 on white is flagged on its own field", () => {
+    expect(paletteIssues(draft({ primary: "#FFEB3B" })).primary).toContain("3:1");
+    expect(paletteIssues(draft({ accent: "#FFEB3B" })).accent).toContain("3:1");
+  });
+
+  test("a tint that cannot carry dark text is flagged on the tint", () => {
+    expect(paletteIssues(draft({ tint: "#202020" })).tint).toContain("lighter");
+  });
+
+  test("every refusal of the generator surfaces some issue, so Save is never the first warning", () => {
+    const hexes = ["#000000", "#FFFFFF", "#FFEB3B", "#1D4ED8", "#B45309", "#202020", "#E5E7EB", "#7C3AED", "#0B1D26"];
+    for (const primary of hexes) for (const accent of hexes) for (const tint of hexes) {
+      const value = draft({ primary, accent, tint });
+      const refused = generatePalette({ primary, accent, tint, heading: value.heading, body: value.body }) === null;
+      expect(Object.keys(paletteIssues(value)).length > 0, `${primary} ${accent} ${tint}`).toBe(refused);
+    }
   });
 });

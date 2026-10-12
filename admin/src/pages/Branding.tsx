@@ -8,6 +8,7 @@ import {
   describeBrandingFailure,
   draftFrom,
   draftToDocument,
+  paletteIssues,
   type AssetKind,
   type Branding as BrandingRecord,
   type Draft,
@@ -42,7 +43,16 @@ interface Uploaded {
 
 type Uploads = Partial<Record<AssetKind, Uploaded>>;
 
-function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+interface ColorFieldProps {
+  label: string;
+  value: string;
+  /** Key of the live readability message for this field; the message is shown beside the input. */
+  issueKey: string;
+  issue?: string;
+  onChange: (value: string) => void;
+}
+
+function ColorField({ label, value, issueKey, issue, onChange }: ColorFieldProps) {
   const id = `brand-${label.toLowerCase().replace(/\W+/g, "-")}`;
   const valid = /^#[0-9A-Fa-f]{6}$/.test(value);
   return (
@@ -55,6 +65,8 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
           value={value}
           spellCheck={false}
           autoComplete="off"
+          aria-invalid={issue ? true : undefined}
+          aria-describedby={issue ? `${id}-issue` : undefined}
           onChange={(event) => onChange(event.target.value)}
           className={`${FIELD} w-32 font-mono`}
         />
@@ -66,6 +78,11 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
           className="h-10 w-12 cursor-pointer rounded border border-carbon/40 bg-white p-1"
         />
       </div>
+      {issue && (
+        <p id={`${id}-issue`} data-testid={`issue-${issueKey}`} className="max-w-xs text-xs font-normal text-red-800">
+          {issue}
+        </p>
+      )}
     </div>
   );
 }
@@ -108,6 +125,8 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
 
   const { primary, accent, tint, heading, body } = draft;
   const palette = useMemo(() => generatePalette({ primary, accent, tint, heading, body }), [primary, accent, tint, heading, body]);
+
+  const issues = useMemo(() => paletteIssues(draft), [draft]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -222,10 +241,15 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
           />
         </div>
         <div className="flex flex-wrap gap-4">
-          <ColorField label="Primary color" value={draft.primary} onChange={(value) => set("primary", value)} />
-          <ColorField label="Accent color" value={draft.accent} onChange={(value) => set("accent", value)} />
-          <ColorField label="Background tint" value={draft.tint} onChange={(value) => set("tint", value)} />
+          <ColorField label="Primary color" issueKey="primary" issue={issues.primary} value={draft.primary} onChange={(value) => set("primary", value)} />
+          <ColorField label="Accent color" issueKey="accent" issue={issues.accent} value={draft.accent} onChange={(value) => set("accent", value)} />
+          <ColorField label="Background tint" issueKey="tint" issue={issues.tint} value={draft.tint} onChange={(value) => set("tint", value)} />
         </div>
+        {issues.combination && (
+          <p data-testid="issue-combination" className="text-xs text-red-800">
+            {issues.combination}
+          </p>
+        )}
         <div className="flex flex-wrap gap-4">
           <FontField label="Heading font" value={draft.heading} onChange={(value) => set("heading", value)} />
           <FontField label="Body font" value={draft.body} onChange={(value) => set("body", value)} />

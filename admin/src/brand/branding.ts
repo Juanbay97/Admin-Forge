@@ -3,7 +3,7 @@
 // throws; nothing here builds CSS or markup from it.
 
 import { ApiError } from "../api/client";
-import { FONT_IDS, type FontId, type PaletteInput } from "./palette";
+import { FONT_IDS, contrastOfHex, generatePalette, type FontId, type PaletteInput } from "./palette";
 
 export const ASSET_URL_PREFIX = "/forge/v1/branding/assets/";
 export const ASSET_KINDS = ["logoLight", "logoDark", "isotipo"] as const;
@@ -148,8 +148,35 @@ export const draftTheme = (draft: Draft): PaletteInput => ({
 });
 
 // There is no client-side save gate: the control plane runs the same palette generator and answers with
-// its own message, which is what the page shows. The preview flags an unreadable combination as you type.
+// its own message, which is what the page shows after Save. `paletteIssues` runs that same generator while
+// you type so the problem is visible earlier; it never blocks a save and the server stays the authority.
 
+export type PaletteIssues = Partial<Record<"primary" | "accent" | "tint" | "combination", string>>;
+
+const COLOR_LABELS = { primary: "primary color", accent: "accent color", tint: "background tint" } as const;
+const DARK_TEXT = "#1A1A1A";
+
+/** What stops the three colors from forming a readable theme, keyed by the field to fix. Empty when readable. */
+export function paletteIssues(draft: Draft): PaletteIssues {
+  const issues: PaletteIssues = {};
+  for (const key of ["primary", "accent", "tint"] as const) {
+    if (!HEX.test(draft[key])) issues[key] = `Enter the ${COLOR_LABELS[key]} as a hex color, for example #0B1D26.`;
+  }
+  if (Object.keys(issues).length > 0) return issues;
+  if (generatePalette(draftTheme(draft)) !== null) return issues;
+  for (const key of ["primary", "accent"] as const) {
+    if (contrastOfHex(draft[key], "#FFFFFF") < 3) {
+      issues[key] = `This ${COLOR_LABELS[key]} needs at least 3:1 contrast against white. Choose a darker color.`;
+    }
+  }
+  if (contrastOfHex(DARK_TEXT, draft.tint) < 7) {
+    issues.tint = "Dark text is not readable on this background tint. Choose a lighter tint.";
+  }
+  if (Object.keys(issues).length === 0) {
+    issues.combination = "These colors cannot produce a readable theme. Try a darker primary color or a lighter background tint.";
+  }
+  return issues;
+}
 export function isDefaultLook(theme: PaletteInput): boolean {
   const base = DEFAULT_BRANDING.theme;
   return (

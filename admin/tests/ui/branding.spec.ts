@@ -64,12 +64,34 @@ test.describe("branding page", () => {
     await openBranding(page, adminUrl);
     await field(page, "Accent color").fill("#FFEB3B");
     await expect(page.getByTestId("preview-unavailable")).toBeVisible();
+    // The shared generator flags it while typing, before any request is made.
+    await expect(page.getByTestId("issue-accent")).toContainText("3:1");
+    expect(api.requests.filter((r) => r.method === "PUT")).toHaveLength(0);
     await page.getByRole("button", { name: "Save branding" }).click();
     await expect(page.getByRole("alert")).toContainText("cannot produce a readable theme");
     expect(api.requests.filter((r) => r.method === "PUT")).toHaveLength(1);
     expect(api.branding(ORG_A)?.revision ?? 0).toBe(0);
   });
 
+  test("a color problem is explained next to its field as you type and clears when fixed", async ({ page, adminUrl }) => {
+    await installBackend(page, ADMIN_BACKEND);
+    await openBranding(page, adminUrl);
+    await expect(page.getByTestId("issue-primary")).toHaveCount(0);
+    await field(page, "Primary color").fill("blue");
+    await expect(page.getByTestId("issue-primary")).toContainText("hex color");
+    await expect(field(page, "Primary color")).toHaveAttribute("aria-invalid", "true");
+    await expect(field(page, "Primary color")).toHaveAccessibleDescription(/hex color/);
+    await field(page, "Primary color").fill("#FFEB3B");
+    await expect(page.getByTestId("issue-primary")).toContainText("3:1");
+    await field(page, "Background tint").fill("#202020");
+    await expect(page.getByTestId("issue-tint")).toContainText("lighter");
+    await field(page, "Primary color").fill("#1D4ED8");
+    await field(page, "Background tint").fill("#E5E7EB");
+    await expect(page.getByTestId("issue-primary")).toHaveCount(0);
+    await expect(page.getByTestId("issue-tint")).toHaveCount(0);
+    await expect(field(page, "Primary color")).not.toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByTestId("preview-unavailable")).toHaveCount(0);
+  });
   test("saving publishes with the expected revision and re-themes the shell", async ({ page, adminUrl }) => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await openBranding(page, adminUrl);
