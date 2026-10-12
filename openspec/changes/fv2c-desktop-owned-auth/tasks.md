@@ -57,6 +57,11 @@ Chain strategy: stacked-to-main
 - [x] 5.3 `updater_hook.rs` off by default; sha256 + monotonic version tests
 - [x] 5.4 Docs: build, config precedence, user-run smoke checklist
 
+## Post-apply fixes (done)
+- [x] D9 `241adde`
+- [x] D10 `0ab795c`
+- [x] D11 `f8485dd`
+
 ## Verification commands (record exact result per slice)
 - py: `cd clients/openyak/tests; ..\backend\.venv\Scripts\python.exe -m unittest <explicit modules>`
 - node: `node --test tests/forge-desktop-*.test.mjs tests/forge-packaging.test.mjs tests/forge-managed-launcher.test.mjs`
