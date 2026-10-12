@@ -30,32 +30,32 @@ Chain strategy: stacked-to-main
 | D8 | NSIS config/hook, scheme, tauri.conf cleanup, verify-bundle, update hook, docs | D7 | ~800 |
 
 ## Phase 1: Entra removal (D1-D3)
-- [ ] 1.1 RED `tests/forge-desktop-no-entra.test.mjs` scanning desktop-tauri, frontend/src, tauri.conf for `entra|microsoftonline|msal` (expects failures)
-- [ ] 1.2 D1: delete `entra_store.rs`; remove its IPC commands in `commands.rs`/`lib.rs` mods; `cargo test` baseline recorded first
-- [ ] 1.3 D2: delete `entra_transport.rs`, `entra_session.rs` and callers
-- [ ] 1.4 D3: delete `entra_pkce.rs`, prune Cargo deps used only by Entra, delete frontend Entra bridge calls; test green
+- [x] 1.1 RED `tests/forge-desktop-no-entra.test.mjs` scanning desktop-tauri, frontend/src, tauri.conf for `entra|microsoftonline|msal` (expects failures)
+- [x] 1.2 D1: delete `entra_store.rs`; remove its IPC commands in `commands.rs`/`lib.rs` mods; `cargo test` baseline recorded first
+- [x] 1.3 D2: delete `entra_transport.rs`, `entra_session.rs` and callers
+- [x] 1.4 D3: delete `entra_pkce.rs`, prune Cargo deps used only by Entra, delete frontend Entra bridge calls; test green
 
 ## Phase 2: Remote origin policy (D4)
-- [ ] 2.1 RED `backend/tests/test_forge_origin.py`: loopback ok; allow-listed https ok; not-listed/IP literal/userinfo/path/port/redirect rejected
-- [ ] 2.2 `app/forge_origin.py`; swap into `WorkspaceConfig`/`RouterConfig`; `--allow-origin` arg; httpx `follow_redirects=False`
-- [ ] 2.3 Keep `test_forge_router_pool`, `test_forge_router_cli`, `test_forge_launch` green
+- [x] 2.1 RED `backend/tests/test_forge_origin.py`: loopback ok; allow-listed https ok; not-listed/IP literal/userinfo/path/port/redirect rejected
+- [x] 2.2 `app/forge_origin.py`; swap into `WorkspaceConfig`/`RouterConfig`; `--allow-origin` arg; httpx `follow_redirects=False`
+- [x] 2.3 Keep `test_forge_router_pool`, `test_forge_router_cli`, `test_forge_launch` green
 
 ## Phase 3: Guard + sidecar (D5-D6)
-- [ ] 3.1 RED Rust test: guard fails closed without/with tampered attestation; passes with valid; no env bypass
-- [ ] 3.2 Verifier writes attestation; `build.rs` embeds; replace `lib.rs:41` call
-- [ ] 3.3 RED Rust + node parity test (router argv/env vs `forge-managed.mjs`); implement `backend.rs` router spawn/stop/health-wait/kill-on-close
-- [ ] 3.4 `build:backend` PyInstaller spec runs in router mode; `verify-bundle` check
+- [x] 3.1 RED Rust test: guard fails closed without/with tampered attestation; passes with valid; no env bypass
+- [x] 3.2 Verifier writes attestation; `build.rs` embeds; replace `lib.rs:41` call
+- [x] 3.3 RED Rust + node parity test (router argv/env vs `forge-managed.mjs`); implement `backend.rs` router spawn/stop/health-wait/kill-on-close
+- [x] 3.4 `build:backend` PyInstaller spec runs in router mode; `verify-bundle` check
 
 ## Phase 4: Config, deep link, UI (D7)
-- [ ] 4.1 RED `config.rs` precedence + hostile-link table tests; implement `config.rs`, `deep_link.rs`, atomic `company.json`
-- [ ] 4.2 RED frontend unit: configured code satisfies gate, brand fetched pre-login, change-company confirm discards state
-- [ ] 4.3 Implement `forge-desktop.ts` + gate wiring; `npx tsc --noEmit`
+- [x] 4.1 RED `config.rs` precedence + hostile-link table tests; implement `config.rs`, `deep_link.rs`, atomic `company.json`
+- [x] 4.2 RED frontend unit: configured code satisfies gate, brand fetched pre-login, change-company confirm discards state
+- [x] 4.3 Implement `forge-desktop.ts` + gate wiring; `npx tsc --noEmit`
 
 ## Phase 5: Installer + docs (D8)
-- [ ] 5.1 RED packaging test: single nsis target, no signingIdentity, deep-link scheme, CSP loopback-only, sidecar resource
-- [ ] 5.2 `installer.nsh` (`/CODE=`,`/CP=` -> `forge-company.json`), tauri.conf cleanup, checksums
-- [ ] 5.3 `updater_hook.rs` off by default; sha256 + monotonic version tests
-- [ ] 5.4 Docs: build, config precedence, user-run smoke checklist
+- [x] 5.1 RED packaging test: single nsis target, no signingIdentity, deep-link scheme, CSP loopback-only, sidecar resource
+- [x] 5.2 `installer.nsh` (`/CODE=`,`/CP=` -> `forge-company.json`), tauri.conf cleanup, checksums
+- [x] 5.3 `updater_hook.rs` off by default; sha256 + monotonic version tests
+- [x] 5.4 Docs: build, config precedence, user-run smoke checklist
 
 ## Verification commands (record exact result per slice)
 - py: `cd clients/openyak/tests; ..\backend\.venv\Scripts\python.exe -m unittest <explicit modules>`
