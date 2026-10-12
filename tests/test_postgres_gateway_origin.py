@@ -1,8 +1,9 @@
 """Owned PostgreSQL 0019 per-organization gateway origin; no provider requests or real keys."""
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
@@ -10,7 +11,7 @@ import psycopg
 from psycopg import errors, sql
 import test_postgres_gateway_catalog as upstream
 from postgres_support import (ORG_A, ORG_B, MEMBER_B, owned_gateway_catalog_admin_extension,
-    settings, connect)
+    settings, connect, wait_ready)
 from forge.account_readiness import catalog_fingerprint
 from forge.dev_accounts import MIGRATIONS
 from forge.dev_accounts_gateway import ADDITIONS, CHECKPOINTS, PROFILE
@@ -57,6 +58,9 @@ def separate_database():
     Used before any shared fixture role exists (like the repository migration probes);
     the database and the roles it created are removed afterwards.
     """
+    # A fresh container accepts TCP before its final server is up; gate tests run before any
+    # shared fixture (which waits), so wait here or the first connection can be reset.
+    wait_ready()
     name = 'forge_origin_' + uuid4().hex
     with connect() as admin:
         admin.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(name)))
@@ -69,6 +73,57 @@ def separate_database():
             admin.execute(sql.SQL('DROP DATABASE {}').format(sql.Identifier(name)))
             for role in ROLES:
                 admin.execute(sql.SQL('DROP ROLE IF EXISTS {}').format(sql.Identifier(role)))
+
+
+class SeparateDatabaseReadinessTests(unittest.TestCase):
+    """No database: a fresh container accepts TCP before its final server is up, so the first
+    connection of a gate test used to die with "server closed the connection unexpectedly"."""
+    class Fake:
+        def __init__(self, events):
+            self.events = events
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def execute(self, query):
+            self.events.append('execute')
+
+    def patched(self, events, ready):
+        module = sys.modules[__name__]
+
+        def connect():
+            events.append('connect')
+            return self.Fake(events)
+        return (mock.patch.object(module, 'wait_ready', ready),
+                mock.patch.object(module, 'connect', connect),
+                mock.patch.object(module, 'settings', lambda: {}),
+                mock.patch.object(psycopg, 'connect', lambda **kwargs: self.Fake(events)))
+
+    def test_it_waits_for_the_final_server_before_the_first_connection(self):
+        events = []
+        with ExitStack() as stack:
+            for patch in self.patched(events, lambda: events.append('ready')):
+                stack.enter_context(patch)
+            with separate_database() as conn:
+                self.assertIsInstance(conn, self.Fake)
+        self.assertEqual(events[:3], ['ready', 'connect', 'execute'])
+
+    def test_a_server_that_never_becomes_ready_creates_nothing(self):
+        events = []
+
+        def never():
+            events.append('ready')
+            raise RuntimeError('Owned local PostgreSQL did not become ready within 15 seconds')
+        with ExitStack() as stack:
+            for patch in self.patched(events, never):
+                stack.enter_context(patch)
+            with self.assertRaisesRegex(RuntimeError, 'did not become ready'):
+                with separate_database():
+                    self.fail('must not reach the body')
+        self.assertEqual(events, ['ready'])
 
 
 class FingerprintGateTests(unittest.TestCase):
