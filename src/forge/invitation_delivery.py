@@ -1,4 +1,4 @@
-"""Private local-test email adapter; deliberately no network or SMTP claim."""
+"""Private delivery ports: the local-test mailbox (no network, no SMTP claim) and the shared message builder."""
 from email.message import EmailMessage
 from email.policy import SMTP
 from email.utils import format_datetime
@@ -55,6 +55,36 @@ def onboarding_link(origin: str, invitation_id: UUID, capability: str) -> str:
     return origin+'/onboarding#'+urlencode({'invitation_id':str(invitation_id),'capability':capability})
 
 
+@dataclass(frozen=True)
+class DeliveryReceipt:
+    """Opaque and non-secret: the channel that carried the message and a reference to it (its message id)."""
+    channel: str
+    reference: str
+
+
+def build_message(sender: str, recipient: str, name: str, link: str, purpose: str, message_id: UUID,
+                  *, domain: str='forge.local-test.invalid') -> EmailMessage:
+    """The one message every delivery adapter sends: the recipient's name and the private link, nothing else."""
+    if type(message_id) is not UUID:
+        raise ValueError("Invalid local message identifier.")
+    sender,recipient,name=canonical_email(sender),canonical_email(recipient),display_name(name)
+    if purpose not in ('invitation','password_reset'):
+        raise ValueError('Unsupported private message purpose.')
+    if type(link) is not str or len(link)>1024 or any(ord(c)<32 for c in link):
+        raise ValueError("Invalid private onboarding link.")
+    parsed=urlsplit(link)
+    trusted_origin(parsed.scheme+'://'+parsed.netloc)
+    message=EmailMessage(policy=SMTP)
+    message['From']=sender
+    message['To']=recipient
+    message['Subject']='Your Forge invitation' if purpose=='invitation' else 'Reset your Forge password'
+    message['Date']=format_datetime(datetime.now(timezone.utc))
+    message['Message-ID']=f'<{message_id}@{domain}>'
+    message.set_content(f'Hello {name},\n\nSet your Forge password using this private link:\n{link}\n\nThis invitation expires and can be used only once.\n')
+    message.add_alternative(f'<p>Hello {escape(name)},</p><p><a href="{escape(link,quote=True)}">Set your Forge password</a></p><p>This private invitation expires and can be used only once.</p>',subtype='html')
+    return message
+
+
 class LocalTestMailbox:
     """Write .eml messages in an explicitly supplied caller-owned private folder.
 
@@ -69,24 +99,7 @@ class LocalTestMailbox:
         self.sender=canonical_email(sender)
 
     def deliver(self, message_id: UUID, recipient: str, name: str, link: str, *, purpose: str="invitation") -> Path:
-        if type(message_id) is not UUID:
-            raise ValueError("Invalid local message identifier.")
-        recipient,name=canonical_email(recipient),display_name(name)
-        if purpose not in ('invitation','password_reset'):
-            raise ValueError('Unsupported private message purpose.')
-        if type(link) is not str or len(link)>1024 or any(ord(c)<32 for c in link):
-            raise ValueError("Invalid private onboarding link.")
-        parsed=urlsplit(link)
-        origin=parsed.scheme+'://'+parsed.netloc
-        trusted_origin(origin)
-        message=EmailMessage(policy=SMTP)
-        message['From']=self.sender
-        message['To']=recipient
-        message['Subject']='Your Forge invitation' if purpose=='invitation' else 'Reset your Forge password'
-        message['Date']=format_datetime(datetime.now(timezone.utc))
-        message['Message-ID']=f'<{message_id}@forge.local-test.invalid>'
-        message.set_content(f'Hello {name},\n\nSet your Forge password using this private link:\n{link}\n\nThis invitation expires and can be used only once.\n')
-        message.add_alternative(f'<p>Hello {escape(name)},</p><p><a href="{escape(link,quote=True)}">Set your Forge password</a></p><p>This private invitation expires and can be used only once.</p>',subtype='html')
+        message=build_message(self.sender,recipient,name,link,purpose,message_id)
         target=self.directory/(str(message_id)+'.eml')
         if self.directory.is_symlink() or not self.directory.is_dir():
             raise ValueError("Local mailbox configuration changed.")

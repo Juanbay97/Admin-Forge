@@ -14,7 +14,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = []
+# A real SMTP server for the delivery tests (STARTTLS, implicit TLS, AUTH); pinned with its two dependencies.
+test = [
+    "aiosmtpd==1.4.6",
+    "atpublic==8.0.1",
+    "attrs==26.1.0",
+]
 
 # Tests use standard-library unittest; httpx powers the in-process HTTP client.
 
