@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 from forge.accounts import password_bytes
-from forge.provisioning import (NewAccount, OrganizationSpec, Provisioned, SEED, main, new_password,
+from forge.provisioning import (MULTIUSER_SEED, NewAccount, OrganizationSpec, Provisioned, SEED, main, new_password,
                                 write_credentials)
 
 BASE = dict(slug='org-a', display_name='Organization A', department='Operations',
@@ -41,6 +41,31 @@ class SpecTests(unittest.TestCase):
         for field in ('slug', 'display_name', 'admin_email', 'member_email'):
             self.assertEqual(len({getattr(spec, field) for spec in SEED}), 2, field)
         self.assertTrue(all(spec.issue_gateway_key and spec.member_email for spec in SEED))
+
+
+class SharedMemberTests(unittest.TestCase):
+    def test_a_shared_member_is_canonicalized_and_must_differ_from_everyone_else(self):
+        spec = OrganizationSpec(**BASE, member_email='M@Example.com', member_name='Mia',
+                                shared_members=(('Shared@Example.com', 'Sam Shared'),))
+        self.assertEqual(spec.shared_members, (('shared@example.com', 'Sam Shared'),))
+        for taken in ('ADMIN@example.com', 'm@example.com'):
+            with self.subTest(taken=taken), self.assertRaises(ValueError):
+                OrganizationSpec(**BASE, member_email='M@Example.com', member_name='Mia',
+                                 shared_members=((taken, 'Sam'),))
+        with self.assertRaises(ValueError):
+            OrganizationSpec(**BASE, shared_members=(('same@example.com', 'A'), ('SAME@example.com', 'B')))
+        with self.assertRaises(ValueError):
+            OrganizationSpec(**BASE, shared_members=(('bad', 'Sam'),))
+
+    def test_the_default_seed_has_no_shared_member(self):
+        self.assertTrue(all(spec.shared_members == () for spec in SEED))
+
+    def test_the_multi_user_seed_keeps_the_two_organizations_and_shares_one_account_between_them(self):
+        self.assertEqual([spec.slug for spec in MULTIUSER_SEED], [spec.slug for spec in SEED])
+        self.assertEqual([spec.admin_email for spec in MULTIUSER_SEED], [spec.admin_email for spec in SEED])
+        shared = [spec.shared_members for spec in MULTIUSER_SEED]
+        self.assertEqual(len(shared[0]), 1)
+        self.assertEqual(shared[0], shared[1])
 
 
 class SecretTests(unittest.TestCase):

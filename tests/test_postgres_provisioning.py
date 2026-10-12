@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT/'src'))
 from forge.account_sessions import PostgresSessionStore, SessionService
 from forge.directory import DirectoryService
 from forge.directory_store import PostgresDirectoryStore
-from forge.provisioning import OrganizationSpec, SEED, main, provision
+from forge.provisioning import MULTIUSER_SEED, OrganizationSpec, SEED, main, provision
 from mvp_support import mvp_database
 from postgres_support import settings
 
@@ -78,6 +78,25 @@ class PostgresProvisioningTests(unittest.TestCase):
                 me = directory.me(sessions.login(member.email, member.password).capability)
                 self.assertEqual([(o.id, o.roles) for o in me.organizations], [(result.organization_id, ('member',))])
                 self.assertEqual([d.id for d in me.organizations[0].departments], [result.department_id])
+
+    def test_the_multi_user_seed_gives_one_account_two_active_memberships_and_one_password(self):
+        with mvp_database() as db:
+            results = provision(db.admin, MULTIUSER_SEED, lambda results: None)
+            org_a, org_b = results
+            self.assertEqual([a.role for a in org_a.accounts], ['organization_admin', 'member', 'member'])
+            # The account exists after the first organization: the second reuses it and issues no credential.
+            self.assertEqual([a.role for a in org_b.accounts], ['organization_admin', 'member'])
+            shared = org_a.accounts[2]
+            self.assertNotIn(shared.email, [a.email for a in org_b.accounts])
+            self.assertEqual((count(db, 'organizations'), count(db, 'owned_accounts'), count(db, 'memberships')), (2, 5, 6))
+            sessions, directory = services(db)
+            me = directory.me(sessions.login(shared.email, shared.password).capability)
+            self.assertEqual(sorted((o.id, o.status) for o in me.organizations),
+                             sorted([(org_a.organization_id, 'active'), (org_b.organization_id, 'active')]))
+            self.assertEqual({o.id: o.roles for o in me.organizations},
+                             {org_a.organization_id: ('member',), org_b.organization_id: ('member',)})
+            single = directory.me(sessions.login(org_b.accounts[1].email, org_b.accounts[1].password).capability)
+            self.assertEqual([o.id for o in single.organizations], [org_b.organization_id])
 
     def test_a_partial_seed_only_creates_the_missing_organization(self):
         with mvp_database() as db:

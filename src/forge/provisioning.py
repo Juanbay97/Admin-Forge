@@ -31,6 +31,9 @@ class OrganizationSpec:
     member_email: str | None = None
     member_name: str | None = None
     issue_gateway_key: bool = False
+    # Accounts that are members of this organization and, through the same email, of others: only the first
+    # organization creates the account (and its one credential); the others reuse it.
+    shared_members: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self):
         if type(self.slug) is not str or not SLUG.fullmatch(self.slug):
@@ -45,6 +48,11 @@ class OrganizationSpec:
             object.__setattr__(self, 'member_name', display_name(self.member_name))
             if self.member_email == self.admin_email:
                 raise ValueError('The member must differ from the administrator.')
+        shared = tuple((canonical_email(email), display_name(name)) for email, name in self.shared_members)
+        taken = [email for email in (self.admin_email, self.member_email, *(email for email, _ in shared)) if email]
+        if len(set(taken)) != len(taken):
+            raise ValueError('Every member of an organization must be a different account.')
+        object.__setattr__(self, 'shared_members', shared)
 
 
 @dataclass(frozen=True)
@@ -71,6 +79,12 @@ SEED = tuple(
                      member_email='member-%s@forge.local.test' % letter.lower(), member_name='Member ' + letter,
                      issue_gateway_key=True)
     for letter, department in (('A', 'Operations'), ('B', 'Finance')))
+
+
+# The same two organizations plus one account that belongs to both, for the multi-user local stack.
+MULTIUSER_SEED = tuple(
+    OrganizationSpec(**{**vars(spec), 'shared_members': (('shared@forge.local.test', 'Shared Member'),)})
+    for spec in SEED)
 
 
 def new_password():
@@ -124,6 +138,8 @@ def provision(connection, specs, deliver, *, hasher=None):
             if spec.member_email is not None:
                 accounts += _member(connection, organization, department, spec.member_email, spec.member_name,
                                     'member', hasher)
+            for email, name in spec.shared_members:
+                accounts += _member(connection, organization, department, email, name, 'member', hasher)
             key = 'fake-%s-%s' % (spec.slug, secrets.token_urlsafe(24)) if spec.issue_gateway_key else None
             created.append(Provisioned(organization, department, spec.slug, accounts, key))
         if created:

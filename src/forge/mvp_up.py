@@ -16,7 +16,7 @@ from psycopg import sql
 from forge.dev_accounts import MIGRATIONS, ROOT, OwnedPostgres, PrivateWorkspace, validate_repository
 from forge.mvp_local import ConfigError, MVP_PORTS, ROLES, reserve_loopback_port, serve
 from forge.mvp_profile import MVP_ADDITIONS, MVP_PROFILE
-from forge.provisioning import SEED, provision, write_credentials
+from forge.provisioning import MULTIUSER_SEED as MVP_SEED, provision, write_credentials
 
 DATABASE = 'forge_dev'
 ADMIN_BUILD = ROOT/'src'/'forge'/'web'/'admin'
@@ -73,7 +73,7 @@ def up(stopping, *, require_admin_build=False, emit=None):
         credentials = workspace.directory/'credentials.json'
         with psycopg.connect(**postgres.settings()) as connection:
             passwords = install_schema(connection)
-            seeded = provision(connection, SEED, lambda created: write_credentials(credentials, created))
+            seeded = provision(connection, MVP_SEED, lambda created: write_credentials(credentials, created))
         (workspace.directory/'mailbox').mkdir()
         config_path = runtime_files(
             workspace.directory, database={'host': '127.0.0.1', 'port': postgres.port, 'dbname': DATABASE},

@@ -12,6 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 from forge.mvp_local import ConfigError, MVP_PORTS, ROLES, load_config, load_secrets, main
 from forge.mvp_up import precheck_ports, runtime_files
+from forge.provisioning import MULTIUSER_SEED
 from cryptography.fernet import Fernet
 
 
@@ -23,6 +24,12 @@ def files(directory, **change):
     values.update(change)
     (Path(directory)/'mailbox').mkdir(exist_ok=True)
     return runtime_files(Path(directory), **values), values
+
+
+class SeedTests(unittest.TestCase):
+    def test_the_local_stack_seeds_the_multi_user_organizations(self):
+        import forge.mvp_up
+        self.assertIs(forge.mvp_up.MVP_SEED, MULTIUSER_SEED)
 
 
 class RuntimeFilesTests(unittest.TestCase):
