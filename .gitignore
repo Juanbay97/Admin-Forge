@@ -10,3 +10,11 @@ __pycache__/
 .atl/
 .codegraph/
 src/forge/web/admin/
+
+# Deployment: generated secrets, operator output, installer payloads and backups never enter git.
+deploy/secrets/
+deploy/credentials/
+deploy/backups/
+deploy/downloads/*
+!deploy/downloads/.gitkeep
+!deploy/.env.example
