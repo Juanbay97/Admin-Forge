@@ -1,7 +1,9 @@
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import { test as base, type Page, type Route } from "@playwright/test";
 import { build, preview } from "vite";
 import { ADMIN_CSP } from "../csp";
+import { contrastOfHex } from "../../src/brand/palette";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const PREVIEW_PORT = 3415;
@@ -46,7 +48,39 @@ export interface Backend {
   members?: Record<string, Member[]>;
   gateways?: Record<string, GatewayFixture>;
   catalogs?: Record<string, CatalogFixture>;
+  /** Per-organisation branding; an organisation without one serves the Prometheon default at revision 0. */
+  brandings?: Record<string, BrandingFixture>;
 }
+
+export interface BrandingFixture {
+  revision: number;
+  name: string;
+  loginCopy: string;
+  theme: { primary: string; accent: string; tint: string; heading: string; body: string };
+  assets: Record<string, string>;
+}
+
+export const DEFAULT_BRANDING_FIXTURE: BrandingFixture = {
+  revision: 0,
+  name: "Prometheon Forge",
+  loginCopy: "Sign in to your Forge workspace.",
+  theme: { primary: "#0B1D26", accent: "#E07A2D", tint: "#E8DCC1", heading: "montserrat", body: "inter" },
+  assets: {},
+};
+
+const BRANDING_FONTS = ["inter", "montserrat", "source-sans-3", "ibm-plex-sans", "nunito-sans", "roboto"];
+const BRANDING_KINDS = ["logoLight", "logoDark", "isotipo"];
+const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+// The server's own refusal messages (see forge.branding_api), so the page shows what a user would really see.
+const BRANDING_MESSAGES: Record<string, string> = {
+  color: "A color must be a #RRGGBB hex value.",
+  font: "The font is not in the vetted list.",
+  name: "The product name must be 1 to 40 plain characters.",
+  contrast: "The primary color must reach 3:1 contrast against white.",
+  unknownAsset: "The referenced logo was not uploaded for this organization.",
+  type: "Only PNG and WebP images are accepted.",
+  size: "The image is larger than the allowed size.",
+};
 
 export interface CatalogFixture {
   gatewayRevision: number;
@@ -74,6 +108,8 @@ export async function installBackend(page: Page, source: Backend) {
   const backend = structuredClone(source); // members mutate; never leak between tests
   const requests: RecordedRequest[] = [];
   const invitations: unknown[] = [];
+  const brandings = backend.brandings ?? (backend.brandings = {});
+  const uploads = new Map<string, Buffer>();
   const held = new Map<string, Promise<void>>();
   const release = new Map<string, () => void>();
 
@@ -99,8 +135,69 @@ export async function installBackend(page: Page, source: Backend) {
       }
       return reply(route, 200, { access_token: found.token, expires_at: "2099-01-01T00:00:00Z", token_type: "Bearer" });
     }
+    const assetMatch = path.match(/^\/forge\/v1\/branding\/assets\/([0-9a-f]{64})$/);
+    if (assetMatch) {
+      // Public and content-addressed, but only for a logo some current revision references.
+      const sha = assetMatch[1] ?? "";
+      const referenced = Object.values(brandings).some((item) => Object.values(item.assets).includes(sha));
+      const bytes = uploads.get(sha);
+      if (!referenced || !bytes) return route.fulfill({ status: 404, body: "" });
+      return route.fulfill({ status: 200, contentType: "image/png", body: bytes });
+    }
     if (!account) return reply(route, 401, envelope("UNAUTHENTICATED", "Authentication is required."));
     if (path === "/forge/v1/accounts/logout") return reply(route, 204);
+    const brandingMatch = path.match(/^\/forge\/v1\/orgs\/([^/]+)\/branding(\/reset|\/assets)?$/);
+    if (brandingMatch) {
+      const orgId = decodeURIComponent(brandingMatch[1] ?? "");
+      await held.get(`branding:${orgId}`);
+      if (!account.organizations.some((o) => o.id === orgId)) return reply(route, 404, envelope("NOT_FOUND", "Not found."));
+      const current = (brandings[orgId] ??= structuredClone(DEFAULT_BRANDING_FIXTURE));
+      const view = () => ({
+        revision: current.revision,
+        name: current.name,
+        loginCopy: current.loginCopy,
+        theme: current.theme,
+        assets: Object.fromEntries(Object.entries(current.assets).map(([kind, sha]) => [kind, `/forge/v1/branding/assets/${sha}`])),
+      });
+      const refuse = (key: string) => reply(route, 422, envelope("INVALID_REQUEST", BRANDING_MESSAGES[key] ?? ""));
+      if (request.method() === "GET") return reply(route, 200, view());
+      if (brandingMatch[2] === "/assets") {
+        const kind = new URL(request.url()).searchParams.get("kind") ?? "";
+        const bytes = request.postDataBuffer() ?? Buffer.alloc(0);
+        if (!BRANDING_KINDS.includes(kind)) return refuse("type");
+        if (!["image/png", "image/webp"].includes(request.headers()["content-type"] ?? "")) {
+          return reply(route, 415, envelope("UNSUPPORTED_MEDIA_TYPE", BRANDING_MESSAGES.type ?? ""));
+        }
+        if (bytes.length > 262_144) return reply(route, 413, envelope("PAYLOAD_TOO_LARGE", BRANDING_MESSAGES.size ?? ""));
+        const sha = createHash("sha256").update(bytes).digest("hex");
+        uploads.set(sha, bytes);
+        return reply(route, 201, {
+          kind,
+          sha256: sha,
+          url: `/forge/v1/branding/assets/${sha}`,
+          contentType: "image/png",
+          width: bytes.readUInt32BE(16),
+          height: bytes.readUInt32BE(20),
+        });
+      }
+      const body = request.postDataJSON() as { expectedRevision: number; branding?: Omit<BrandingFixture, "revision"> };
+      if (body.expectedRevision !== current.revision) {
+        return reply(route, 409, envelope("REVISION_CONFLICT", "The branding revision changed."));
+      }
+      if (brandingMatch[2] === "/reset") {
+        Object.assign(current, structuredClone({ ...DEFAULT_BRANDING_FIXTURE, revision: current.revision + 1 }));
+        return reply(route, 200, view());
+      }
+      const next = body.branding;
+      if (!next) return refuse("name");
+      if (typeof next.name !== "string" || next.name.length < 1 || next.name.length > 40 || /[<>{}`\\]/.test(next.name)) return refuse("name");
+      if (![next.theme.primary, next.theme.accent, next.theme.tint].every((color) => HEX_COLOR.test(color))) return refuse("color");
+      if (!BRANDING_FONTS.includes(next.theme.heading) || !BRANDING_FONTS.includes(next.theme.body)) return refuse("font");
+      if (contrastOfHex(next.theme.primary, "#FFFFFF") < 3) return refuse("contrast");
+      if (Object.values(next.assets).some((sha) => !uploads.has(sha))) return refuse("unknownAsset");
+      Object.assign(current, { revision: current.revision + 1, name: next.name, loginCopy: next.loginCopy, theme: next.theme, assets: next.assets });
+      return reply(route, 200, view());
+    }
     if (path === "/forge/v1/accounts/me") {
       return reply(route, 200, {
         account: { id: "acc-1", email: "admin@example.com", display_name: "Alex Admin" },
@@ -228,6 +325,21 @@ export async function installBackend(page: Page, source: Backend) {
     /** What the double stored for an organisation, key included (it is never sent back). */
     stored: (orgId: string) => backend.gateways?.[orgId],
     catalog: (orgId: string) => backend.catalogs?.[orgId],
+    /** The branding the double currently serves for an organisation. */
+    branding: (orgId: string) => brandings[orgId],
+    /** Another administrator saves branding behind this page's back. */
+    bumpBranding(orgId: string) {
+      const current = (brandings[orgId] ??= structuredClone(DEFAULT_BRANDING_FIXTURE));
+      current.revision += 1;
+      current.name = "Changed Elsewhere";
+    },
+    /** Delay every branding reply for one organisation until `releaseBranding` is called. */
+    holdBranding(orgId: string) {
+      held.set(`branding:${orgId}`, new Promise<void>((resolve) => release.set(`branding:${orgId}`, resolve)));
+    },
+    releaseBranding(orgId: string) {
+      release.get(`branding:${orgId}`)?.();
+    },
     /** The gateway or catalogue moves on after the page refreshed discovery. */
     bumpCatalog(orgId: string) {
       const catalog = backend.catalogs?.[orgId];

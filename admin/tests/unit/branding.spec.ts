@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { ApiError } from "../../src/api/client";
 import {
   ASSET_URL_PREFIX,
   DEFAULT_BRANDING,
+  describeBrandingFailure,
   draftFrom,
   draftToDocument,
   isDefaultLook,
@@ -135,5 +137,32 @@ test.describe("branding model", () => {
   test("a theme the palette cannot express falls back to the default colours", () => {
     const theme = themeFromBranding({ ...parseBranding(served()), theme: { ...served().theme, accent: "#FFEB3B" } as never });
     expect(theme.colors).toEqual(defaultTheme.colors);
+  });
+});
+
+test.describe("branding failures", () => {
+  test("server refusals keep their message, conflicts prompt a reload, everything else is generic", () => {
+    const refusal = new ApiError(422, "INVALID_REQUEST", "The product name must be 1 to 40 plain characters.");
+    expect(describeBrandingFailure(refusal)).toBe("The product name must be 1 to 40 plain characters.");
+    expect(describeBrandingFailure(new ApiError(413, "PAYLOAD_TOO_LARGE", "The image is larger than the allowed size."))).toBe(
+      "The image is larger than the allowed size.",
+    );
+    expect(describeBrandingFailure(new ApiError(415, "UNSUPPORTED_MEDIA_TYPE", "Only PNG and WebP images are accepted."))).toBe(
+      "Only PNG and WebP images are accepted.",
+    );
+    expect(describeBrandingFailure(new ApiError(409, "REVISION_CONFLICT", "The branding revision changed."))).toBe(
+      "The branding was changed by another administrator. Reload to see the latest version; nothing was overwritten.",
+    );
+    expect(describeBrandingFailure(new ApiError(429, "RATE_LIMITED", "Too many requests."))).toBe("Too many requests. Wait a moment and try again.");
+    expect(describeBrandingFailure(new ApiError(404, "NOT_FOUND", "x"))).toBe("Branding is not available for this organization.");
+    expect(describeBrandingFailure(new ApiError(0, "NETWORK", "The server could not be reached."))).toBe("The server could not be reached.");
+    for (const error of [new ApiError(503, "SERVICE_UNAVAILABLE", "boom"), new ApiError(200, "INVALID_RESPONSE", "x"), new Error("secret"), "x"]) {
+      expect(describeBrandingFailure(error)).toBe("Something went wrong. Try again.");
+    }
+  });
+
+  test("a message the server did not author is never echoed", () => {
+    // 422 with an unexpected code (a proxy page, say) is not shown verbatim.
+    expect(describeBrandingFailure(new ApiError(422, "UNKNOWN", "Request failed (422)."))).toBe("Something went wrong. Try again.");
   });
 });

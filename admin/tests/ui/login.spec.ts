@@ -18,6 +18,7 @@ test.describe("login and per-company partition", () => {
     expect(api.requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       "POST /forge/v1/accounts/login",
       "GET /forge/v1/accounts/me",
+      "GET /forge/v1/orgs/11111111-1111-4111-8111-111111111111/branding",
       "GET /forge/v1/orgs/11111111-1111-4111-8111-111111111111/departments",
     ]);
   });

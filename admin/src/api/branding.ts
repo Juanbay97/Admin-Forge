@@ -53,6 +53,6 @@ export function createBrandingApi(client: UploadClient): BrandingApi {
     reset: async (orgId, expectedRevision) =>
       checked(await client.request("POST", `${path(orgId)}/reset`, { expectedRevision })),
     uploadAsset: async (orgId, kind, file) =>
-      uploaded(await client.upload(`${path(orgId)}/assets?kind=${kind}`, file, file.type)),
+      uploaded(await client.upload(`${path(orgId)}/assets?kind=${kind}`, file, file.type || "application/octet-stream")),
   };
 }

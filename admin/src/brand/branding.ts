@@ -2,6 +2,7 @@
 // Everything that arrives from the network goes through `parseBranding`, which accepts the exact shape or
 // throws; nothing here builds CSS or markup from it.
 
+import { ApiError } from "../api/client";
 import { contrastOfHex, FONT_IDS, generatePalette, type FontId, type PaletteInput } from "./palette";
 
 export const ASSET_URL_PREFIX = "/forge/v1/branding/assets/";
@@ -170,4 +171,20 @@ export function isDefaultLook(theme: PaletteInput): boolean {
     theme.heading === base.heading &&
     theme.body === base.body
   );
+}
+
+const SERVER_AUTHORED = new Set(["INVALID_REQUEST", "PAYLOAD_TOO_LARGE", "UNSUPPORTED_MEDIA_TYPE"]);
+
+/** User-facing text for a failed branding call. Only the control plane's own refusal messages are shown verbatim. */
+export function describeBrandingFailure(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === "REVISION_CONFLICT") {
+      return "The branding was changed by another administrator. Reload to see the latest version; nothing was overwritten.";
+    }
+    if (error.status === 0) return error.message;
+    if (error.status === 429) return "Too many requests. Wait a moment and try again.";
+    if (error.status === 404) return "Branding is not available for this organization.";
+    if (SERVER_AUTHORED.has(error.code) && error.status >= 400 && error.status < 500) return error.message;
+  }
+  return "Something went wrong. Try again.";
 }
