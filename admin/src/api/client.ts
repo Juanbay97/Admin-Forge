@@ -15,6 +15,12 @@ export interface ApiClient {
   request<T = unknown>(method: string, path: string, body?: unknown): Promise<T>;
 }
 
+/** The real client; pages that only read and write JSON depend on the narrower `ApiClient`. */
+export interface UploadClient extends ApiClient {
+  /** POST raw bytes (an image) with an explicit media type instead of JSON. */
+  upload<T = unknown>(path: string, body: Blob | Uint8Array, contentType: string): Promise<T>;
+}
+
 interface ClientOptions {
   session: Session;
   fetchImpl?: typeof fetch;
@@ -33,32 +39,39 @@ function errorFrom(status: number, text: string): ApiError {
 }
 
 /** Same-origin JSON client: bearer auth, no cookies, no referrer, typed errors. */
-export function createApiClient({ session, fetchImpl = (...args) => fetch(...args) }: ClientOptions): ApiClient {
-  return {
-    async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-      const token = session.token();
-      const headers = new Headers();
-      if (token) headers.set("Authorization", `Bearer ${token}`);
-      if (body !== undefined) headers.set("Content-Type", "application/json");
+export function createApiClient({ session, fetchImpl = (...args) => fetch(...args) }: ClientOptions): UploadClient {
+  async function send<T>(method: string, path: string, headers: Headers, body?: BodyInit): Promise<T> {
+    const token = session.token();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
 
-      let response: Response;
-      try {
-        response = await fetchImpl(path, {
-          method,
-          headers,
-          body: body === undefined ? undefined : JSON.stringify(body),
-          credentials: "omit",
-          referrerPolicy: "no-referrer",
-        });
-      } catch {
-        throw new ApiError(0, "NETWORK", "The server could not be reached.");
-      }
-      if (!response.ok) {
-        // An expired or revoked session must not linger in memory.
-        if (response.status === 401 && token) session.clear();
-        throw errorFrom(response.status, await response.text());
-      }
-      return (response.status === 204 ? undefined : await response.json()) as T;
+    let response: Response;
+    try {
+      response = await fetchImpl(path, {
+        method,
+        headers,
+        body,
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+      });
+    } catch {
+      throw new ApiError(0, "NETWORK", "The server could not be reached.");
+    }
+    if (!response.ok) {
+      // An expired or revoked session must not linger in memory.
+      if (response.status === 401 && token) session.clear();
+      throw errorFrom(response.status, await response.text());
+    }
+    return (response.status === 204 ? undefined : await response.json()) as T;
+  }
+
+  return {
+    request<T>(method: string, path: string, body?: unknown): Promise<T> {
+      const headers = new Headers();
+      if (body !== undefined) headers.set("Content-Type", "application/json");
+      return send<T>(method, path, headers, body === undefined ? undefined : JSON.stringify(body));
+    },
+    upload<T>(path: string, body: Blob | Uint8Array, contentType: string): Promise<T> {
+      return send<T>("POST", path, new Headers({ "Content-Type": contentType }), body as BodyInit);
     },
   };
 }

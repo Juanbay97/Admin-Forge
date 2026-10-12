@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Typefaces are self-hosted (SIL OFL, see public/fonts); nothing is fetched remotely. */
+/* The vetted typefaces (the allow-list shared with the control plane and the client) are self-hosted under the\n   SIL OFL, see public/fonts; nothing is fetched remotely. A face only downloads when a theme uses it. */
 @font-face {
   font-family: "Montserrat";
   src: url("/admin/fonts/montserrat-latin-wght-normal.woff2") format("woff2");
@@ -11,6 +11,34 @@
 @font-face {
   font-family: "Inter";
   src: url("/admin/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("/admin/fonts/source-sans-3-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/admin/fonts/ibm-plex-sans-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Nunito Sans";
+  src: url("/admin/fonts/nunito-sans-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto";
+  src: url("/admin/fonts/roboto-latin-wght-normal.woff2") format("woff2");
   font-weight: 100 900;
   font-display: swap;
 }

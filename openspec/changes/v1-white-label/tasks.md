@@ -44,9 +44,9 @@ Budget 800 lines/slice. **Dependency**: apply after `v1-multiuser`. W1 stacks on
 
 ## Phase 2: Admin (W4-W5)
 
-- [ ] 2.1 RED/GREEN `admin/src/brand/palette.ts` against vectors; extend `theme.ts` (name, assets, title, favicon)
-- [ ] 2.2 `admin/src/api/branding.ts` + model tests (`npm run test:unit`)
-- [ ] 2.3 Bundle 6 OFL woff2 fonts; allow-list in `tokens.css`
+- [x] 2.1 RED/GREEN `admin/src/brand/palette.ts` against vectors; extend `theme.ts` (name, assets, title, favicon)
+- [x] 2.2 `admin/src/api/branding.ts` + model tests (`npm run test:unit`)
+- [x] 2.3 Bundle 6 OFL woff2 fonts; allow-list in `tokens.css`
 - [ ] 2.4 `Branding.tsx` + `BrandPreview.tsx`, route in `App.tsx`; Playwright: preview, conflict, reset, CSP
 
 ## Phase 3: Client (C1-C3)

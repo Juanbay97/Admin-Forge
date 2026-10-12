@@ -85,6 +85,24 @@ test.describe("api client", () => {
     await client.request("GET", "/x").catch(() => undefined);
     expect(session.token()).toBe("secret-token");
   });
+
+  test("upload sends raw bytes with the given media type and the bearer token, not JSON", async () => {
+    const { client, calls } = authed(() => json(201, { ok: 1 }));
+    const bytes = new Uint8Array([137, 80, 78, 71]);
+    expect(await client.upload("/forge/v1/x/assets?kind=isotipo", bytes, "image/png")).toEqual({ ok: 1 });
+    const headers = new Headers(calls[0]?.init.headers);
+    expect(calls[0]?.init.method).toBe("POST");
+    expect(headers.get("Content-Type")).toBe("image/png");
+    expect(headers.get("Authorization")).toBe("Bearer secret-token");
+    expect(calls[0]?.init.body).toBe(bytes);
+    expect(calls[0]?.init.credentials).toBe("omit");
+  });
+
+  test("upload errors map to the same typed ApiError", async () => {
+    const { client } = authed(() => json(415, { error: { code: "UNSUPPORTED_MEDIA_TYPE", message: "Only PNG and WebP images are accepted." } }));
+    const error = await client.upload("/x", new Uint8Array(1), "image/svg+xml").catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 415, code: "UNSUPPORTED_MEDIA_TYPE", message: "Only PNG and WebP images are accepted." });
+  });
 });
 
 test.describe("account api", () => {

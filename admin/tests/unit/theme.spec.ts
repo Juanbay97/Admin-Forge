@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { applyBrandTheme, createTheme, defaultTheme } from "../../src/brand/theme";
+import { applyBrandIdentity, applyBrandTheme, createTheme, defaultTheme } from "../../src/brand/theme";
 
 const TOKENS_CSS = readFileSync(new URL("../../src/brand/tokens.css", import.meta.url), "utf8");
 
@@ -55,5 +55,27 @@ test.describe("brand theme", () => {
     expect(TOKENS_CSS).toMatch(/font-family:\s*"Montserrat"[^}]*\/admin\/fonts\/montserrat-latin-wght-normal\.woff2/s);
     expect(TOKENS_CSS).toMatch(/font-family:\s*"Inter"[^}]*\/admin\/fonts\/inter-latin-wght-normal\.woff2/s);
     expect(TOKENS_CSS).not.toMatch(/https?:/);
+  });
+
+  test("applyBrandTheme refuses a hostile theme and writes nothing", () => {
+    const { vars, root } = fakeRoot();
+    const hostile = createTheme({ colors: { accent: "red; } body{display:none" } });
+    expect(applyBrandTheme(hostile, root)).toBe(false);
+    expect(applyBrandTheme(createTheme({ fonts: { title: 'x"; } y{' } }), root)).toBe(false);
+    expect(vars.size).toBe(0);
+  });
+
+  test("identity sets the title and a same-origin favicon only", () => {
+    const attributes = new Map<string, string>();
+    const doc = { title: "", querySelector: () => ({ setAttribute: (name: string, value: string) => void attributes.set(name, value) }) };
+    const sha = "ab".repeat(32);
+    expect(applyBrandIdentity(createTheme({ title: "Acme Admin", favicon: `/forge/v1/branding/assets/${sha}` }), doc)).toBe(true);
+    expect(doc.title).toBe("Acme Admin");
+    expect(attributes.get("href")).toBe(`/forge/v1/branding/assets/${sha}`);
+    attributes.clear();
+    for (const favicon of ["https://evil.test/x.png", "javascript:alert(1)", "data:image/png;base64,AA", "/forge/v1/branding/assets/../x", "//evil.test/x.png"]) {
+      expect(applyBrandIdentity(createTheme({ favicon }), doc), favicon).toBe(false);
+    }
+    expect(attributes.size).toBe(0);
   });
 });
