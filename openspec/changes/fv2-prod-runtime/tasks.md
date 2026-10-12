@@ -27,9 +27,9 @@ Chain strategy: stacked-to-main
 | S5 | 0027 + F27 ripple (~500, conditional) | PR 5 | numbering gate |
 
 ## Phase 1: Config (S1)
-- [ ] 1.1 RED `tests/test_prod_config.py`: env/_FILE load, unknown key, bad origin, `FORGE_WORKERS!=1`, PG* stripped, repr hides secrets.
-- [ ] 1.2 GREEN `src/forge/prod_config.py`.
-- [ ] 1.3 RED/GREEN `policy_from_env` in `gateway_origins.py` (default `DEFAULT_ENDPOINT`; http refused) + extend `test_gateway_origins.py`.
+- [x] 1.1 RED `tests/test_prod_config.py`: env/_FILE load, unknown key, bad origin, `FORGE_WORKERS!=1`, PG* stripped, repr hides secrets.
+- [x] 1.2 GREEN `src/forge/prod_config.py`.
+- [x] 1.3 RED/GREEN `policy_from_env` in `gateway_origins.py` (default `DEFAULT_ENDPOINT`; http refused) + extend `test_gateway_origins.py`.
 
 ## Phase 2: Runner (S2)
 - [ ] 2.1 RED `tests/test_postgres_migrate.py`: fresh, rerun no-op, checksum tamper, adopt known fingerprint, unknown schema, crash-between, concurrent, password rotation.

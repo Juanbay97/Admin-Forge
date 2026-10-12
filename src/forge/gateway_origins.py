@@ -49,6 +49,11 @@ def _canonical(entry, dev):
     raise ValueError('Numeric https origins are not accepted.')
 
 
+def canonical_origin(entry, *, dev=False):
+    """Public form of the origin check: ``entry`` unchanged, or ValueError."""
+    return _canonical(entry, dev)
+
+
 class OriginPolicy:
     """Immutable allow-list. Construction fails closed on any unsafe entry."""
     def __init__(self, allowed, *, dev=False):
@@ -75,3 +80,16 @@ class OriginPolicy:
 
 
 DEFAULT_POLICY = OriginPolicy(frozenset({DEFAULT_ENDPOINT}))
+ORIGINS_VARIABLE = 'FORGE_GATEWAY_ORIGINS'
+
+
+def policy_from_env(environ):
+    """Production allow-list from ``FORGE_GATEWAY_ORIGINS`` (comma-separated canonical https origins).
+
+    Unset or empty keeps the single default origin. Never a dev policy: plain http and any
+    malformed entry raise ValueError, so a bad deployment setting fails before anything is served.
+    """
+    value = environ.get(ORIGINS_VARIABLE, '')
+    if not value:
+        return DEFAULT_POLICY
+    return OriginPolicy(frozenset(value.split(',')), dev=False)

@@ -20,7 +20,8 @@ from forge.gateway_configuration import (GatewayCipher, GatewayConfiguration, Ga
     GatewayRecord, GatewayUnavailable, GATEWAY_ENDPOINT)
 from forge.gateway_inference import TextRequest
 from forge.gateway_inference_adapter import HttpxTextAdapter
-from forge.gateway_origins import DEFAULT_ENDPOINT, DEFAULT_POLICY, OriginDenied, OriginPolicy
+from forge.gateway_origins import (DEFAULT_ENDPOINT, DEFAULT_POLICY, OriginDenied, OriginPolicy, canonical_origin,
+    policy_from_env)
 
 LISTED = 'https://gw.example.com'
 LOOPBACK = 'http://127.0.0.1:3413'
@@ -447,6 +448,39 @@ class StoreStatementTests(unittest.TestCase):
         self.assertEqual(statement.count('%s'), 6)
         self.assertEqual(values, ('d', org, 0, binding, 'c', LOOPBACK))
         self.assertEqual(record.endpoint, LOOPBACK)
+
+class PolicyFromEnvTests(unittest.TestCase):
+    """Production composition builds the allow-list from FORGE_GATEWAY_ORIGINS, never from a code spelling."""
+    def test_unset_or_empty_means_the_default_origin_only(self):
+        for env in ({}, {'FORGE_GATEWAY_ORIGINS': ''}, {'OTHER': 'x'}):
+            with self.subTest(env=env):
+                self.assertEqual(policy_from_env(env).allowed, frozenset({DEFAULT_ENDPOINT}))
+
+    def test_a_comma_separated_list_of_https_origins_is_the_allow_list(self):
+        subject = policy_from_env({'FORGE_GATEWAY_ORIGINS': 'https://ia.example.test,https://gw.example.test:8443'})
+        self.assertEqual(subject.allowed, frozenset({'https://ia.example.test', 'https://gw.example.test:8443'}))
+        self.assertEqual(subject.require('https://ia.example.test'), 'https://ia.example.test')
+        with self.assertRaises(OriginDenied):
+            subject.require(DEFAULT_ENDPOINT)
+
+    def test_it_is_never_a_dev_policy(self):
+        for value in ('http://127.0.0.1:3413', 'https://ia.example.test,http://127.0.0.1:3413', 'http://gw.example.test'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                policy_from_env({'FORGE_GATEWAY_ORIGINS': value})
+
+    def test_malformed_lists_fail_closed(self):
+        for value in ('https://ia.example.test,', ',https://ia.example.test', 'https://ia.example.test, https://b.example.test',
+                      'https://ia.example.test/v1', 'https://10.0.0.5', 'https://IA.example.test', 'ia.example.test'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                policy_from_env({'FORGE_GATEWAY_ORIGINS': value})
+
+    def test_canonical_origin_is_the_public_validator(self):
+        self.assertEqual(canonical_origin('https://ia.example.test'), 'https://ia.example.test')
+        self.assertEqual(canonical_origin('http://127.0.0.1:3413', dev=True), 'http://127.0.0.1:3413')
+        for value in ('http://127.0.0.1:3413', 'https://ia.example.test/', 7):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                canonical_origin(value)
+
 
 if __name__ == '__main__':
     unittest.main()
