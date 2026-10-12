@@ -46,9 +46,9 @@ Chain strategy: stacked-to-main
 - [x] 4.3 RED `tests/test_serve_prod.py` (`/livez`, `/status` 503, foreign Host 403, healthcheck exit codes, port bind injected).
 - [x] 4.4 GREEN `serve_prod.py`; PG integration on harness; docstring explaining single worker.
 
-## Phase 5: Origin DB pin (S5, conditional)
-- [ ] 5.1 RED PG test: non-default https origin saved; path/userinfo rejected; upgrade F26→F27 equals fresh.
-- [ ] 5.2 GREEN `migrations/0027_gateway_origin_config.sql`; ripple `mvp_profile.py` (F27, MVP_PROFILE), `mvp_readiness.py`, pinned tests.
+## Phase 5: Origin DB pin (S5; numbering gate resolved: this change owns 0027, later fv2 changes renumber +1)
+- [x] 5.1 RED PG test: non-default https origin saved; path/userinfo rejected; upgrade F26→F27 equals fresh.
+- [x] 5.2 GREEN `migrations/0027_gateway_origin_config.sql`; ripple `mvp_profile.py` (F27, MVP_PROFILE), `mvp_readiness.py`, pinned tests.
 
 ## Phase 6: Verification
 - [ ] 6.1 `python -m unittest discover -s tests -v`, `scripts/test-postgres.ps1`, `python -m compileall -q src tests`, `pip check`.

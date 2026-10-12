@@ -169,7 +169,7 @@ def assemble(app, config, readiness):
 
 
 def compose(config, secrets, pools):
-    """Real independent restricted pools; F26 readiness must pass before anything is served."""
+    """Real independent restricted pools; F27 readiness must pass before anything is served."""
     from forge import composition
     from forge.invitation_delivery import LocalTestMailbox
     owned = composition.open_pools(lambda role: role_settings(config, secrets, role), pools)

@@ -16,10 +16,11 @@ MEMBER_LIFECYCLE_MIGRATION = '0023_member_lifecycle.sql'
 SCOPED_REVOCATION_MIGRATION = '0024_scoped_session_revocation.sql'
 ORG_BRANDING_MIGRATION = '0025_org_branding.sql'
 ORG_BRANDING_CODE_MIGRATION = '0026_branding_member_code.sql'
+GATEWAY_ORIGIN_CONFIG_MIGRATION = '0027_gateway_origin_config.sql'
 MVP_ADDITIONS = (*ADDITIONS, ORIGIN_MIGRATION, DIRECTORY_MIGRATION, DEPARTMENT_MIGRATION,
                  MEMBER_DIRECTORY_MIGRATION, MEMBER_LIFECYCLE_MIGRATION, SCOPED_REVOCATION_MIGRATION,
-                 ORG_BRANDING_MIGRATION, ORG_BRANDING_CODE_MIGRATION)
-MVP_PROFILE = '0001-0005+0010-0026/PG17'
+                 ORG_BRANDING_MIGRATION, ORG_BRANDING_CODE_MIGRATION, GATEWAY_ORIGIN_CONFIG_MIGRATION)
+MVP_PROFILE = '0001-0005+0010-0027/PG17'
 
 # Schema fingerprint after 0019 (F19): fresh apply of 0001-0005+0010-0019 and upgrade
 # from the 0018 profile were proven identical on the owned PG17 harness.
@@ -53,4 +54,8 @@ F25 = '68ae4dd4edb8bbbd5822b3d082e93804e02de18fdde6d7ea8ec2ba282d37fd0b'
 # from the 0025 profile were proven identical on the owned PG17 harness.
 F26 = 'f78ca72a7497ef3c96236b70641cad92c3a1d2df183946873a8d3e1f73c2e539'
 
-MVP_CHECKPOINTS = (*CHECKPOINTS, F19, F20, F21, F22, F23, F24, F25, F26)
+# Schema fingerprint after 0027 (F27): fresh apply of 0001-0005+0010-0027 and upgrade
+# from the 0026 profile were proven identical on the owned PG17 harness.
+F27 = 'c88a837bc19b63a37919b77838bf7ee818bc129728d11c776a01bd7197985123'
+
+MVP_CHECKPOINTS = (*CHECKPOINTS, F19, F20, F21, F22, F23, F24, F25, F26, F27)

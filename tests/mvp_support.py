@@ -1,4 +1,4 @@
-"""Owned-harness fixture: a throwaway database holding the complete MVP schema (0001-0023).
+"""Owned-harness fixture: a throwaway database holding the complete MVP schema (the full reviewed profile).
 
 Only for tests run through scripts/test-postgres.ps1; the database and the cluster-global
 roles it creates are removed on exit, and nothing outside the owned cluster is touched.
