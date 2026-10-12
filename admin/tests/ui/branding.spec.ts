@@ -92,6 +92,46 @@ test.describe("branding page", () => {
     await expect(field(page, "Primary color")).not.toHaveAttribute("aria-invalid", "true");
     await expect(page.getByTestId("preview-unavailable")).toHaveCount(0);
   });
+  test("the preview shows the client sign-in screen as employees will see it", async ({ page, adminUrl }) => {
+    await installBackend(page, { ...ADMIN_BACKEND, brandings: { [ORG_A]: structuredClone(ACME) } });
+    await openBranding(page, adminUrl);
+    for (const mode of ["Light", "Dark"]) {
+      const pane = page.getByRole("group", { name: `${mode} preview` });
+      await expect(pane.getByRole("heading", { name: "Welcome to Acme Labs" })).toBeVisible();
+      await expect(pane).toContainText("Sign in to the Acme workspace.");
+      await expect(pane).toContainText("Email address");
+      await expect(pane).toContainText("Password");
+      await expect(pane.getByTestId("preview-button")).toHaveText("Sign in");
+    }
+    await field(page, "Product name").fill("Violet Co");
+    await field(page, "Login message").fill("Welcome back, team.");
+    const light = page.getByRole("group", { name: "Light preview" });
+    await expect(light.getByRole("heading", { name: "Welcome to Violet Co" })).toBeVisible();
+    await expect(light).toContainText("Welcome back, team.");
+    // The preview is a picture, not a form: it adds no inputs to the page.
+    await expect(light.locator("input, button, a")).toHaveCount(0);
+  });
+
+  test("the preview shows the browser tab with the company name and favicon", async ({ page, adminUrl }) => {
+    const sha = "c".repeat(64);
+    await installBackend(page, { ...ADMIN_BACKEND, brandings: { [ORG_A]: structuredClone({ ...ACME, assets: { isotipo: sha } }) } });
+    await openBranding(page, adminUrl);
+    const tab = page.getByRole("group", { name: "Browser tab preview" });
+    await expect(tab).toContainText("Acme Labs");
+    await expect(tab.locator("img")).toHaveAttribute("src", `/forge/v1/branding/assets/${sha}`);
+    await field(page, "Product name").fill("Violet Co");
+    await expect(tab).toContainText("Violet Co");
+    // The real tab does not change until the branding is saved.
+    expect(await page.title()).toBe("Acme Labs Admin");
+  });
+
+  test("without an isotipo the tab preview shows the bundled default favicon", async ({ page, adminUrl }) => {
+    await installBackend(page, ADMIN_BACKEND);
+    await openBranding(page, adminUrl);
+    const tab = page.getByRole("group", { name: "Browser tab preview" });
+    await expect(tab).toContainText("Prometheon Forge");
+    await expect(tab.locator("img")).toHaveAttribute("src", "/admin/brand/isotipo_claro.png");
+  });
   test("saving publishes with the expected revision and re-themes the shell", async ({ page, adminUrl }) => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await openBranding(page, adminUrl);

@@ -334,6 +334,7 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
         loginCopy={draft.loginCopy}
         light={markFor(["logoLight", "isotipo"])}
         dark={markFor(["logoDark", "logoLight", "isotipo"])}
+        favicon={markFor(["isotipo"])}
       />
     </section>
   );
