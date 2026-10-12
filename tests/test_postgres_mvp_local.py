@@ -1,4 +1,4 @@
-"""Owned PostgreSQL: the real mvp_local composition (readiness F23, allow-list, directory, mailbox, guard)."""
+"""Owned PostgreSQL: the real mvp_local composition (readiness F24, allow-list, directory, mailbox, guard)."""
 from contextlib import contextmanager, ExitStack
 import json
 import os

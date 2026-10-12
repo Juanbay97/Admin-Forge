@@ -40,9 +40,9 @@ Strict TDD: every unit is RED (observe failing) -> GREEN -> REFACTOR. Commands: 
 
 ## Phase 2: CP2 Scoped revocation
 
-- [ ] 2.1 RED: PG test in `tests/test_postgres_member_administration.py`: multi-org account, suspend org A -> session valid for B; A bootstrap/models/chat denied; single-org still revoked
-- [ ] 2.2 GREEN: `migrations/0024_scoped_session_revocation.sql`; register in `src/forge/mvp_profile.py`; pin F24 (fresh == upgrade-from-0023)
-- [ ] 2.3 Audit: assert every org-scoped route denies suspended membership (`api.py:234` path) in a PG API test
+- [x] 2.1 RED: PG test in `tests/test_postgres_member_administration.py`: multi-org account, suspend org A -> session valid for B; A bootstrap/models/chat denied; single-org still revoked
+- [x] 2.2 GREEN: `migrations/0024_scoped_session_revocation.sql`; register in `src/forge/mvp_profile.py`; pin F24 (fresh == upgrade-from-0023); mvp_readiness/tests follow F24; per-account advisory lock for concurrent cross-org suspension
+- [x] 2.3 Audit: assert every org-scoped route denies suspended membership (`api.py:234` path) in a PG API test
 
 ## Phase 3: Client foundation (C1-C3)
 

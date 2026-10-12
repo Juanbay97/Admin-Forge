@@ -175,7 +175,7 @@ def assemble(app, config, readiness):
 
 
 def compose(config, secrets, pools):
-    """Real independent restricted pools; F23 readiness must pass before anything is served."""
+    """Real independent restricted pools; F24 readiness must pass before anything is served."""
     from psycopg_pool import ConnectionPool
     from forge.account_api import create_account_app
     from forge.account_sessions import PostgresSessionStore, SessionService
