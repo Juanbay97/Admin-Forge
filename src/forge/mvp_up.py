@@ -28,7 +28,7 @@ def precheck_ports(ports):
 
 
 def install_schema(connection):
-    """Fresh database only: the reviewed migrations, then LOGIN passwords for the four service roles."""
+    """Fresh database only: the reviewed migrations, then LOGIN passwords for the five service roles."""
     if connection.execute("SELECT to_regnamespace('forge')").fetchone() != (None,):
         raise ConfigError('FRESH_DATABASE_REQUIRED')
     for name in (*MIGRATIONS, *MVP_ADDITIONS):

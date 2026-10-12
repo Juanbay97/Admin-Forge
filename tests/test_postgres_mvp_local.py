@@ -1,4 +1,4 @@
-"""Owned PostgreSQL: the real mvp_local composition (readiness F24, allow-list, directory, mailbox, guard)."""
+"""Owned PostgreSQL: the real mvp_local composition (readiness F25, allow-list, directory, mailbox, guard)."""
 from contextlib import contextmanager, ExitStack
 import json
 import os
@@ -128,7 +128,7 @@ class PostgresMvpLocalTests(unittest.TestCase):
                              ['admin-a@forge.local.test', 'member-a@forge.local.test'])
             other = client.get('/forge/v1/orgs/%s/members' % results[1].organization_id, headers=headers)
             self.assertEqual(other.status_code, 404)
-            self.assertEqual(len(LOGIN_ROLES), 4)
+            self.assertEqual(len(LOGIN_ROLES), 5)
 
 
 if __name__ == '__main__':

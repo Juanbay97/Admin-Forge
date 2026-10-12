@@ -61,6 +61,9 @@ class BrandingFingerprintGateTests(unittest.TestCase):
             for name in (*prefix, ORG_BRANDING_MIGRATION):
                 conn.execute(migration_text(name))
             fresh = self.fingerprint(conn)
+            self.assertEqual(conn.execute("SELECT rolname,rolcanlogin FROM pg_roles WHERE rolname LIKE 'forge_branding_%' "
+                                          "ORDER BY rolname").fetchall(),
+                             [('forge_branding_authority', False), ('forge_branding_service', False)])
         drop_authorities()
         with separate_database() as conn:
             for name in prefix:
@@ -98,8 +101,10 @@ class PostgresBrandingSchemaTests(unittest.TestCase):
                 "SELECT rolname,rolcanlogin,rolsuper,rolinherit,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,"
                 "(SELECT count(*) FROM pg_auth_members WHERE member=r.oid OR roleid=r.oid) FROM pg_roles r "
                 "WHERE rolname IN ('forge_branding_authority','forge_branding_service') ORDER BY rolname").fetchall()
+            # The migration creates both NOLOGIN (checked in the gate test); the harness gives the service role,
+            # like the other service roles, its LOGIN password afterwards. The authority never logs in.
             self.assertEqual(rows, [('forge_branding_authority', False, False, False, False, False, False, False, 0),
-                                    ('forge_branding_service', False, False, False, False, False, False, False, 0)])
+                                    ('forge_branding_service', True, False, False, False, False, False, False, 0)])
 
     def test_no_service_role_can_touch_a_branding_table_and_the_authority_cannot_rewrite_history(self):
         with mvp_database() as db:

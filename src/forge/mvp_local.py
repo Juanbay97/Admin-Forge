@@ -29,7 +29,8 @@ from forge.mvp_profile import MVP_PROFILE
 LOOPBACK = '127.0.0.1'
 MVP_PORTS = MappingProxyType({'control_plane': 3410, 'client_ui': 3411, 'client_backend': 3412, 'fake_gateway': 3413})
 FORBIDDEN_PORTS = frozenset({3319, 3320, 3331, 3332})
-ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service')
+ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service',
+         'forge_branding_service')
 KEYS = ('version', 'profile', 'database', 'secrets_file', 'mailbox_dir', 'admin_dir', 'require_admin_build',
         'control_plane_port', 'client_origin', 'cors_origins', 'gateway_allowed_endpoints')
 ORIGIN = re.compile(r'http://127\.0\.0\.1:(\d{1,5})')
@@ -181,6 +182,8 @@ def compose(config, secrets, pools):
     from forge.account_sessions import PostgresSessionStore, SessionService
     from forge.account_store import PostgresEnrollmentStore
     from forge.authorization_store import PostgresAuthorizationReader
+    from forge.branding_api import mount_branding
+    from forge.branding_store import PostgresBrandingStore
     from forge.directory import DirectoryService
     from forge.directory_store import PostgresDirectoryStore
     from forge.gateway_catalog import GatewayCatalog
@@ -203,7 +206,7 @@ def compose(config, secrets, pools):
         pools.append(pool)
         owned.append(pool)
         pool.open(wait=True, timeout=5)
-    accounts, enrollment, bootstrap, gateway = owned
+    accounts, enrollment, bootstrap, gateway, branding = owned
     readiness = MvpReadiness(accounts, bootstrap, gateway)
     if not readiness.check():
         raise ConfigError('SCHEMA_ATTESTATION_FAILED')
@@ -212,8 +215,9 @@ def compose(config, secrets, pools):
         raise ConfigError('MAILBOX_MISSING')
     policy = config.gateway_policy
     cipher = GatewayCipher(secrets.gateway_key, policy=policy)
+    sessions = SessionService(PostgresSessionStore(accounts))
     app = create_account_app(
-        sessions=SessionService(PostgresSessionStore(accounts)),
+        sessions=sessions,
         invitations=InvitationService(PostgresInvitationStore(enrollment), PostgresEnrollmentStore(enrollment)),
         delivery=DeliveryCoordinator(PostgresDeliveryStore(accounts), LocalTestMailbox(mailbox, sender='forge@local.test'),
                                      origin=config.client_origin, encryption_key=secrets.delivery_key),
@@ -222,6 +226,7 @@ def compose(config, secrets, pools):
         gateway_catalog=GatewayCatalog(PostgresGatewayCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=policy)),
         gateway_inference=GatewayInference(PostgresGatewayInferenceStore(gateway), cipher, HttpxTextAdapter(policy=policy)),
         directory=DirectoryService(PostgresDirectoryStore(gateway)))
+    mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
     return assemble(app, config, readiness)
 
 

@@ -20,7 +20,7 @@ class PostgresMvpUpTests(unittest.TestCase):
             with separate_database() as conn:
                 passwords = install_schema(conn)
                 self.assertEqual(set(passwords), set(ROLES))
-                self.assertEqual(len(set(passwords.values())), 4)
+                self.assertEqual(len(set(passwords.values())), 5)
                 with conn.cursor() as cursor:
                     self.assertEqual(catalog_fingerprint(cursor), F25)
                 pools = [ConnectionPool('', kwargs={**settings(), 'dbname': conn.info.dbname, 'user': role,
