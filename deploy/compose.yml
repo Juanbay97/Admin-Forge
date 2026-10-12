@@ -172,6 +172,31 @@ services:
       start_period: 5s
     logging: *logging
 
+  # Operator tool, never started by `up`. It joins the database's network namespace because the trusted
+  # provisioning CLI only connects to 127.0.0.1. Temporary until the platform administration lands.
+  #   FORGE_UID=$(id -u) FORGE_GID=$(id -g) docker compose --profile tools run --rm provision org --slug ... 
+  provision:
+    image: ${FORGE_IMAGE:-forge-control-plane:local}
+    profiles:
+      - tools
+    entrypoint: ["/bin/sh", "/opt/forge/provision.sh"]
+    network_mode: service:postgres
+    user: "${FORGE_UID:-10001}:${FORGE_GID:-10001}"
+    secrets:
+      - pg_superuser
+    volumes:
+      - ./tools/provision.sh:/opt/forge/provision.sh:ro
+      - ${FORGE_CREDENTIALS_DIR:-./credentials}:/credentials
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 networks:
   edge: {}
   data:

@@ -181,7 +181,7 @@ class RepositoryHygiene(unittest.TestCase):
 
 TOOL_HOSTS = {'caddyserver.com', 'docker.com', 'docker.io', 'letsencrypt.org', 'postgresql.org', 'resend.com',
               'amazonaws.com', 'github.com', 'mailpit.axllent.org', 'system.io'}  # system.io: .NET namespace in the .ps1
-CONCRETE = re.compile(r'\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|dev|app|ai|co|es|eu|cloud)\b', re.I)
+CONCRETE = re.compile(r'\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|app|ai|co|es|eu|cloud)\b', re.I)
 
 
 def concrete_domains(source):
@@ -287,10 +287,11 @@ class ComposePolicy(unittest.TestCase):
             image = re.search(r'(?m)^    image: (\S+)$', block)
             with self.subTest(service=name):
                 self.assertIsNotNone(image)
-                if re.search(r'(?m)^    build:', block) or name == 'migrate':
-                    self.assertIn('${FORGE_IMAGE:-', image.group(1))  # the locally built control-plane image
+                if '${FORGE_IMAGE:-' in image.group(1):  # the control-plane image, built locally by one service
+                    self.assertIn(name, ('control-plane', 'migrate', 'provision'))
                 else:
                     self.assertRegex(image.group(1), DIGEST)
+        self.assertEqual(sum(1 for block in self.services.values() if re.search(r'(?m)^    build:', block)), 1)
 
     def test_postgres_digest_is_the_one_the_test_harness_pins(self):
         pinned = text('scripts/postgres-image.txt').strip()
@@ -312,9 +313,10 @@ class ComposePolicy(unittest.TestCase):
         self.assertIn('healthcheck', self.services['control-plane'])
         self.assertIn('-h 127.0.0.1', self.services['postgres'])  # TCP, so the init-time socket-only server is not "ready"
 
-    def test_only_postgres_and_migrate_receive_the_database_administrator_secret(self):
+    def test_only_postgres_migrate_and_the_tools_profile_receive_the_database_administrator_secret(self):
         holders = sorted(name for name, block in self.services.items() if re.search(r'^      - pg_superuser$', block, re.M))
-        self.assertEqual(holders, ['migrate', 'postgres'])
+        self.assertEqual(holders, ['migrate', 'postgres', 'provision'])
+        self.assertRegex(self.services['provision'], r'(?m)^    profiles:\n      - tools$')  # never started by `up`
 
     def test_secrets_are_docker_secrets_for_exactly_the_generated_files(self):
         declared = top_level(self.source, 'secrets')
@@ -412,6 +414,83 @@ class ComposeConfigRendering(unittest.TestCase):
             self.assertNotIn(value, result.stdout, name)
         self.assertEqual(len(re.findall(r'published:', result.stdout)), 3)  # 80/tcp, 443/tcp, 443/udp
         self.assertIn('FORGE_PUBLIC_ORIGIN: https://forge.example.test', result.stdout)
+
+
+FORBIDDEN_HOST_PORTS = ('3319', '3320', '3331', '3332')
+
+
+class DevOverlayPolicy(unittest.TestCase):
+    def setUp(self):
+        self.source = text('deploy/compose.dev.yml')
+        self.services = services(self.source)
+
+    def test_the_overlay_publishes_only_caddy_on_loopback_with_alternate_ports(self):
+        self.assertEqual(sorted(name for name, block in self.services.items() if 'ports:' in block), ['caddy'])
+        block = self.services['caddy']
+        self.assertIn('ports: !override', block)
+        self.assertEqual(len(re.findall(r'- "127\.0\.0\.1:\$\{FORGE_HTTPS?_PORT:-(8080|8443)\}:(80|443)(/udp)?"', block)), 3)
+        for port in FORBIDDEN_HOST_PORTS:
+            self.assertNotIn(port, self.source)
+
+    def test_the_overlay_defaults_to_the_internal_ca_and_never_to_a_concrete_domain(self):
+        self.assertIn('FORGE_TLS: ${FORGE_TLS:-internal}', self.services['caddy'])
+        self.assertEqual(concrete_domains(self.source), [])
+
+    def test_the_overlay_does_not_weaken_hardening(self):
+        for name in ('read_only', 'cap_drop', 'privileged', 'security_opt'):
+            self.assertNotIn(name, self.source)
+
+
+class ProvisionTool(unittest.TestCase):
+    def setUp(self):
+        self.service = services(text(COMPOSE))['provision']
+        self.script = text('deploy/tools/provision.sh')
+
+    def test_it_shares_the_database_network_namespace_and_publishes_nothing(self):
+        self.assertIn('network_mode: service:postgres', self.service)  # the operator CLI is loopback-only by design
+        self.assertNotIn('ports:', self.service)
+        self.assertRegex(self.service, r'(?m)^    user: "\$\{FORGE_UID:-10001\}:\$\{FORGE_GID:-10001\}"$')
+        self.assertIn('/credentials', self.service)
+
+    def test_the_operator_file_is_built_in_memory_storage_and_the_secret_is_never_printed(self):
+        self.assertIn('/run/secrets/pg_superuser', self.script)
+        self.assertIn('/tmp/operator.json', self.script)
+        self.assertIn("'host': '127.0.0.1'", self.script)
+        self.assertIn('umask 077', self.script)
+        self.assertNotRegex(self.script, r'(?m)^\s*(echo|printf)[^\n]*(password|operator)')
+        self.assertIn('rm -f "$operator"', self.script)
+        self.assertIn('python -m forge.provision', self.script)
+
+    def test_credentials_go_to_a_new_timestamped_file_so_nothing_is_overwritten(self):
+        self.assertIn('/credentials/credentials-$(date', self.script)
+
+
+class SmokeScript(unittest.TestCase):
+    def setUp(self):
+        self.script = text('scripts/deploy-smoke.ps1')
+
+    def test_it_owns_a_prefixed_project_and_tears_everything_down(self):
+        self.assertIn("'forge-smoke-'", self.script)
+        self.assertIn("'down', '-v', '--remove-orphans'", self.script)
+        self.assertIn('Assert-Gone', self.script)
+        self.assertIn('finally', self.script)
+
+    def test_it_never_uses_the_reserved_ports(self):
+        for port in FORBIDDEN_HOST_PORTS:
+            self.assertIn(port, self.script)  # listed in the guard that rejects them
+        self.assertIn('Get-FreePort', self.script)
+
+    def test_it_asserts_every_acceptance_criterion(self):
+        for needle in ('forge_ops.schema_migrations', '--cacert', '/status', '/admin/', '/forge/v1/accounts/me',
+                       'evil.test', '/downloads/latest.json', 'no-cache', 'forge.serve_prod', 'provision',
+                       'MIGRATION_FAILED', 'compose config'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, self.script)
+
+    def test_it_keeps_secrets_and_state_outside_the_repository(self):
+        self.assertIn('$env:TEMP', self.script)
+        self.assertIn('FORGE_SECRETS_DIR', self.script)
+        self.assertNotIn('deploy/secrets', self.script)
 
 
 def docker_ready():

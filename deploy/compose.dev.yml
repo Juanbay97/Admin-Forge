@@ -1,0 +1,14 @@
+# Local proof overlay: the same stack, bound to loopback on alternate ports with Caddy's internal CA.
+#
+#   docker compose -f compose.yml -f compose.dev.yml --env-file .env.dev up -d --build --wait
+#
+# Needs Docker Compose 2.24+ (`!override`). The matching .env.dev sets FORGE_DOMAIN=localhost and
+# FORGE_PORT_SUFFIX=:8443 so the public origin is https://localhost:8443 (scripts/deploy-smoke.ps1 does exactly this).
+services:
+  caddy:
+    environment:
+      FORGE_TLS: ${FORGE_TLS:-internal}
+    ports: !override
+      - "127.0.0.1:${FORGE_HTTP_PORT:-8080}:80"
+      - "127.0.0.1:${FORGE_HTTPS_PORT:-8443}:443"
+      - "127.0.0.1:${FORGE_HTTPS_PORT:-8443}:443/udp"
