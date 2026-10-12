@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "note": "Golden vectors shared by the control plane (Python), the admin SPA and the client. ratio = WCAG 2.x contrast, compared with 1e-9 tolerance. The palette expansion section is added with the TypeScript generator.",
+  "white": "#FFFFFF",
+  "minPrimaryContrast": 3.0,
+  "contrast": [
+    {
+      "a": "#000000",
+      "b": "#FFFFFF",
+      "ratio": 21.0
+    },
+    {
+      "a": "#FFFFFF",
+      "b": "#FFFFFF",
+      "ratio": 1.0
+    },
+    {
+      "a": "#767676",
+      "b": "#FFFFFF",
+      "ratio": 4.542224959605253
+    },
+    {
+      "a": "#949494",
+      "b": "#FFFFFF",
+      "ratio": 3.0334698257384747
+    },
+    {
+      "a": "#959595",
+      "b": "#FFFFFF",
+      "ratio": 2.9953461357088114
+    },
+    {
+      "a": "#0B1D26",
+      "b": "#FFFFFF",
+      "ratio": 17.241895594033075
+    },
+    {
+      "a": "#E07A2D",
+      "b": "#FFFFFF",
+      "ratio": 3.0037914413341444
+    },
+    {
+      "a": "#0F6B6D",
+      "b": "#FFFFFF",
+      "ratio": 6.279500589796181
+    },
+    {
+      "a": "#E8DCC1",
+      "b": "#0B1D26",
+      "ratio": 12.675660308256601
+    },
+    {
+      "a": "#FF0000",
+      "b": "#00FF00",
+      "ratio": 2.9139375476009137
+    },
+    {
+      "a": "#123456",
+      "b": "#FEDCBA",
+      "ratio": 9.78655899725774
+    }
+  ],
+  "primary": [
+    {
+      "value": "#0B1D26",
+      "ok": true
+    },
+    {
+      "value": "#0b1d26",
+      "ok": true
+    },
+    {
+      "value": "#767676",
+      "ok": true
+    },
+    {
+      "value": "#949494",
+      "ok": true
+    },
+    {
+      "value": "#959595",
+      "ok": false,
+      "reason": "contrast"
+    },
+    {
+      "value": "#FFFF00",
+      "ok": false,
+      "reason": "contrast"
+    },
+    {
+      "value": "#E8DCC1",
+      "ok": false,
+      "reason": "contrast"
+    },
+    {
+      "value": "#FFFFFF",
+      "ok": false,
+      "reason": "contrast"
+    },
+    {
+      "value": "red",
+      "ok": false,
+      "reason": "color"
+    },
+    {
+      "value": "#12",
+      "ok": false,
+      "reason": "color"
+    }
+  ],
+  "hex": [
+    {
+      "input": "#0b1d26",
+      "normalized": "#0B1D26"
+    },
+    {
+      "input": "#E07A2D",
+      "normalized": "#E07A2D"
+    },
+    {
+      "input": "#aBcDeF",
+      "normalized": "#ABCDEF"
+    },
+    {
+      "input": "red",
+      "normalized": null
+    },
+    {
+      "input": "#12",
+      "normalized": null
+    },
+    {
+      "input": "#12345G",
+      "normalized": null
+    },
+    {
+      "input": "0B1D26",
+      "normalized": null
+    },
+    {
+      "input": "#0B1D26ff",
+      "normalized": null
+    }
+  ]
+}
