@@ -47,6 +47,7 @@ def mvp_database(*, migrations=(*MIGRATIONS, *MVP_ADDITIONS)):
             with ExitStack() as stack:
                 yield MvpDatabase(admin, stack)
     finally:
-        # Not in separate_database's list; created by 0020 and cluster-global.
+        # Not in separate_database's list; created by 0020/0025 and cluster-global.
         with connect() as cleanup:
-            cleanup.execute('DROP ROLE IF EXISTS forge_directory_authority')
+            for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service'):
+                cleanup.execute('DROP ROLE IF EXISTS ' + role)

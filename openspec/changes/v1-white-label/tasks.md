@@ -38,7 +38,7 @@ Budget 800 lines/slice. **Dependency**: apply after `v1-multiuser`. W1 stacks on
 - [x] 1.1 RED/GREEN `src/forge/branding.py`: hex/font/length/contrast tests in `tests/test_branding.py`
 - [x] 1.2 RED/GREEN `branding_assets.py`: PNG/WebP sanitizer, SVG/oversize/truncated fuzz (`test_branding_assets.py`)
 - [x] 1.3 Add `contract/branding-palette.vectors.json`
-- [ ] 1.4 Migration `NNNN_org_branding.sql` + `tests/test_postgres_branding.py` (RLS, CAS, audit, cross-org)
+- [x] 1.4 Migration `NNNN_org_branding.sql` + `tests/test_postgres_branding.py` (RLS, CAS, audit, cross-org)
 - [ ] 1.5 `branding_store.py` port + fake for API tests
 - [ ] 1.6 `branding_api.py`: public GET, assets, admin PUT/POST/reset, member projection, 429/ETag/headers tests; mount in `mvp_local.py`
 
