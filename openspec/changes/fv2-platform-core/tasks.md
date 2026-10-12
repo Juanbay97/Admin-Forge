@@ -1,5 +1,7 @@
 # Tasks: fv2-platform-core
 
+> **Migration renumber (decided 2026-10-12).** `fv2-prod-runtime` slice S5 owns `0027_gateway_origin_config.sql` (pinned F27, relaxes the hard-coded gateway origin spelling in the 0015/0019 CHECKs and `gateway_save`). Every migration number and `F` pin in this file shifts by +1 (`0027_platform_scope` -> `0028`, F27 -> F28; `0028` TOTP -> `0029`, F29; `0029` create company -> `0030`, F30; `0030` branding -> `0031`, F31).
+
 ## Review Workload Forecast
 
 | Field | Value |

@@ -1,5 +1,7 @@
 # Tasks: fv2-capability-governance
 
+> **Migration renumber (decided 2026-10-12).** `fv2-prod-runtime` slice S5 owns `0027_gateway_origin_config.sql` (pinned F27, relaxes the hard-coded gateway origin spelling in the 0015/0019 CHECKs and `gateway_save`). Every migration number and `F` pin in this file shifts by +1 (any `F27` fingerprint reference becomes the value after the preceding changes in the final chain: check the live `MVP_CHECKPOINTS` tail before pinning).
+
 ## Review Workload Forecast
 
 | Field | Value |
