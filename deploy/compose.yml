@@ -36,8 +36,10 @@ services:
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --data-checksums
     secrets:
       - pg_superuser
+      - backup_reader
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro  # creates the read-only backup_reader role on first start
     networks:
       - data
     read_only: true
@@ -172,6 +174,61 @@ services:
       start_period: 5s
     logging: *logging
 
+  # Scheduled dumps (FORGE_BACKUP_CRON, UTC) with retention, taken as the read-only backup_reader role.
+  # Run one now:  docker compose exec backup /opt/forge/backup.sh run-once
+  backup:
+    image: ${POSTGRES_IMAGE:-postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652}
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/opt/forge/backup.sh"]
+    command: ["loop"]
+    user: "${FORGE_UID:-10001}:${FORGE_GID:-10001}"
+    environment:
+      FORGE_BACKUP_CRON: ${FORGE_BACKUP_CRON:-30 2 * * *}
+      FORGE_BACKUP_KEEP: ${FORGE_BACKUP_KEEP:-14}
+    secrets:
+      - backup_reader
+    volumes:
+      - ./backup/backup.sh:/opt/forge/backup.sh:ro
+      - ${FORGE_BACKUPS_DIR:-./backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+
+  # Restore tool, never started by `up`:  docker compose --profile tools run --rm restore /backups/<dump>
+  restore:
+    image: ${POSTGRES_IMAGE:-postgres@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652}
+    profiles:
+      - tools
+    entrypoint: ["/bin/sh", "/opt/forge/restore.sh"]
+    user: "${FORGE_UID:-10001}:${FORGE_GID:-10001}"
+    secrets:
+      - pg_superuser
+    volumes:
+      - ./backup/restore.sh:/opt/forge/restore.sh:ro
+      - ${FORGE_BACKUPS_DIR:-./backups}:/backups:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
   # Operator tool, never started by `up`. It joins the database's network namespace because the trusted
   # provisioning CLI only connects to 127.0.0.1. Temporary until the platform administration lands.
   #   FORGE_UID=$(id -u) FORGE_GID=$(id -g) docker compose --profile tools run --rm provision org --slug ... 
@@ -222,7 +279,7 @@ secrets:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_forge_gateway_service
   forge_branding_service:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_forge_branding_service
-  forge_backup:
+  backup_reader:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_backup
   delivery_key:
     file: ${FORGE_SECRETS_DIR:-./secrets}/delivery_key

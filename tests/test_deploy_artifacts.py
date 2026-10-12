@@ -289,6 +289,8 @@ class ComposePolicy(unittest.TestCase):
                 self.assertIsNotNone(image)
                 if '${FORGE_IMAGE:-' in image.group(1):  # the control-plane image, built locally by one service
                     self.assertIn(name, ('control-plane', 'migrate', 'provision'))
+                elif name in ('backup', 'restore'):  # PostgreSQL client tools: the same pinned image as the database
+                    self.assertEqual(image.group(1), re.search(r'(?m)^    image: (\S+)$', self.services['postgres']).group(1))
                 else:
                     self.assertRegex(image.group(1), DIGEST)
         self.assertEqual(sum(1 for block in self.services.values() if re.search(r'(?m)^    build:', block)), 1)
@@ -315,8 +317,9 @@ class ComposePolicy(unittest.TestCase):
 
     def test_only_postgres_migrate_and_the_tools_profile_receive_the_database_administrator_secret(self):
         holders = sorted(name for name, block in self.services.items() if re.search(r'^      - pg_superuser$', block, re.M))
-        self.assertEqual(holders, ['migrate', 'postgres', 'provision'])
-        self.assertRegex(self.services['provision'], r'(?m)^    profiles:\n      - tools$')  # never started by `up`
+        self.assertEqual(holders, ['migrate', 'postgres', 'provision', 'restore'])
+        for name in ('provision', 'restore'):
+            self.assertRegex(self.services[name], r'(?m)^    profiles:\n      - tools$')  # never started by `up`
 
     def test_secrets_are_docker_secrets_for_exactly_the_generated_files(self):
         declared = top_level(self.source, 'secrets')
@@ -414,6 +417,185 @@ class ComposeConfigRendering(unittest.TestCase):
             self.assertNotIn(value, result.stdout, name)
         self.assertEqual(len(re.findall(r'published:', result.stdout)), 3)  # 80/tcp, 443/tcp, 443/udp
         self.assertIn('FORGE_PUBLIC_ORIGIN: https://forge.example.test', result.stdout)
+
+
+def run_sh(*arguments, environment=None):
+    return subprocess.run([find_sh(), str(ROOT/'deploy'/'backup'/'backup.sh'), *arguments], capture_output=True, text=True,
+                          timeout=60, env={**os.environ, **(environment or {})})
+
+
+@unittest.skipUnless(find_sh(), 'a POSIX sh is required')
+class BackupSchedule(unittest.TestCase):
+    """`cron-match "<5-field cron>" "<minute hour day month weekday>"`: exit 0 when the moment is scheduled."""
+
+    def matches(self, cron, now):
+        return run_sh('cron-match', cron, now).returncode == 0
+
+    def test_a_nightly_schedule_matches_only_its_minute(self):
+        self.assertTrue(self.matches('30 2 * * *', '30 2 15 10 1'))
+        self.assertFalse(self.matches('30 2 * * *', '31 2 15 10 1'))
+        self.assertFalse(self.matches('30 2 * * *', '30 3 15 10 1'))
+
+    def test_steps_ranges_and_lists_are_supported(self):
+        self.assertTrue(self.matches('*/15 * * * *', '45 9 1 1 1'))
+        self.assertFalse(self.matches('*/15 * * * *', '46 9 1 1 1'))
+        self.assertTrue(self.matches('0 3 * * 1-5', '0 3 12 10 3'))
+        self.assertFalse(self.matches('0 3 * * 1-5', '0 3 17 10 6'))
+        self.assertTrue(self.matches('0,30 * * * *', '30 8 1 1 1'))
+        self.assertFalse(self.matches('0,30 * * * *', '15 8 1 1 1'))
+
+    def test_sunday_may_be_written_as_0_or_7(self):
+        self.assertTrue(self.matches('0 0 * * 7', '0 0 18 10 0'))
+        self.assertTrue(self.matches('0 0 * * 0', '0 0 18 10 0'))
+        self.assertFalse(self.matches('0 0 * * 7', '0 0 19 10 1'))
+
+    def test_a_malformed_schedule_is_refused_before_anything_runs(self):
+        for bad in ('daily', '30 2 * *', '61 2 * * *', '* * * * * *', '*/0 * * * *'):
+            with self.subTest(cron=bad):
+                self.assertEqual(run_sh('cron-match', bad, '30 2 15 10 1').returncode, 2)
+
+
+@unittest.skipUnless(find_sh(), 'a POSIX sh is required')
+class BackupRetention(unittest.TestCase):
+    def prune(self, directory, keep):
+        return run_sh('prune', environment={'FORGE_BACKUP_DIR': directory, 'FORGE_BACKUP_KEEP': str(keep)})
+
+    def make(self, directory, stamps):
+        for stamp in stamps:
+            (Path(directory)/('forge-%s.dump' % stamp)).write_bytes(b'dump')
+
+    def test_only_the_newest_dumps_remain(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.make(directory, ['20261010T020000Z', '20261011T020000Z', '20261012T020000Z'])
+            self.assertEqual(self.prune(directory, 2).returncode, 0)
+            self.assertEqual(sorted(path.name for path in Path(directory).iterdir()),
+                             ['forge-20261011T020000Z.dump', 'forge-20261012T020000Z.dump'])
+
+    def test_fewer_dumps_than_the_limit_are_all_kept_and_unrelated_files_are_never_touched(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.make(directory, ['20261012T020000Z'])
+            (Path(directory)/'notes.txt').write_text('keep me', 'utf-8')
+            self.assertEqual(self.prune(directory, 5).returncode, 0)
+            self.assertEqual(sorted(path.name for path in Path(directory).iterdir()), ['forge-20261012T020000Z.dump', 'notes.txt'])
+
+    def test_a_non_numeric_limit_is_refused_and_deletes_nothing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.make(directory, ['20261012T020000Z', '20261011T020000Z'])
+            self.assertEqual(self.prune(directory, 'x').returncode, 2)
+            self.assertEqual(len(list(Path(directory).iterdir())), 2)
+
+
+class BackupArtifacts(unittest.TestCase):
+    def setUp(self):
+        self.compose = text(COMPOSE)
+        self.services = services(self.compose)
+        self.script = text('deploy/backup/backup.sh')
+        self.restore = text('deploy/backup/restore.sh')
+
+    def test_the_backup_service_runs_unprivileged_with_only_its_own_secret_and_publishes_nothing(self):
+        block = self.services['backup']
+        self.assertRegex(block, r'(?m)^    secrets:\n      - backup_reader$')
+        self.assertNotIn('pg_superuser', block)
+        self.assertNotIn('ports:', block)
+        self.assertRegex(block, r'(?m)^    user: "\$\{FORGE_UID:-10001\}:\$\{FORGE_GID:-10001\}"$')
+        self.assertIn('FORGE_BACKUP_CRON: ${FORGE_BACKUP_CRON:-30 2 * * *}', block)
+        self.assertIn('FORGE_BACKUP_KEEP: ${FORGE_BACKUP_KEEP:-14}', block)
+        self.assertEqual(depends_on(block), {'postgres': 'service_healthy'})
+        self.assertIn('${FORGE_BACKUPS_DIR:-./backups}:/backups', block)
+
+    def test_the_restore_tool_is_a_tools_profile_service_that_never_publishes_or_runs_by_default(self):
+        block = self.services['restore']
+        self.assertIn('/opt/forge/restore.sh', block)
+        self.assertNotIn('ports:', block)
+        self.assertIn('/backups:ro', block)
+
+    def test_the_dump_is_custom_format_taken_with_a_read_only_role_and_never_includes_secret_files(self):
+        self.assertIn('pg_dump --format=custom', self.script)
+        self.assertIn('pg_restore --list', self.script)  # a dump is verified before it counts
+        self.assertNotIn('roles', self.script.split('set -eu')[1])  # roles come from the migrations, never from a dump
+        for forbidden in ('deploy/secrets', '.env', 'tar ', 'pg_superuser'):
+            self.assertNotIn(forbidden, self.script)
+        self.assertNotRegex(self.script, r'(?m)^\s*(echo|printf)[^\n]*(PGPASSWORD|password)')
+
+    def test_the_backup_role_is_created_once_with_read_everything_but_write_nothing(self):
+        sql = text('deploy/postgres/initdb/10-backup-reader-role.sql')
+        self.assertIn('CREATE ROLE backup_reader LOGIN NOSUPERUSER', sql)
+        self.assertIn('BYPASSRLS', sql)
+        self.assertIn('GRANT pg_read_all_data TO backup_reader', sql)
+        self.assertIn('GRANT CONNECT ON DATABASE :"DBNAME" TO backup_reader', sql)  # CONNECT is revoked from PUBLIC
+        self.assertIn('`cat /run/secrets/backup_reader`', sql)  # read from the secret file, not from argv
+        postgres = self.services['postgres']
+        self.assertIn('- backup_reader', postgres)
+        self.assertIn('./postgres/initdb:/docker-entrypoint-initdb.d:ro', postgres)
+
+    def test_the_backup_role_name_stays_outside_the_attested_forge_role_family(self):
+        # The schema attestation fingerprints every role LIKE 'forge_%' (and its memberships): a role named
+        # forge_<anything> would change the fingerprint and make `migrate` report SCHEMA_FINGERPRINT_MISMATCH.
+        sql = text('deploy/postgres/initdb/10-backup-reader-role.sql')
+        role = re.search(r'CREATE ROLE (\w+)', sql).group(1)
+        self.assertFalse(re.match(r'^forge.', role), role)
+        self.assertEqual(role, 'backup_reader')
+    def test_restore_loads_data_only_into_a_migrated_empty_database_in_one_transaction(self):
+        # The schema attestation hashes deparsed expressions that a dump/restore round trip rewrites, so the schema
+        # must always be the one migrate built; only rows are restored.
+        for needle in ('TARGET_NOT_EMPTY', 'SCHEMA_VERSION_MISMATCH', '--data-only', '--disable-triggers',
+                       '--exclude-schema=forge_ops', '--single-transaction', '--exit-on-error', 'pg_restore --list',
+                       'forge_ops.schema_migrations'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, self.restore)
+        self.assertNotIn('.roles.sql', self.restore)
+
+    def test_the_env_template_documents_the_backup_settings(self):
+        template = text('deploy/.env.example')
+        for key in ('FORGE_BACKUP_CRON=', 'FORGE_BACKUP_KEEP=', 'FORGE_BACKUPS_DIR=', 'FORGE_UID=', 'FORGE_GID='):
+            self.assertIn(key, template)
+
+
+class RunbookDocument(unittest.TestCase):
+    def setUp(self):
+        self.doc = text('docs/deploy.md')
+
+    def test_it_leads_with_the_quick_path_and_covers_every_operation(self):
+        self.assertTrue(self.doc.startswith('# '))
+        self.assertLess(self.doc.index('## Quick path'), self.doc.index('## Prerequisites'))
+        for heading in ('## Prerequisites', '## DNS and firewall', '## Configuration and secrets',
+                        '## Choose the TLS mode', '## First platform owner', '## Provision the first company',
+                        '## Publish installers', '## Backup and restore', '## Upgrade and roll back', '## Logs',
+                        '## Troubleshooting', '## Why one worker'):
+            with self.subTest(heading=heading):
+                self.assertIn(heading + '\n', self.doc)
+
+    def test_it_warns_that_losing_the_fernet_keys_is_unrecoverable_and_defines_the_offline_secrets_backup(self):
+        section = self.doc[self.doc.index('## Backup and restore'):]
+        self.assertRegex(section, r'(?i)losing[^\n]*delivery_key[^\n]*gateway_key[^\n]*unrecoverable')
+        self.assertRegex(section, r'(?i)offline copy of `deploy/secrets/`')
+        self.assertIn('restore.sh', section)
+        self.assertIn('TARGET_NOT_EMPTY', section)
+
+    def test_it_never_names_a_production_domain_and_uses_the_variables(self):
+        self.assertEqual(concrete_domains(self.doc), [])
+        self.assertIn('forge.example.test', self.doc)
+        self.assertIn('FORGE_DOMAIN', self.doc)
+        self.assertIn('FORGE_TLS=internal', self.doc)
+        self.assertIn('FORGE_TLS=acme', self.doc)
+
+    def test_every_command_it_shows_names_a_file_or_service_that_exists(self):
+        for path in ('deploy/compose.yml', 'deploy/compose.dev.yml', 'scripts/deploy-secrets.sh',
+                     'deploy/backup/restore.sh', 'scripts/deploy-smoke.ps1'):
+            with self.subTest(path=path):
+                self.assertTrue((ROOT/path).is_file())
+        for service in ('provision', 'restore', 'backup'):
+            self.assertIn('run --rm %s' % service if service != 'backup' else 'exec backup', self.doc)
+
+
+class SmokeBackupPhase(unittest.TestCase):
+    def test_the_smoke_proves_dump_retention_refusal_and_round_trip_and_checks_dumps_for_secrets(self):
+        script = text('scripts/deploy-smoke.ps1')
+        for needle in ('backup.sh', 'run-once', 'pg_restore --list', 'FORGE_BACKUP_KEEP', 'restore.sh', 'TARGET_NOT_EMPTY',
+                       'backup dump is valid', 'retention keeps the newest', 'restore refuses a non-empty target',
+                       'restore round trip', 'dumps contain no secret'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, script)
 
 
 FORBIDDEN_HOST_PORTS = ('3319', '3320', '3331', '3332')

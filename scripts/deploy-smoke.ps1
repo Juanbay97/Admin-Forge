@@ -21,6 +21,7 @@ $deploy = Join-Path $root 'deploy'
 $id = -join ((1..8) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
 $project = 'forge-smoke-' + $id
 $badProject = $project + '-bad'
+$restoreProject = $project + '-restore'
 $image = 'forge-smoke-image:' + $id
 $work = Join-Path $env:TEMP $project
 $reservedPorts = @(3319, 3320, 3331, 3332)
@@ -83,7 +84,7 @@ function Get-ProjectResources([string]$Name) {
 }
 
 function Assert-Gone {
-    foreach ($name in @($project, $badProject)) {
+    foreach ($name in @($project, $badProject, $restoreProject)) {
         Assert-True (@(Get-ProjectResources $name).Count -eq 0) "compose project $name still owns containers, volumes or networks"
     }
     Assert-True ((Invoke-Docker @('image', 'inspect', $image) -AllowFailure).Code -ne 0) "image $image still exists"
@@ -96,7 +97,7 @@ try {
     }
     $python = Join-Path $root '.venv/Scripts/python.exe'
     if (-not (Test-Path -LiteralPath $python -PathType Leaf)) { $python = 'python' }
-    $null = New-Item -ItemType Directory -Force -Path $work, (Join-Path $work 'downloads'), (Join-Path $work 'credentials')
+    $null = New-Item -ItemType Directory -Force -Path $work, (Join-Path $work 'downloads'), (Join-Path $work 'credentials'), (Join-Path $work 'backups')
     $work = (Resolve-Path -LiteralPath $work).Path
     & (Join-Path $PSScriptRoot 'deploy-secrets.ps1') -Directory (Join-Path $work 'secrets') | Out-Null
     Set-Content -LiteralPath (Join-Path $work 'downloads/latest.json') -Value '{"version":"0.0.0-smoke"}' -Encoding ascii
@@ -108,7 +109,8 @@ try {
         "FORGE_HTTP_PORT=$httpPort", "FORGE_HTTPS_PORT=$httpsPort", "FORGE_IMAGE=$image",
         ('FORGE_SECRETS_DIR=' + (& $forward (Join-Path $work 'secrets'))),
         ('FORGE_DOWNLOADS_DIR=' + (& $forward (Join-Path $work 'downloads'))),
-        ('FORGE_CREDENTIALS_DIR=' + (& $forward (Join-Path $work 'credentials')))
+        ('FORGE_CREDENTIALS_DIR=' + (& $forward (Join-Path $work 'credentials'))),
+        ('FORGE_BACKUPS_DIR=' + (& $forward (Join-Path $work 'backups')))
     ) | Set-Content -LiteralPath $envFile -Encoding ascii
     $secretValues = Get-ChildItem -LiteralPath (Join-Path $work 'secrets') -File | ForEach-Object { (Get-Content -LiteralPath $_.FullName -Raw).Trim() }
 
@@ -172,6 +174,49 @@ try {
     Assert-True ($again -match '"created": false' -and @(Get-ChildItem -LiteralPath (Join-Path $work 'credentials') -File).Count -eq 1) 'a rerun created something'
     Write-Pass 'first company provisioned through the tools profile (rerun is a no-op)'
 
+    # Backups: a verified dump, retention, restore refusing a used database, and a round trip into a fresh volume.
+    $backups = Join-Path $work 'backups'
+    $backupScript = @('exec', '-T', 'backup', '/bin/sh', '/opt/forge/backup.sh')
+    $null = Invoke-Compose ($backupScript + 'run-once')
+    $dumps = @(Get-ChildItem -LiteralPath $backups -Filter 'forge-*.dump')
+    Assert-True ($dumps.Count -eq 1 -and $dumps[0].Length -gt 0) 'run-once did not write exactly one non-empty dump'
+    $listing = (Invoke-Compose @('exec', '-T', 'backup', 'pg_restore', '--list', "/backups/$($dumps[0].Name)")).Output
+    Assert-True ($listing -match 'TABLE DATA forge organizations') 'pg_restore --list does not show the organizations data'
+    Write-Pass 'backup dump is valid (pg_restore --list reads it)'
+
+    foreach ($round in 1, 2) {
+        Start-Sleep -Seconds 2
+        $null = Invoke-Compose @('exec', '-T', '-e', 'FORGE_BACKUP_KEEP=2', 'backup', '/bin/sh', '/opt/forge/backup.sh', 'run-once')
+    }
+    $kept = @(Get-ChildItem -LiteralPath $backups -Filter 'forge-*.dump' | Sort-Object Name)
+    Assert-True ($kept.Count -eq 2 -and $kept[0].Name -ne $dumps[0].Name) "retention left $($kept.Count) dumps (FORGE_BACKUP_KEEP=2)"
+    Write-Pass 'retention keeps the newest 2'
+
+    $newest = $kept[-1].Name
+    $refusal = Invoke-Compose @('run', '--rm', '-T', 'restore', "/backups/$newest") -Global @('--profile', 'tools') -AllowFailure
+    Assert-True ($refusal.Code -ne 0 -and $refusal.Output -match 'TARGET_NOT_EMPTY') 'restore.sh did not refuse a non-empty database'
+    Write-Pass 'restore refuses a non-empty target'
+
+    $sql = (Invoke-Compose @('exec', '-T', 'backup', 'pg_restore', '--file=-', "/backups/$newest")).Output
+    foreach ($secret in $secretValues) { Assert-True (-not $sql.Contains($secret)) 'a dump contains a secret value' }
+    Assert-True (@(Get-ChildItem -LiteralPath $backups -File | Where-Object { $_.Name -notmatch '^forge-\d{8}T\d{6}Z\.dump$' }).Count -eq 0) 'the backup directory holds unexpected files'
+    Write-Pass 'dumps contain no secret value'
+
+    # Round trip: a fresh stack (migrate builds the reviewed schema), then only the rows are restored into it.
+    $null = Invoke-Compose @('up', '-d', '--wait', '--wait-timeout', '240', 'control-plane') -Name $restoreProject
+    $null = Invoke-Compose @('stop', 'control-plane') -Name $restoreProject
+    $restored = Invoke-Compose @('run', '--rm', '-T', 'restore', "/backups/$newest") -Name $restoreProject -Global @('--profile', 'tools')
+    Assert-True ($restored.Output -match 'RESTORED') "restore.sh did not report success: $($restored.Output)"
+    $second = Invoke-Compose @('run', '--rm', '-T', 'restore', "/backups/$newest") -Name $restoreProject -Global @('--profile', 'tools') -AllowFailure
+    Assert-True ($second.Code -eq 3 -and $second.Output -match 'TARGET_NOT_EMPTY') 'a second restore was not refused'
+    $noop = (Invoke-Compose @('run', '--rm', '-T', 'migrate', 'migrate', '--migrations-dir', '/app/migrations') -Name $restoreProject).Output
+    Assert-True ($noop -match '"applied": \[\]') 'migrate was not a no-op after the restore'
+    $null = Invoke-Compose @('up', '-d', '--wait', '--wait-timeout', '120', 'control-plane') -Name $restoreProject
+    $slugs = (Invoke-Compose @('exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'forge', '-tAc', 'SELECT slug FROM forge.organizations') -Name $restoreProject).Output
+    Assert-True ($slugs -match 'smoke-co') 'the restored database lacks the provisioned company'
+    Assert-True ((Invoke-Compose @('exec', '-T', 'control-plane', 'python', '-m', 'forge.serve_prod', 'healthcheck') -Name $restoreProject -AllowFailure).Code -eq 0) 'readiness does not attest after the restore'
+    Write-Pass 'restore round trip into a fresh volume (migrate no-op, readiness attests)'    $null = Invoke-Compose @('down', '-v', '--remove-orphans') -Name $restoreProject -Global @('--profile', 'tools')
+
     # A tampered applied migration is detected by the one-shot job.
     $tampered = Join-Path $work 'tampered'
     Copy-Item -LiteralPath (Join-Path $root 'migrations') -Destination $tampered -Recurse
@@ -194,8 +239,12 @@ try {
 } catch {
     $failed = $true
     Write-Host "FAIL $($_.Exception.Message)"
+    # Service logs carry finite codes only (never a secret), so they are safe to show for diagnosis.
+    foreach ($name in @($project, $restoreProject)) {
+        if (Test-Path -LiteralPath $envFile) { Write-Host (Invoke-Compose @('logs', '--no-color', '--tail', '25', 'migrate', 'control-plane', 'postgres') -Name $name -AllowFailure).Output }
+    }
 } finally {
-    foreach ($name in @($badProject, $project)) {
+    foreach ($name in @($restoreProject, $badProject, $project)) {
         if (Test-Path -LiteralPath $envFile) { $null = Invoke-Compose @('down', '-v', '--remove-orphans') -Name $name -Global @('--profile', 'tools') -AllowFailure }
     }
     $null = Invoke-Docker @('rmi', '-f', $image) -AllowFailure

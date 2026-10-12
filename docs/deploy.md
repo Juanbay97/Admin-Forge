@@ -1,0 +1,235 @@
+# Deploy Forge on an Ubuntu server (Docker Compose)
+
+This runbook takes a fresh Ubuntu 22.04/24.04 server (for example a Proxmox VM) to a running Forge control plane:
+PostgreSQL 17, one-shot migrations, the API and admin web, and Caddy for HTTPS. Everything is configured by
+environment variables and Docker secrets; the domain name is never written into a file other than `deploy/.env`.
+
+## Quick path
+
+Replace `forge.example.test` with your real name. Run everything as a user who can run `docker`.
+
+```bash
+git clone <repository-url> /opt/forge && cd /opt/forge/deploy
+cp .env.example .env                      # set FORGE_DOMAIN, FORGE_TLS, FORGE_ACME_EMAIL
+printf 'FORGE_UID=%s\nFORGE_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
+mkdir -p backups credentials              # owned by you: backups and first-company credentials land here
+../scripts/deploy-secrets.sh              # creates deploy/secrets/ (once; never overwritten)
+docker compose up -d --build --wait       # postgres -> migrate -> control-plane -> caddy
+curl -fsS "https://forge.example.test/status"   # {"status":"ready", ...}
+```
+
+Expected result: `docker compose ps` shows `postgres`, `control-plane`, `caddy` and `backup` healthy and `migrate`
+exited (0). Then back up `deploy/secrets/` offline ([Backup and restore](#backup-and-restore)) and
+[provision the first company](#provision-the-first-company).
+
+## Prerequisites
+
+| Need | Detail |
+|------|--------|
+| Server | Ubuntu 22.04 or 24.04, 2 vCPU, 4 GB RAM, 20 GB disk (database and dumps grow with use) |
+| Docker | Docker Engine 25+ with the Compose plugin 2.24+ (`docker compose version`). Install from the official Docker documentation (docs.docker.com/engine/install/ubuntu) |
+| Network | Outbound HTTPS (image pulls, the gateway, Let's Encrypt) and, for `FORGE_TLS=acme`, inbound 80 and 443 from the internet |
+| Name | A DNS name you control (this guide uses `forge.example.test`) |
+| Time | The server clock must be synchronised (`timedatectl` shows `System clock synchronized: yes`); certificates and tokens depend on it |
+
+On a Proxmox VM: give it a bridged network interface, enable the QEMU guest agent, and snapshot the VM before the
+first deployment so you can return to a clean server.
+
+## DNS and firewall
+
+1. Create an `A` record (and `AAAA` if the server has IPv6) for your name pointing at the server's public address.
+2. Open the firewall for the services Caddy publishes (nothing else is published):
+
+| Port | Use | Needed when |
+|------|-----|-------------|
+| 80/tcp | ACME HTTP challenge and redirect to HTTPS | `FORGE_TLS=acme` |
+| 443/tcp and 443/udp | HTTPS (HTTP/3 over udp) | always |
+| 22/tcp | Administration | restrict to your admin addresses |
+
+```bash
+sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443 && sudo ufw enable
+```
+
+Docker publishes ports through its own iptables rules, so `ufw` does not hide them: this stack relies on publishing
+only Caddy. PostgreSQL and the control plane have no published port and live on a Docker network with no route out
+(`data`).
+
+## Configuration and secrets
+
+`deploy/.env` (copied from `.env.example`) holds placeholders only; `deploy/secrets/` holds every credential.
+
+| Setting | Meaning |
+|---------|---------|
+| `FORGE_DOMAIN` | Public name; also the value Caddy serves and the control plane accepts as `Host` |
+| `FORGE_PORT_SUFFIX` | Empty in production; `:8443` only when HTTPS is published on a non-standard port |
+| `FORGE_TLS` | `acme` or `internal` ([Choose the TLS mode](#choose-the-tls-mode)); anything else stops Caddy |
+| `FORGE_ACME_EMAIL` | Contact address Let's Encrypt uses for expiry notices (`acme` only) |
+| `FORGE_GATEWAY_ORIGINS` | Comma-separated https origins of your model gateway; empty keeps the built-in default |
+| `FORGE_BACKUP_CRON`, `FORGE_BACKUP_KEEP` | Backup schedule (UTC, 5 fields) and how many dumps to keep (default 14) |
+| `FORGE_UID`, `FORGE_GID` | Your user, so `backups/` and `credentials/` stay readable by you |
+
+`scripts/deploy-secrets.sh` writes nine files: the PostgreSQL administrator password, one password per service role
+(five), the backup role password, and two Fernet keys (`delivery_key` for queued messages, `gateway_key` for stored
+gateway keys). It never overwrites an existing file, prints names only, and makes the directory owner-only (0700).
+The files themselves are world-readable inside that directory because the unprivileged containers read them as
+Docker secrets.
+
+Check the result without exposing a secret: `docker compose config | grep -c -i password` must not print a password
+value (secrets appear only as file references).
+
+## Choose the TLS mode
+
+| | `FORGE_TLS=acme` | `FORGE_TLS=internal` |
+|---|---|---|
+| Certificate | Let's Encrypt, trusted by every browser | Caddy's own CA, trusted only after you install its root |
+| Needs | Public DNS name, ports 80 and 443 reachable from the internet | Nothing public |
+| Use for | An internet-facing server | A private network, a lab, a local proof |
+
+For `internal`, export the root certificate once and install it on each client machine that opens the admin web:
+
+```bash
+docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+```
+
+Switching modes later is a `.env` edit and `docker compose up -d`; no file changes. If you start with `acme` and
+issuance fails (for example port 80 is not reachable), set `FORGE_TLS=internal` to keep working while you fix DNS.
+
+## First platform owner
+
+Placeholder: there is no platform-owner sign-in yet. Until the platform administration change
+(`fv2-platform-core`) lands, whoever has shell access to this server and the `deploy/secrets/pg_superuser` file is
+the platform owner, and companies are created from the command line as described next. Keep that access limited.
+
+## Provision the first company
+
+The `provision` service is in the `tools` profile, so `up` never starts it. It reaches the database through
+the PostgreSQL container's own loopback and writes the new administrator's initial password to a new file in
+`deploy/credentials/` (an existing file is never overwritten; running it again creates nothing).
+
+```bash
+docker compose --profile tools run --rm provision org \
+  --slug acme --name "Acme Corporation" --department Operations \
+  --admin-email admin@example.test --admin-name "Acme Admin"
+```
+
+Expected: `{"status": "provisioned", "credentials_file": "...", "organizations": [{"slug": "acme", "created": true}]}`.
+
+1. Read the password from `deploy/credentials/credentials-<timestamp>.json` and hand it over through a private channel.
+2. Delete the file once delivered; it is the only copy.
+3. The administrator signs in at `https://forge.example.test/admin/` and invites members from there.
+
+## Publish installers
+
+Copy release files into `deploy/downloads/` on the server. Caddy serves that directory read-only at
+`https://forge.example.test/downloads/<file>`. Directory listing is off, dotfiles are hidden, and
+`/downloads/latest.json` (the version manifest the clients read) is sent with `Cache-Control: no-cache` so a new
+release is seen immediately.
+
+```bash
+scp Forge-Setup-1.4.0.exe latest.json you@server:/opt/forge/deploy/downloads/
+```
+
+## Backup and restore
+
+The `backup` service writes a verified dump on `FORGE_BACKUP_CRON` (default `30 2 * * *`, UTC) into
+`deploy/backups/` and keeps the newest `FORGE_BACKUP_KEEP`. Each run produces one file, `forge-<UTC stamp>.dump` (the database, read through
+the read-only `backup_reader` role). Dumps never contain `deploy/secrets/` or `.env`.
+
+> **Warning: losing `delivery_key` and `gateway_key` makes every stored gateway key and every queued message unrecoverable.**
+> The database dump alone cannot be read without them. They are not in the dumps, by design.
+
+Keep an offline copy of `deploy/secrets/` separate from the dumps (encrypted USB, password manager vault or an offline
+archive), refreshed whenever you regenerate a file, and test that you can read it. Anyone holding the keys and a dump
+can read everything, so protect both.
+
+| Task | Command |
+|------|---------|
+| Dump now | `docker compose exec backup /opt/forge/backup.sh run-once` |
+| List dumps | `ls -lh backups/` |
+| Check one is readable | `docker compose exec backup pg_restore --list /backups/forge-<stamp>.dump` |
+| Restore into a fresh, migrated database | `docker compose --profile tools run --rm restore /backups/forge-<stamp>.dump` |
+
+Restore procedure (new server, or after loss of the data volume). Only rows are restored: the schema is always the
+one `migrate` builds, because the schema attestation would reject a restored copy of it.
+
+1. Put `deploy/secrets/` back from the offline copy, check out the same release that took the dump, set `.env`, and
+   start the stack on an empty database: `docker compose up -d --wait` (`migrate` builds the reviewed schema).
+2. Stop writers: `docker compose stop control-plane caddy`.
+3. Restore: `docker compose --profile tools run --rm restore /backups/forge-<stamp>.dump`.
+4. Start everything: `docker compose up -d --wait`. `migrate` finds every migration recorded (a no-op) and the control
+   plane starts once readiness attests.
+
+`restore.sh` changes nothing and exits with a code when a precondition fails:
+
+| Code | Meaning | What to do |
+|------|---------|------------|
+| `TARGET_NOT_EMPTY` (3) | Some Forge table already holds rows | Restore only into a new database: `docker compose down -v` deletes the data, so be sure first |
+| `SCHEMA_VERSION_MISMATCH` (4) | The migrated schema is not the dump's version | Check out the release that took the dump and run `docker compose up -d --wait` again |
+| `DUMP_INVALID` (2) | `pg_restore --list` cannot read the file | Use another dump |
+
+Copy `backups/` to another machine regularly: a dump on the same disk does not survive the disk.
+
+## Upgrade and roll back
+
+```bash
+cd /opt/forge && git pull
+cd deploy
+docker compose exec backup /opt/forge/backup.sh run-once      # a fresh dump first
+docker tag forge-control-plane:local forge-control-plane:previous
+docker compose up -d --build --wait                            # migrate runs first; a failure stops the rollout
+```
+
+Migrations only move forward, and applied files must never be edited (`MIGRATION_CHECKSUM_MISMATCH` otherwise).
+
+| Situation | Action |
+|-----------|--------|
+| Code problem, schema unchanged | `FORGE_IMAGE=forge-control-plane:previous docker compose up -d --wait` |
+| A migration must be undone | Check out the previous release, `docker compose down -v` (deletes the data), `docker compose up -d --wait`, then restore the pre-upgrade dump ([restore procedure](#backup-and-restore)) |
+
+## Logs
+
+Every line is JSON with a request id, the route template and the status; no query string, identifier or secret.
+
+```bash
+docker compose logs -f control-plane     # API and admin
+docker compose logs migrate              # last migration run
+docker compose logs caddy                # TLS and access
+docker compose logs backup               # schedule and results
+```
+
+Container logs rotate at 10 MB x 5 files per service.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `up` stops with `service "migrate" didn't complete successfully` | Migration or configuration failed | `docker compose logs migrate`; the JSON `code` names the cause |
+| `CONFIG_INVALID:<NAME>` | A setting or secret is missing or malformed | Fix `<NAME>` in `.env` or `deploy/secrets/`; no value is ever printed |
+| `MIGRATION_CHECKSUM_MISMATCH` | An applied migration file was edited | Restore the original file (`git checkout -- migrations/`) |
+| `SCHEMA_ATTESTATION_FAILED` or `/status` returns 503 | Database schema differs from the reviewed one | Do not hand-edit the database; rebuild it with `migrate` and restore the latest dump |
+| `ADMIN_BUILD_MISSING` | Image built without the admin web | `docker compose build --no-cache control-plane` |
+| `bind: address already in use` | Another service uses 80/443 | Stop it, or change `FORGE_HTTP_PORT`/`FORGE_HTTPS_PORT` and set `FORGE_PORT_SUFFIX=:<port>` |
+| Browser shows a certificate warning | `FORGE_TLS=internal` without the root installed, or issuance failed | Install the root ([Choose the TLS mode](#choose-the-tls-mode)); for `acme` read `docker compose logs caddy` |
+| `421 Misdirected request` | Request used a name other than `FORGE_DOMAIN` | Use the configured name; an IP address is refused on purpose |
+| Healthcheck unhealthy right after start | Control plane waiting for the database | Wait for `start_period` (20 s); then `docker compose logs control-plane` |
+| `permission denied` writing `backups/` | `FORGE_UID`/`FORGE_GID` do not match the directory owner | Set them to `id -u` / `id -g` and recreate the service |
+
+## Why one worker
+
+The control plane runs exactly one process (`FORGE_WORKERS` other than 1 is refused at start-up). Its database
+connections are sized for a single process (two per service role), and its readiness cache and rate-limit counters
+live in memory; several workers would multiply the connection count and split that state. Scaling out is
+unverified, so the supported way to handle more load today is a larger server.
+
+## Checklist
+
+- [ ] `docker compose ps` shows every long-running service healthy and `migrate` exited (0)
+- [ ] `https://forge.example.test/status` answers `ready` from outside the server
+- [ ] `deploy/secrets/` has an offline copy stored away from the server and the dumps
+- [ ] One dump exists and `pg_restore --list` reads it
+- [ ] Only ports 22, 80 and 443 are open on the firewall
+
+## Next step
+
+Local rehearsal on a workstation with Docker: `scripts/deploy-smoke.ps1` runs this same stack with
+`deploy/compose.dev.yml` (internal CA, loopback ports), proves it, and removes everything it created.

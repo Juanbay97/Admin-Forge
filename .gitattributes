@@ -4,3 +4,4 @@ Dockerfile text eol=lf
 deploy/Caddyfile text eol=lf
 deploy/compose*.yml text eol=lf
 deploy/.env.example text eol=lf
+deploy/postgres/initdb/*.sql text eol=lf
