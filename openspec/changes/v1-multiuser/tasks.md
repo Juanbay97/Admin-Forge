@@ -62,4 +62,4 @@ Strict TDD: every unit is RED (observe failing) -> GREEN -> REFACTOR. Commands: 
 
 - [x] 5.1 C6: `forge-multiuser-flow.spec.ts` (+ config): 3 contexts, concurrent chat, isolation, profile dir count
 - [x] 5.2 CP3: extend `scripts/mvp-smoke.ps1` (run C6; `git status --porcelain` both repos); update `docs/mvp-local.md`
-- [ ] 5.3 Full run: `scripts\mvp-smoke.ps1` PASS; record evidence for verify
+- [x] 5.3 Full run: `scripts\mvp-smoke.ps1` PASS; record evidence for verify
