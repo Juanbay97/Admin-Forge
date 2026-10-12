@@ -2,8 +2,10 @@
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,6 +82,36 @@ class SmokeRunnerTests(unittest.TestCase):
         outcome = json.loads(done.stdout)
         self.assertEqual(outcome['none'], 0)
         self.assertEqual(outcome['dirty'], ['client: M frontend/tsconfig.json'])
+
+    def test_a_clean_tree_is_an_empty_list_not_null_so_the_comparison_cannot_crash_on_windows_powershell(self):
+        # `return @($empty)` unrolls to $null on Windows PowerShell 5.1 and Compare-Object rejects a null reference.
+        shutil_git = shutil.which('git')
+        if not shutil_git or not shutil.which('powershell.exe'):
+            self.skipTest('needs git and Windows PowerShell')
+        for script in (SMOKE, SMOKE.with_name('branding-smoke.ps1')):
+            with self.subTest(script=script.name), tempfile.TemporaryDirectory() as clean, tempfile.TemporaryDirectory() as dirty:
+                for repository in (clean, dirty):
+                    subprocess.run([shutil_git, '-C', repository, 'init', '-q'], check=True, timeout=60)
+                Path(dirty, 'new.txt').write_text('x', 'utf-8')
+                probe = (
+                    "$ast = [Management.Automation.Language.Parser]::ParseFile('" + str(script) + "', [ref]$null, [ref]$null);"
+                    "$ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and "
+                    "($n.Name -eq 'Get-TreeState' -or $n.Name -eq 'Get-TreeChanges') }, $true)"
+                    " | ForEach-Object { . ([scriptblock]::Create($_.Extent.Text)) };"
+                    "$before = @{ 'cp' = (Get-TreeState '" + clean + "') };"
+                    "$after = @{ 'cp' = (Get-TreeState '" + clean + "') };"
+                    "$seen = @{ 'cp' = (Get-TreeState '" + dirty + "') };"
+                    "$none = @(Get-TreeChanges $before $after);"
+                    "$added = @(Get-TreeChanges $before $seen);"
+                    "ConvertTo-Json -Compress @{ none = $none.Count; added = $added;"
+                    " null = ($null -eq $before['cp']) }")
+                done = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', probe],
+                                      capture_output=True, text=True, timeout=120)
+                self.assertEqual(done.returncode, 0, done.stderr)
+                outcome = json.loads(done.stdout)
+                self.assertFalse(outcome['null'])
+                self.assertEqual(outcome['none'], 0)
+                self.assertEqual(outcome['added'], ['cp: ?? new.txt'])
 
     def test_it_never_touches_the_retained_demo_or_unowned_processes(self):
         for port in ('3319', '3320', '3331', '3332'):

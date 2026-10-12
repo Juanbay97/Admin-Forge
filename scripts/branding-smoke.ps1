@@ -45,7 +45,8 @@ foreach ($required in @('frontend/node_modules', 'backend/.venv')) {
 function Get-TreeState([string]$Repository) {
     $lines = & git.exe -C $Repository status --porcelain
     if ($LASTEXITCODE -ne 0) { throw "GIT_STATUS_FAILED: $Repository" }
-    return @($lines | Where-Object { $_ })
+    # The unary comma keeps a clean tree an empty array: a bare `return @()` unrolls to $null on Windows PowerShell 5.1.
+    return ,@($lines | Where-Object { $_ })
 }
 
 # Names every file the run changed (modified, created or removed) in either repository.
