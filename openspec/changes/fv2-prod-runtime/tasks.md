@@ -51,5 +51,5 @@ Chain strategy: stacked-to-main
 - [x] 5.2 GREEN `migrations/0027_gateway_origin_config.sql`; ripple `mvp_profile.py` (F27, MVP_PROFILE), `mvp_readiness.py`, pinned tests.
 
 ## Phase 6: Verification
-- [ ] 6.1 `python -m unittest discover -s tests -v`, `scripts/test-postgres.ps1`, `python -m compileall -q src tests`, `pip check`.
-- [ ] 6.2 Local Docker proof is delivered by fv2-deploy-compose; here: `serve_prod migrate && serve` against harness PG17 container, `/status` ready, then container removed.
+- [x] 6.1 `python -m unittest discover -s tests -v`, `scripts/test-postgres.ps1`, `python -m compileall -q src tests`, `pip check`.
+- [x] 6.2 (proven by `tests/test_postgres_serve_prod.py` on the harness PG17 container, removed after) Local Docker proof is delivered by fv2-deploy-compose; here: `serve_prod migrate && serve` against harness PG17 container, `/status` ready, then container removed.
