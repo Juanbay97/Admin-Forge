@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import re
+import subprocess
 import sys
 import unittest
 
@@ -47,6 +48,39 @@ class SmokeRunnerTests(unittest.TestCase):
             '--control-plane-origin', 'playwright.forge-managed-flow.config.ts')]
         self.assertEqual(order, sorted(order))
 
+    def test_the_multi_user_flow_runs_in_the_same_client_run_after_the_single_member_flow(self):
+        order = [self.text.index(piece) for piece in (
+            'playwright.forge-managed-flow.config.ts', 'playwright.forge-multiuser.config.ts', 'Stop-Child $clientProcess')]
+        self.assertEqual(order, sorted(order))
+        # The spec counts profile directories and workers under the client run's own data directory.
+        self.assertIn('$env:FORGE_E2E_CLIENT_DATA = $clientData', self.text)
+        self.assertIn('MultiUserTestTimeoutSeconds', self.text)
+
+    def test_the_run_must_leave_both_repositories_and_the_four_ports_as_it_found_them(self):
+        self.assertIn('status --porcelain', self.text)
+        for repository in ('(Get-TreeState $root)', '(Get-TreeState $client)'):
+            self.assertEqual(self.text.count(repository), 2, repository)  # before the run and after it
+        self.assertLess(self.text.index('$treeBefore ='), self.text.index("Invoke-Bounded $npm 'run build'"))
+        self.assertIn('TREE_DIRTY', self.text)
+        self.assertIn('@(3410, 3411, 3412, 3413)', self.text)
+        self.assertIn('PORTS_NOT_FREED', self.text)
+
+    def test_a_file_the_run_changed_is_named_and_an_unchanged_tree_reports_nothing(self):
+        script = (
+            "$ast = [Management.Automation.Language.Parser]::ParseFile('" + str(SMOKE) + "', [ref]$null, [ref]$null);"
+            "$ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-TreeChanges' }, $true)"
+            " | ForEach-Object { . ([scriptblock]::Create($_.Extent.Text)) };"
+            "$same = @{ 'client' = @(' M a.txt', '?? local/') };"
+            "$none = @(Get-TreeChanges $same $same);"
+            "$dirty = @(Get-TreeChanges $same @{ 'client' = @(' M a.txt', '?? local/', ' M frontend/tsconfig.json') });"
+            "ConvertTo-Json -Compress @{ none = $none.Count; dirty = $dirty }")
+        done = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', script],
+                              capture_output=True, text=True, timeout=60)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        outcome = json.loads(done.stdout)
+        self.assertEqual(outcome['none'], 0)
+        self.assertEqual(outcome['dirty'], ['client: M frontend/tsconfig.json'])
+
     def test_it_never_touches_the_retained_demo_or_unowned_processes(self):
         for port in ('3319', '3320', '3331', '3332'):
             self.assertNotIn(port, self.text)
@@ -57,7 +91,8 @@ class SmokeRunnerTests(unittest.TestCase):
 
     def test_every_wait_is_bounded_and_secrets_are_never_printed(self):
         for name in ('BuildTimeoutSeconds', 'ClientStartTimeoutSeconds', 'StackStartTimeoutSeconds',
-                     'AdminTestTimeoutSeconds', 'ClientTestTimeoutSeconds', 'StopTimeoutSeconds'):
+                     'AdminTestTimeoutSeconds', 'ClientTestTimeoutSeconds', 'MultiUserTestTimeoutSeconds',
+                     'StopTimeoutSeconds'):
             self.assertIn(name, self.text)
         self.assertNotRegex(self.text, r'(?i)(Get-Content|cat|type)\s+\$?\w*credentials')
         self.assertNotRegex(self.text, r'(?i)Write-(Output|Host)[^\n]*(password|gateway_key|access_token)')

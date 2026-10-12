@@ -93,6 +93,17 @@ ejecuta el flujo del miembro (activar cuenta, iniciar sesión, ver solo lo publi
 streaming, sin clave ni host de la puerta de enlace en el navegador, otra organización sin acceso) y
 detiene y elimina todo. Termina con `mvp-smoke: PASS` y código 0. Cada espera tiene límite.
 
+Después del flujo del miembro, y en la **misma ejecución del cliente** (un solo lanzador, un solo enrutador de perfiles),
+ejecuta el flujo multiusuario (playwright.forge-multiuser.config.ts): dos miembros de la organización A y uno de la
+organización B (más una cuenta sembrada, shared@forge.local.test, que pertenece a las dos) trabajan a la vez en
+contextos de navegador separados. Comprueba que cada uno ve solo sus propias sesiones y modelos (tres perfiles, tres
+directorios, tres procesos de trabajo), que al cambiar de organización no queda rastro del perfil anterior, que
+suspender una membresía en una organización conserva la sesión de la misma cuenta en la otra y que cerrar sesión
+detiene el proceso de trabajo de ese perfil. Al final exige que ninguno de los dos repositorios tenga cambios que la
+ejecución no tuviera al empezar (git status --porcelain; el fallo nombra el archivo) y que los puertos 3410-3413
+estén libres. Para repetirlo a mano, el flujo necesita FORGE_E2E_CLIENT_URL, FORGE_E2E_CONTROL_PLANE_ORIGIN,
+FORGE_E2E_CREDENTIALS y FORGE_E2E_CLIENT_DATA (el directorio de datos del cliente), y una pila recién creada.
+
 ### Opción 2: a mano
 
 1. Pila (terminal 1, desde la raíz de este repositorio; compile `admin` antes con `npm run build`):

@@ -46,20 +46,20 @@ Strict TDD: every unit is RED (observe failing) -> GREEN -> REFACTOR. Commands: 
 
 ## Phase 3: Client foundation (C1-C3)
 
-- [ ] 3.1 C1: untrack/ignore `frontend/next-env.d.ts`; commit `tsconfig.json` as Next rewrites; node test: build leaves tree clean
-- [ ] 3.2 C2 RED: `tests/test_forge_router_pool.py` (spawn lock, reuse, idle reap, in-flight guard, cap/LRU, spawn failure, shutdown, concurrent first bind)
-- [ ] 3.3 C2 GREEN: `backend/app/forge_router.py` `RouterConfig`, `WorkerPool`, reaper
-- [ ] 3.4 C3 RED: `tests/test_forge_router_proxy.py` (no bearer -> 401 no spawn; non-member identical denial; bad org header; SSE unbuffered; logout stops workers; 401/403 evicts)
-- [ ] 3.5 C3 GREEN: gate mount + scoped proxy + token-digest registry; one real-worker test
+- [x] 3.1 C1: untrack/ignore `frontend/next-env.d.ts`; commit `tsconfig.json` as Next rewrites; node test: build leaves tree clean
+- [x] 3.2 C2 RED: `tests/test_forge_router_pool.py` (spawn lock, reuse, idle reap, in-flight guard, cap/LRU, spawn failure, shutdown, concurrent first bind)
+- [x] 3.3 C2 GREEN: `backend/app/forge_router.py` `RouterConfig`, `WorkerPool`, reaper
+- [x] 3.4 C3 RED: `tests/test_forge_router_proxy.py` (no bearer -> 401 no spawn; non-member identical denial; bad org header; SSE unbuffered; logout stops workers; 401/403 evicts)
+- [x] 3.5 C3 GREEN: gate mount + scoped proxy + token-digest registry; one real-worker test
 
 ## Phase 4: Launcher and frontend (C4-C5)
 
-- [ ] 4.1 C4: `forge-managed.mjs` spawns router with worker plan; update `tests/forge-managed-launcher.test.mjs`, `forge-isolation*.test.mjs`
-- [ ] 4.2 C5 RED: `frontend/tests/unit` controller specs: org list, pick, switch clears state, header set
-- [ ] 4.3 C5 GREEN: `forge-accounts.ts`, `forge-context.ts`, gate + picker, keyed remount, store resets
+- [x] 4.1 C4: `forge-managed.mjs` spawns router with worker plan; update `tests/forge-managed-launcher.test.mjs`, `forge-isolation*.test.mjs`
+- [x] 4.2 C5 RED: `frontend/tests/unit` controller specs: org list, pick, switch clears state, header set
+- [x] 4.3 C5 GREEN: `forge-accounts.ts`, `forge-context.ts`, gate + picker, keyed remount, store resets
 
 ## Phase 5: E2E and smoke
 
-- [ ] 5.1 C6: `forge-multiuser-flow.spec.ts` (+ config): 3 contexts, concurrent chat, isolation, profile dir count
-- [ ] 5.2 CP3: extend `scripts/mvp-smoke.ps1` (run C6; `git status --porcelain` both repos); update `docs/mvp-local.md`
+- [x] 5.1 C6: `forge-multiuser-flow.spec.ts` (+ config): 3 contexts, concurrent chat, isolation, profile dir count
+- [x] 5.2 CP3: extend `scripts/mvp-smoke.ps1` (run C6; `git status --porcelain` both repos); update `docs/mvp-local.md`
 - [ ] 5.3 Full run: `scripts\mvp-smoke.ps1` PASS; record evidence for verify

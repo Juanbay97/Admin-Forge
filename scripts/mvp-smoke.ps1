@@ -5,8 +5,14 @@
 #   3. starts the client through its single sanctioned launcher (production `next build` + `next start`,
 #      UI 3411, workspace backend 3412) in a private data directory;
 #   4. client flow (clients/openyak frontend e2e): the invited member activates the account in /onboarding,
-#      signs in, sees only the published models, chats through client backend -> control plane -> fake gateway,
-#      no gateway key or host reaches the browser, and an organization B member cannot enter or read it.
+#      signs in, sees only the published models, chats through client router -> control plane -> fake gateway,
+#      no gateway key or host reaches the browser, and an organization B member works only in their own profile;
+#   5. multi-user flow, in the SAME client run: two members of organization A and one of organization B (and one
+#      account that belongs to both) work concurrently in separate browser contexts; each sees only their own
+#      sessions and models, switching organization leaves no trace of the previous profile, a suspension in one
+#      organization keeps the member's session in the other, and logout stops that profile's worker;
+#   6. neither repository may end the run with a tracked or untracked change it did not have at the start, and the
+#      four MVP ports must be free again.
 # Everything it starts is stopped and removed at the end (container, private workspace, client data directory).
 # It only ever stops process trees it started itself (by PID); it never touches the retained demo ports or any other process.
 [CmdletBinding()]
@@ -16,6 +22,7 @@ param(
     [int]$ClientStartTimeoutSeconds = 1200,
     [int]$AdminTestTimeoutSeconds = 300,
     [int]$ClientTestTimeoutSeconds = 300,
+    [int]$MultiUserTestTimeoutSeconds = 600,
     [int]$StopTimeoutSeconds = 90,
     [string]$ClientRoot = ''
 )
@@ -32,6 +39,37 @@ if (-not (Test-Path -LiteralPath (Join-Path $admin 'node_modules') -PathType Con
 if (-not (Test-Path -LiteralPath (Join-Path $client 'scripts/forge-managed.mjs') -PathType Leaf)) { throw 'CLIENT_CHECKOUT_REQUIRED: pass -ClientRoot' }
 foreach ($required in @('frontend/node_modules', 'backend/.venv')) {
     if (-not (Test-Path -LiteralPath (Join-Path $client $required) -PathType Container)) { throw "CLIENT_DEPENDENCIES_REQUIRED: $required" }
+}
+
+# `git status --porcelain` lines of one repository: what a run must leave exactly as it found it.
+function Get-TreeState([string]$Repository) {
+    $lines = & git.exe -C $Repository status --porcelain
+    if ($LASTEXITCODE -ne 0) { throw "GIT_STATUS_FAILED: $Repository" }
+    return @($lines | Where-Object { $_ })
+}
+
+# Names every file the run changed (modified, created or removed) in either repository.
+function Get-TreeChanges($Before, $After) {
+    $changes = @()
+    foreach ($name in $Before.Keys) {
+        foreach ($difference in @(Compare-Object -ReferenceObject $Before[$name] -DifferenceObject $After[$name])) {
+            $changes += ('{0}: {1}' -f $name, ([string]$difference.InputObject).Trim())
+        }
+    }
+    return $changes
+}
+
+# The four MVP ports (control plane, client UI, client backend, fake gateway) must be free once everything stopped.
+function Get-OccupiedPorts([int[]]$Ports) {
+    $occupied = @()
+    foreach ($port in $Ports) {
+        $listener = $null
+        try {
+            $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
+            $listener.Start()
+        } catch { $occupied += $port } finally { if ($null -ne $listener) { $listener.Stop() } }
+    }
+    return $occupied
 }
 
 function Stop-Tree([System.Diagnostics.Process]$Process) {
@@ -124,6 +162,8 @@ $ErrorActionPreference = 'Continue'
 & docker.exe run --rm --pull never --entrypoint postgres $image --version 2>&1 | Out-Null
 $ErrorActionPreference = $previous
 
+$treeBefore = @{ 'control plane' = (Get-TreeState $root); 'client' = (Get-TreeState $client) }
+
 $npm = (Get-Command npm.cmd).Source
 $npx = (Get-Command npx.cmd).Source
 $node = (Get-Command node.exe).Source
@@ -166,11 +206,16 @@ try {
     $env:FORGE_E2E_CREDENTIALS = $ready.credentials_file
     $env:FORGE_E2E_MAILBOX = Join-Path $ready.workspace 'mailbox'
     $env:FORGE_E2E_INVITEE_EMAIL = $mailboxInvitee
+    $env:FORGE_E2E_CLIENT_DATA = $clientData
     Write-Output 'mvp-smoke: client flow (onboarding, sign-in, streamed chat, isolation) in Chrome'
     $result = Invoke-Bounded $npx 'playwright test -c playwright.forge-managed-flow.config.ts' $frontend $ClientTestTimeoutSeconds
+    if ($result -eq 0) {
+        Write-Output 'mvp-smoke: multi-user flow (three concurrent members, switching, suspension, logout) in Chrome'
+        $result = Invoke-Bounded $npx 'playwright test -c playwright.forge-multiuser.config.ts' $frontend $MultiUserTestTimeoutSeconds
+    }
 } finally {
     Remove-Item Env:FORGE_E2E_ADMIN_URL, Env:FORGE_E2E_CLIENT_URL, Env:FORGE_E2E_CONTROL_PLANE_ORIGIN, Env:FORGE_E2E_CREDENTIALS,
-        Env:FORGE_E2E_MAILBOX, Env:FORGE_E2E_INVITEE_EMAIL -ErrorAction SilentlyContinue
+        Env:FORGE_E2E_MAILBOX, Env:FORGE_E2E_INVITEE_EMAIL, Env:FORGE_E2E_CLIENT_DATA -ErrorAction SilentlyContinue
     if ($clientStarted) { $null = Stop-Child $clientProcess $clientProcess.StandardOutput $StopTimeoutSeconds }
     if ($null -ne $clientProcess) { $clientProcess.Dispose() }
     if (Test-Path -LiteralPath $clientData) { Remove-Item -LiteralPath $clientData -Recurse -Force -ErrorAction SilentlyContinue }
@@ -182,5 +227,21 @@ if ($stackStarted -and ($null -eq $stackStopped -or -not $stackStopped.owned_con
     exit 1
 }
 Write-Output 'mvp-smoke: owned container, private workspace and client data directory removed'
+$treeAfter = @{ 'control plane' = (Get-TreeState $root); 'client' = (Get-TreeState $client) }
+$dirty = @(Get-TreeChanges $treeBefore $treeAfter)
+if ($dirty.Count -gt 0) {
+    foreach ($line in $dirty) { Write-Warning "mvp-smoke: TREE_DIRTY the run changed $line" }
+    $result = 1
+} else { Write-Output 'mvp-smoke: both repositories are exactly as the run found them' }
+$stillOpen = @()
+for ($attempt = 0; $attempt -lt 20; $attempt++) {
+    $stillOpen = @(Get-OccupiedPorts @(3410, 3411, 3412, 3413))
+    if ($stillOpen.Count -eq 0) { break }
+    Start-Sleep -Milliseconds 500
+}
+if ($stillOpen.Count -gt 0) {
+    Write-Warning ('mvp-smoke: PORTS_NOT_FREED ' + ($stillOpen -join ', '))
+    $result = 1
+} else { Write-Output 'mvp-smoke: ports 3410-3413 are free' }
 if ($result -eq 0) { Write-Output 'mvp-smoke: PASS' } else { Write-Output 'mvp-smoke: FAIL' }
 exit $result
