@@ -14,7 +14,8 @@ from forge.mvp_profile import MVP_ADDITIONS
 from postgres_support import connect, settings
 from test_postgres_gateway_origin import migration_text, separate_database
 
-LOGIN_ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service')
+LOGIN_ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service',
+               'forge_branding_service')
 
 
 class MvpDatabase:

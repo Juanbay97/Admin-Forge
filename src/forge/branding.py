@@ -65,6 +65,9 @@ class Branding:
 DEFAULT = Branding(0, 'Prometheon Forge', 'Sign in to your Forge workspace.', '#0B1D26', '#E07A2D', '#E8DCC1',
                    'montserrat', 'inter', {})
 
+DEFAULT_INPUT = BrandingInput(DEFAULT.name, DEFAULT.login_copy, DEFAULT.primary, DEFAULT.accent, DEFAULT.tint,
+                              DEFAULT.heading, DEFAULT.body, {})
+
 
 def validate_color(value):
     if type(value) is not str or not _HEX.fullmatch(value):
