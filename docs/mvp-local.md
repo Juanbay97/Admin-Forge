@@ -72,6 +72,23 @@ alias publicados. Requiere `npm ci` previo en `admin/`, la imagen fijada de Post
 caché local y Docker; no descarga nada. Cada espera tiene límite y al final confirma que el
 contenedor propio y el espacio de trabajo privado ya no existen.
 
+### Marca por organizaci?n en la administraci?n
+
+La p?gina **Branding** de `/admin` (solo administraci?n) edita nombre del producto, mensaje de acceso, tres
+colores (primario, acento, fondo), tipograf?as de la lista cerrada y hasta tres logos PNG/WebP. La vista
+previa clara y oscura usa el mismo generador de paleta que la aplicaci?n (`admin/src/brand/palette.ts`, vectores
+compartidos en `contract/branding-palette.vectors.json`) y no cambia el resto de la p?gina hasta guardar. Guardar
+publica una revisi?n con control de concurrencia; ?Reset to default? publica una revisi?n nueva con el tema
+Prometheon. Al cambiar de organizaci?n, la consola reemplaza la identidad anterior (variables CSS, t?tulo,
+favicon y logo) antes de mostrar datos de la nueva. Los valores solo llegan a la p?gina con `style.setProperty`,
+nunca como texto de CSS, y la CSP de `/admin` no se relaja (`style-src 'self'`, `img-src 'self'`).
+
+`admin/e2e/branding.spec.ts` lo comprueba contra la pila real: cambia colores, nombre y un logo PNG de `org-a`, ve
+la vista previa, guarda, recarga y ve el resultado; `org-b` y su administraci?n no cambian; el reset vuelve al
+tema por defecto; entradas hostiles (nombre con marcado, color `red; } body{...}`, contraste bajo, SVG, archivo
+grande o mal formado) se rechazan con el mensaje del servidor; y una revisi?n obsoleta pide recargar. Se ejecuta con
+`scripts\admin-e2e.ps1` (puertos fijos 3410 y 3413: no puede correr a la vez que otra pila local).
+
 ## Cómo ejecutar el MVP
 
 Todo es solo loopback y usa recursos propios (contenedor, espacio de trabajo privado, directorio de datos del

@@ -26,7 +26,16 @@ plane sends; `tests/csp.ts` is checked against `src/forge/admin_mount.py` so the
 
 `src/brand/theme.ts` is the single source of colours, fonts and marks. `applyBrandTheme()` writes
 `--brand-*` variables that Tailwind reads through `src/brand/tokens.css`; a per-company theme is
-another `BrandTheme` object (`createTheme`), not a component edit.
+another `BrandTheme` object (`themeFromBranding`, `createTheme`), not a component edit. Values only
+reach the page through `src/brand/applier.ts` (`style.setProperty`, validated, all-or-nothing), never as
+CSS text, so the CSP stays `style-src 'self'`.
 
-Fonts (Montserrat, Inter; latin subset) are self-hosted in `public/fonts` under the SIL Open
-Font License; the licences ship next to the files.
+The Branding page (`src/pages/Branding.tsx`) edits an organization's branding and previews it in two
+isolated containers (`src/components/BrandPreview.tsx`) driven by `src/brand/palette.ts`. That generator
+reproduces `contract/branding-palette.vectors.json`, shared with the Python validators and the client;
+`tests/unit/palette.spec.ts` compares the client's copy with line endings normalised. An uploaded logo is
+previewed from a locally decoded canvas because the CSP forbids `blob:` and `data:` images.
+
+Fonts: the six vetted typefaces (Inter, Montserrat, Source Sans 3, IBM Plex Sans, Nunito Sans, Roboto;
+latin subset) are self-hosted in `public/fonts` under the SIL Open Font License; the licences and the
+source of each file (`SOURCES.md`) ship next to them and a face only downloads when a theme uses it.
