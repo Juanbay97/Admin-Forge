@@ -21,7 +21,9 @@ LOGIN_ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'fo
 class MvpDatabase:
     def __init__(self, admin, stack):
         self.admin, self._stack = admin, stack
-        self.passwords = {role: secrets.token_urlsafe(32) for role in LOGIN_ROLES}
+        # A deliberately older profile (e.g. without 0025) lacks the later roles; configure only those built.
+        built = {row[0] for row in admin.execute('SELECT rolname FROM pg_roles WHERE rolname = ANY(%s)', [list(LOGIN_ROLES)])}
+        self.passwords = {role: secrets.token_urlsafe(32) for role in LOGIN_ROLES if role in built}
         self._pools = {}
         for role, password in self.passwords.items():
             admin.execute(sql.SQL('ALTER ROLE {} LOGIN PASSWORD {}').format(sql.Identifier(role), sql.Literal(password)))
