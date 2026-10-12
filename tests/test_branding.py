@@ -215,6 +215,14 @@ class DefaultAndPublicTests(unittest.TestCase):
         self.assertEqual(json.loads(json.dumps(view)), view)
         self.assertEqual(branding.public_view(branding.DEFAULT)['assets'], {})
 
+    def test_the_member_projection_adds_only_the_company_code(self):
+        value = branding.Branding(3, 'Acme Labs', 'Hi', '#0B1D26', '#E07A2D', '#E8DCC1', 'montserrat', 'inter', {}, 'acme')
+        self.assertEqual(branding.member_view(value), {**branding.public_view(value), 'code': 'acme'})
+        self.assertNotIn('code', branding.public_view(value), 'the public projection never echoes the code')
+        self.assertEqual(branding.member_view(branding.DEFAULT)['code'], None)
+        self.assertEqual(branding.replace_code(branding.DEFAULT, 'acme').code, 'acme')
+        self.assertEqual(branding.replace_code(branding.DEFAULT, 'acme'), branding.DEFAULT)
+
     def test_asset_hash_validation_is_lowercase_sha256_only(self):
         self.assertEqual(branding.validate_asset_hash(SHA), SHA)
         for value in ('A' * 64, 'a' * 63, 'a' * 65, 'g' * 64, '', None, 5, ('a' * 64) + '\n'):

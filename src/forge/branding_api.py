@@ -20,7 +20,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
 from forge.api import ErrorDetail, ErrorEnvelope
-from forge.branding import ASSET_KINDS, BrandingInvalid, parse, public_view
+from forge.branding import ASSET_KINDS, BrandingInvalid, member_view, parse, public_view
 from forge.branding_assets import AssetRejected, MAX_BYTES, sanitize
 from forge.branding_store import BrandingConflict, BrandingDenied, BrandingLimit, BrandingUnavailable
 from forge.invitations import capability_digest
@@ -279,7 +279,7 @@ def mount_branding(app: FastAPI, *, store, sessions, readiness=None, limiter=Non
     @app.get('/forge/v1/orgs/{organization_id}/branding', include_in_schema=False)
     async def member_branding(organization_id: UUID, request: Request):
         async def operation(digest):
-            return JSONResponse(public_view(await blocking(store.read, digest, organization_id)))
+            return JSONResponse(member_view(await blocking(store.read, digest, organization_id)))
         return await guarded(request, operation)
 
     @app.put('/forge/v1/orgs/{organization_id}/branding', include_in_schema=False)

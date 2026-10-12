@@ -15,7 +15,7 @@ from psycopg.pq import TransactionStatus
 from psycopg.rows import tuple_row
 
 from forge.account_store import _KEYS, _ROLE
-from forge.branding import ASSET_KINDS, DEFAULT, DEFAULT_INPUT, Branding, BrandingInput
+from forge.branding import ASSET_KINDS, DEFAULT, DEFAULT_INPUT, Branding, BrandingInput, replace_code
 from forge.branding_assets import Asset
 
 
@@ -45,7 +45,7 @@ class PublishedAsset:
 class BrandingStore(Protocol):
     def public(self, code: str) -> Branding | None: ...
     def asset(self, sha256: str) -> PublishedAsset | None: ...
-    def read(self, digest: str, organization_id: UUID) -> Branding: ...
+    def read(self, digest: str, organization_id: UUID) -> Branding: ...  # carries the company code
     def save(self, digest: str, organization_id: UUID, expected: int, value: BrandingInput) -> Branding: ...
     def reset(self, digest: str, organization_id: UUID, expected: int) -> Branding: ...
     def put_asset(self, digest: str, organization_id: UUID, asset: Asset) -> bool: ...
@@ -128,7 +128,8 @@ class PostgresBrandingStore:
     def read(self, digest, organization_id):
         with self.members.cursor() as cursor:
             cursor.execute('SELECT * FROM forge.branding_member_read(%s,%s)', (digest, organization_id))
-            return _branding(cursor.fetchone())
+            *fields, code = cursor.fetchone()
+            return replace_code(_branding(fields), code)
 
     def _save(self, digest, organization_id, expected, change, value):
         with self.members.cursor() as cursor:

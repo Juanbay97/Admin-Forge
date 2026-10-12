@@ -25,6 +25,7 @@ from forge.invitations import capability_digest
 
 SIGNATURE = b'\x89PNG\r\n\x1a\n'
 PUBLIC_KEYS = {'revision', 'name', 'loginCopy', 'theme', 'assets'}
+MEMBER_KEYS = PUBLIC_KEYS | {'code'}
 BRANDING = {'name': 'Acme Labs', 'loginCopy': 'Welcome to Acme.',
             'theme': {'primary': '#0B1D26', 'accent': '#E07A2D', 'tint': '#E8DCC1', 'heading': 'montserrat', 'body': 'inter'},
             'assets': {}}
@@ -268,9 +269,21 @@ class MemberProjectionTests(unittest.TestCase):
         for who in ('member_a', 'admin_a'):
             response = world.client.get('/forge/v1/orgs/%s/branding' % world.org_a, headers=world.auth(who))
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(set(response.json()), PUBLIC_KEYS)
+            self.assertEqual(set(response.json()), MEMBER_KEYS)
+            self.assertEqual(response.json()['code'], 'acme')
             self.assertEqual(response.json()['revision'], 1)
             self.assertEqual(response.headers['cache-control'], 'no-store')
+
+    def test_the_company_code_is_on_the_member_read_only_never_on_save_reset_or_the_public_read(self):
+        world = World()
+        saved = world.put('admin_a', world.org_a, 0)
+        self.assertEqual(set(saved.json()), PUBLIC_KEYS)
+        self.assertEqual(set(world.client.get('/forge/v1/branding?org=acme').json()), PUBLIC_KEYS)
+        reset = world.client.post('/forge/v1/orgs/%s/branding/reset' % world.org_a, headers=world.auth('admin_a'),
+                                  json={'expectedRevision': 1})
+        self.assertEqual(set(reset.json()), PUBLIC_KEYS)
+        unbranded = world.client.get('/forge/v1/orgs/%s/branding' % world.org_b, headers=world.auth('admin_b'))
+        self.assertEqual((unbranded.json()['revision'], unbranded.json()['code']), (0, 'globex'))
 
     def test_missing_malformed_and_revoked_sessions_are_401_and_foreign_or_unknown_orgs_are_404(self):
         world = World()

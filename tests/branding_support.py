@@ -4,7 +4,7 @@ import re
 from threading import Lock
 from uuid import uuid4
 
-from forge.branding import ASSET_KINDS, DEFAULT, DEFAULT_INPUT, Branding
+from forge.branding import ASSET_KINDS, DEFAULT, DEFAULT_INPUT, Branding, replace_code
 from forge.branding_store import BrandingConflict, BrandingDenied, BrandingLimit, PublishedAsset
 
 MAX_ASSETS = 24
@@ -36,7 +36,8 @@ class FakeBrandingStore:
     def read(self, digest, org):
         self.calls.append(('read', org))
         with self.lock:
-            return self._member(digest, org, admin=False)['current'] or DEFAULT
+            entry = self._member(digest, org, admin=False)
+            return replace_code(entry['current'] or DEFAULT, entry['code'])
 
     def save(self, digest, org, expected, value, *, change='save'):
         self.calls.append((change, org))

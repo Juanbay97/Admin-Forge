@@ -7,7 +7,7 @@ feasible (``branding_palette`` runs the same generator and refuses what it refus
 3:1 against white, a tint that cannot carry dark text) and which text and fonts are acceptable.
 Reasons are finite codes, never echoes of the submitted value.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import re
 import unicodedata
 
@@ -63,6 +63,9 @@ class Branding:
     heading: str
     body: str
     assets: dict = field(default_factory=dict)
+    # The company code, set only by an authenticated member read. It is a carrier for the administrator
+    # page, not part of the branding value: it never takes part in equality and no public view includes it.
+    code: str | None = field(default=None, compare=False)
 
 
 DEFAULT = Branding(0, 'Prometheon Forge', 'Sign in to your Forge workspace.', '#0B1D26', '#E07A2D', '#E8DCC1',
@@ -171,3 +174,13 @@ def public_view(value):
             'theme': {'primary': value.primary, 'accent': value.accent, 'tint': value.tint,
                       'heading': value.heading, 'body': value.body},
             'assets': {kind: ASSET_URL_PREFIX + value.assets[kind] for kind in ASSET_KINDS if kind in value.assets}}
+
+
+def replace_code(value, code):
+    """The same branding carrying the company code (None clears it)."""
+    return replace(value, code=code)
+
+
+def member_view(value):
+    """The authenticated member read: the public fields plus the company code employees type."""
+    return {**public_view(value), 'code': value.code}

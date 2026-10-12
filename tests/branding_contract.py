@@ -30,6 +30,17 @@ class StoreContract:
             self.assertEqual(h.store.read(h.admin_a, h.org_a), DEFAULT)
             self.assertEqual(h.store.public(h.code_a), DEFAULT)
 
+    def test_only_the_member_read_carries_the_company_code_and_it_does_not_change_equality(self):
+        with self.harness() as h:
+            for who in (h.member_a, h.admin_a):
+                self.assertEqual(h.store.read(who, h.org_a).code, h.code_a)
+            self.assertEqual(h.store.read(h.admin_b, h.org_b).code, h.code_b)
+            saved = h.store.save(h.admin_a, h.org_a, 0, theme())
+            self.assertIsNone(saved.code)
+            self.assertIsNone(h.store.public(h.code_a).code)
+            read = h.store.read(h.member_a, h.org_a)
+            self.assertEqual((read.code, read), (h.code_a, saved), 'the code is a carrier, not part of the branding value')
+
     def test_save_advances_the_revision_and_is_visible_to_members_and_the_public(self):
         with self.harness() as h:
             saved = h.store.save(h.admin_a, h.org_a, 0, theme())

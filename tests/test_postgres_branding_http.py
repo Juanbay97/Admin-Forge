@@ -38,6 +38,9 @@ class PostgresBrandingHttpTests(unittest.TestCase):
             member = login(client, org_a.accounts[1])
             projected = client.get('/forge/v1/orgs/%s/branding' % org_a.organization_id, headers=member)
             self.assertEqual((projected.status_code, projected.json()['name']), (200, 'Acme Labs'))
+            self.assertEqual(projected.json()['code'], 'org-a', 'the administrator page gets the code employees type')
+            self.assertNotIn('code', a.json())
+            self.assertNotIn('code', save(client, admin_a, org_a, 1, ACME).json())
             for leaked in (str(org_a.organization_id), str(org_b.organization_id), 'forge.local.test', 'gateway'):
                 self.assertNotIn(leaked, a.text + b.text)
 
