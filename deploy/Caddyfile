@@ -1,0 +1,55 @@
+# Edge proxy: TLS termination, the control plane routes and installer downloads.
+# The domain and the TLS mode come only from the environment (FORGE_DOMAIN, FORGE_TLS, FORGE_ACME_EMAIL).
+{
+	# An unknown SNI still completes the handshake (with our certificate) so the catch-all below can refuse it.
+	default_sni {$FORGE_DOMAIN}
+}
+
+# FORGE_TLS=acme -> a public certificate (Let's Encrypt); FORGE_TLS=internal -> Caddy's local CA.
+# Any other value selects a snippet that does not exist, and Caddy refuses to start.
+(tls_internal) {
+	tls internal
+}
+
+(tls_acme) {
+	tls {$FORGE_ACME_EMAIL}
+}
+
+{$FORGE_DOMAIN} {
+	import tls_{$FORGE_TLS}
+
+	# The application sets its own CSP and caching headers; the proxy only adds the ones below.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	# Installer hosting: read-only volume, no directory listing, the version manifest is never cached.
+	handle_path /downloads/* {
+		root * /srv/downloads
+		@latest path /latest.json
+		header @latest Cache-Control "no-cache"
+		file_server {
+			hide .*
+		}
+	}
+
+	@app path /admin /admin/* /status /livez /forge/*
+	handle @app {
+		# Host is preserved on purpose: the control plane only accepts its configured public host.
+		reverse_proxy control-plane:3410 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}
+
+# Any other Host header never reaches the control plane.
+:443 {
+	respond "Misdirected request" 421
+}

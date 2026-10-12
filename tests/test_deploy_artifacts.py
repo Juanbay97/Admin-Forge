@@ -177,5 +177,271 @@ class RepositoryHygiene(unittest.TestCase):
             self.assertIn(entry, ignore)
 
 
+# ---------------------------------------------------------------------------------------------- compose + proxy
+
+TOOL_HOSTS = {'caddyserver.com', 'docker.com', 'docker.io', 'letsencrypt.org', 'postgresql.org', 'resend.com',
+              'amazonaws.com', 'github.com', 'mailpit.axllent.org', 'system.io'}  # system.io: .NET namespace in the .ps1
+CONCRETE = re.compile(r'\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|dev|app|ai|co|es|eu|cloud)\b', re.I)
+
+
+def concrete_domains(source):
+    """Fully qualified names that look like a real production domain (reserved test names and tool hosts excluded)."""
+    found = []
+    for match in CONCRETE.finditer(source):
+        name = match.group(0).lower()
+        if not any(name == host or name.endswith('.' + host) for host in TOOL_HOSTS):
+            found.append(name)
+    return found
+
+
+def top_level(source, key):
+    """The lines indented under a top-level ``key:`` mapping."""
+    lines, inside, block = source.splitlines(), False, []
+    for line in lines:
+        if re.match(r'^[A-Za-z_-][\w-]*:', line):
+            inside = line.split(':')[0] == key
+            continue
+        if inside:
+            block.append(line)
+    return '\n'.join(block)
+
+
+def services(source):
+    """``{service name: its block of text}`` from a compose file with two-space indentation."""
+    result, current = {}, None
+    for line in top_level(source, 'services').splitlines():
+        header = re.match(r'^  ([A-Za-z][\w-]*):\s*$', line)
+        if header:
+            current = header.group(1)
+            result[current] = []
+        elif current is not None:
+            result[current].append(line)
+    return {name: '\n'.join(lines) for name, lines in result.items()}
+
+
+def depends_on(block):
+    """``{dependency: condition}`` from a service's ``depends_on`` mapping."""
+    found, inside = {}, False
+    lines = block.splitlines()
+    for index, line in enumerate(lines):
+        if re.match(r'^    depends_on:\s*$', line):
+            inside = True
+        elif inside and re.match(r'^    \S', line):
+            inside = False
+        elif inside:
+            name = re.match(r'^      ([\w-]+):\s*$', line)
+            if name:
+                condition = re.match(r'^\s+condition:\s*(\S+)', lines[index + 1])
+                found[name.group(1)] = condition.group(1)
+    return found
+
+
+def env_keys(source):
+    """Keys of the shared ``x-forge-env`` mapping."""
+    keys, inside = [], False
+    for line in source.splitlines():
+        if line.startswith('x-forge-env:'):
+            inside = True
+        elif inside and re.match(r'^\S', line):
+            break
+        elif inside:
+            match = re.match(r'^  ([A-Z][A-Z0-9_]*):', line)
+            if match:
+                keys.append(match.group(1))
+    return keys
+
+
+COMPOSE = 'deploy/compose.yml'
+
+
+class ConcreteDomainDetector(unittest.TestCase):
+    def test_a_production_looking_name_is_found_and_reserved_or_tool_names_are_not(self):
+        self.assertEqual(concrete_domains('host forge.prometheonlab.com and smtp.resend.com and forge.example.test'),
+                         ['forge.prometheonlab.com'])
+        self.assertEqual(concrete_domains('server prometeonlab.com ; see https://caddyserver.com/docs'),
+                         ['prometeonlab.com'])
+        self.assertEqual(concrete_domains('FORGE_DOMAIN=localhost'), [])
+
+
+class ComposePolicy(unittest.TestCase):
+    def setUp(self):
+        self.source = text(COMPOSE)
+        self.services = services(self.source)
+
+    def test_the_stack_has_the_four_core_services(self):
+        self.assertTrue({'postgres', 'migrate', 'control-plane', 'caddy'} <= set(self.services))
+
+    def test_only_caddy_publishes_host_ports(self):
+        published = sorted(name for name, block in self.services.items() if re.search(r'^    ports:', block, re.M))
+        self.assertEqual(published, ['caddy'])
+
+    def test_every_service_is_hardened(self):
+        for name, block in self.services.items():
+            with self.subTest(service=name):
+                self.assertRegex(block, r'(?m)^    read_only: true$')
+                self.assertRegex(block, r'(?m)^    cap_drop:\n      - ALL$')
+                self.assertRegex(block, r'(?m)^      - no-new-privileges:true$')
+
+    def test_every_image_is_pinned_by_digest_or_built_here(self):
+        for name, block in self.services.items():
+            image = re.search(r'(?m)^    image: (\S+)$', block)
+            with self.subTest(service=name):
+                self.assertIsNotNone(image)
+                if re.search(r'(?m)^    build:', block) or name == 'migrate':
+                    self.assertIn('${FORGE_IMAGE:-', image.group(1))  # the locally built control-plane image
+                else:
+                    self.assertRegex(image.group(1), DIGEST)
+
+    def test_postgres_digest_is_the_one_the_test_harness_pins(self):
+        pinned = text('scripts/postgres-image.txt').strip()
+        self.assertRegex(pinned, r'^postgres' + DIGEST.pattern + '$')
+        self.assertIn(pinned, self.services['postgres'])
+
+    def test_start_order_is_postgres_then_migrate_then_control_plane_then_caddy(self):
+        self.assertEqual(depends_on(self.services['migrate']), {'postgres': 'service_healthy'})
+        self.assertEqual(depends_on(self.services['control-plane']),
+                         {'postgres': 'service_healthy', 'migrate': 'service_completed_successfully'})
+        self.assertEqual(depends_on(self.services['caddy']), {'control-plane': 'service_healthy'})
+        self.assertRegex(self.services['migrate'], r'(?m)^    restart: "no"$')
+
+    def test_long_running_services_have_healthchecks(self):
+        for name in ('postgres', 'control-plane', 'caddy'):
+            with self.subTest(service=name):
+                self.assertRegex(self.services[name], r'(?m)^    healthcheck:')
+        self.assertIn('forge.serve_prod', self.services['control-plane'])
+        self.assertIn('healthcheck', self.services['control-plane'])
+        self.assertIn('-h 127.0.0.1', self.services['postgres'])  # TCP, so the init-time socket-only server is not "ready"
+
+    def test_only_postgres_and_migrate_receive_the_database_administrator_secret(self):
+        holders = sorted(name for name, block in self.services.items() if re.search(r'^      - pg_superuser$', block, re.M))
+        self.assertEqual(holders, ['migrate', 'postgres'])
+
+    def test_secrets_are_docker_secrets_for_exactly_the_generated_files(self):
+        declared = top_level(self.source, 'secrets')
+        files = re.findall(r'(?m)^    file: \$\{FORGE_SECRETS_DIR:-\./secrets\}/(\S+)$', declared)
+        self.assertEqual(sorted(files), sorted(SECRET_FILES))
+        self.assertNotRegex(self.source, r'(?m)^\s+[A-Z_]*(PASSWORD|KEY|SECRET)[A-Z_]*:\s+(?!/run/secrets|\$\{)\S')
+
+    def test_the_shared_environment_only_uses_keys_the_runtime_accepts(self):
+        from forge.prod_config import KNOWN_KEYS
+        keys = env_keys(self.source)
+        self.assertGreaterEqual(len(keys), 8)
+        self.assertEqual([key for key in keys if key not in KNOWN_KEYS], [])
+        self.assertNotIn('FORGE_WORKERS', keys)  # one worker is the default and the only accepted value
+
+    def test_the_public_origin_comes_from_the_domain_variables_alone(self):
+        origin = re.search(r'(?m)^  FORGE_PUBLIC_ORIGIN: (.+)$', self.source).group(1)
+        self.assertRegex(origin, r'^https://\$\{FORGE_DOMAIN:\?[^}]+\}\$\{FORGE_PORT_SUFFIX:-\}$')
+
+    def test_no_artifact_outside_the_env_example_names_a_production_domain(self):
+        for relative in (COMPOSE, 'Dockerfile', 'scripts/deploy-secrets.sh', 'scripts/deploy-secrets.ps1',
+                         'deploy/Caddyfile'):
+            with self.subTest(file=relative):
+                self.assertEqual(concrete_domains(text(relative)), [])
+        self.assertNotRegex(text('deploy/.env.example') + text(COMPOSE), r'(?i)prometh?eonlab\.(?!example)')
+
+    def test_volumes_and_networks_isolate_the_database(self):
+        self.assertIn('internal: true', top_level(self.source, 'networks'))
+        for name in ('postgres', 'migrate'):
+            self.assertNotIn('- edge', self.services[name])
+        self.assertIn('- edge', self.services['caddy'])
+        self.assertIn('- edge', self.services['control-plane'])
+
+
+class CaddyfilePolicy(unittest.TestCase):
+    def setUp(self):
+        self.source = text('deploy/Caddyfile')
+
+    def test_domain_and_tls_mode_are_selected_only_by_environment(self):
+        self.assertIn('{$FORGE_DOMAIN}', self.source)
+        self.assertIn('import tls_{$FORGE_TLS}', self.source)
+        self.assertRegex(self.source, r'\(tls_internal\) \{\n\s+tls internal\n\}')
+        self.assertRegex(self.source, r'\(tls_acme\) \{\n\s+tls \{\$FORGE_ACME_EMAIL\}\n\}')
+
+    def test_the_control_plane_routes_are_proxied_and_everything_else_is_refused(self):
+        self.assertRegex(self.source, r'@app path /admin /admin/\* /status /livez /forge/\*')
+        self.assertIn('reverse_proxy control-plane:3410', self.source)
+        self.assertRegex(self.source, r'handle \{\n\s+respond "Not found" 404\n\s+\}')
+
+    def test_security_headers_are_added_but_the_application_csp_is_left_alone(self):
+        for header in ('Strict-Transport-Security', 'X-Content-Type-Options nosniff', 'Referrer-Policy'):
+            self.assertIn(header, self.source)
+        self.assertNotIn('Content-Security-Policy', self.source)
+
+    def test_downloads_are_served_read_only_without_listing_and_latest_json_is_never_cached(self):
+        self.assertIn('handle_path /downloads/*', self.source)
+        self.assertIn('root * /srv/downloads', self.source)
+        self.assertNotIn('browse', self.source)
+        self.assertRegex(self.source, r'@latest path /latest\.json\n\s+header @latest Cache-Control "no-cache"')
+        self.assertIn('/srv/downloads:ro', text(COMPOSE))
+
+    def test_an_unknown_host_is_answered_by_the_proxy_itself(self):
+        self.assertRegex(self.source, r'(?m)^:443 \{\n(?:.*\n)*?\s+respond "Misdirected request" 421')
+
+
+class EnvExample(unittest.TestCase):
+    def test_every_setting_is_a_placeholder_with_a_reserved_domain(self):
+        values = dict(line.split('=', 1) for line in text('deploy/.env.example').splitlines()
+                      if line and not line.startswith('#'))
+        self.assertEqual(values['FORGE_DOMAIN'], 'forge.example.test')
+        self.assertEqual(values['FORGE_PORT_SUFFIX'], '')
+        self.assertIn(values['FORGE_TLS'], ('acme', 'internal'))
+        self.assertTrue({'FORGE_ACME_EMAIL', 'FORGE_GATEWAY_ORIGINS', 'FORGE_HTTP_PORT', 'FORGE_HTTPS_PORT'} <= set(values))
+        self.assertTrue(values['FORGE_ACME_EMAIL'].endswith('@example.test'))
+        for key, value in values.items():
+            self.assertFalse(SECRET_NAME.search(key) and not key.endswith('_DIR') and value, key + ' must not carry a value')
+
+
+@unittest.skipUnless(shutil.which('docker'), 'the docker CLI is required')
+class ComposeConfigRendering(unittest.TestCase):
+    """`docker compose config` is offline: it proves the file parses and leaks no secret value."""
+
+    def test_the_rendered_configuration_succeeds_publishes_only_caddy_and_prints_no_secret(self):
+        with tempfile.TemporaryDirectory() as directory:
+            secrets_dir = Path(directory)/'secrets'
+            values = {}
+            for name in SECRET_FILES:
+                values[name] = 'v-%s-%s' % (name, hashlib.sha256(name.encode()).hexdigest()[:24])
+                secrets_dir.mkdir(exist_ok=True)
+                (secrets_dir/name).write_text(values[name] + '\n', 'utf-8')
+            environment = {**os.environ, 'FORGE_DOMAIN': 'forge.example.test', 'FORGE_SECRETS_DIR': str(secrets_dir)}
+            result = subprocess.run(['docker', 'compose', '-p', 'forge-static-check', '-f', str(ROOT/COMPOSE), 'config'],
+                                    capture_output=True, text=True, timeout=60, env=environment)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for name, value in values.items():
+            self.assertNotIn(value, result.stdout, name)
+        self.assertEqual(len(re.findall(r'published:', result.stdout)), 3)  # 80/tcp, 443/tcp, 443/udp
+        self.assertIn('FORGE_PUBLIC_ORIGIN: https://forge.example.test', result.stdout)
+
+
+def docker_ready():
+    if not shutil.which('docker'):
+        return False
+    return subprocess.run(['docker', 'info'], capture_output=True, timeout=60).returncode == 0
+
+
+@unittest.skipUnless(docker_ready(), 'a running Docker daemon is required')
+class CaddyfileValidation(unittest.TestCase):
+    """The pinned Caddy image parses the Caddyfile for both TLS modes and refuses an invalid one."""
+
+    def validate(self, mode):
+        digest = re.search(r'image: (caddy@sha256:[0-9a-f]{64})', text(COMPOSE)).group(1)
+        return subprocess.run(
+            ['docker', 'run', '--rm', '-e', 'FORGE_DOMAIN=forge.example.test', '-e', 'FORGE_TLS=' + mode,
+             '-e', 'FORGE_ACME_EMAIL=admin@example.test', '-v', '%s:/etc/caddy/Caddyfile:ro' % (ROOT/'deploy'/'Caddyfile'),
+             digest, 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'],
+            capture_output=True, text=True, timeout=120)
+
+    def test_both_modes_are_valid(self):
+        for mode in ('internal', 'acme'):
+            with self.subTest(mode=mode):
+                self.assertEqual(self.validate(mode).returncode, 0)
+
+    def test_an_unknown_mode_is_refused_with_a_clear_error(self):
+        result = self.validate('bogus')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('tls_bogus', result.stderr)
+
+
 if __name__ == '__main__':
     unittest.main()
