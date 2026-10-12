@@ -586,7 +586,7 @@ def create_account_app(*,sessions: SessionService | None=None,
         message=invoke(delivery.queue_invitation,issued,request)
         state=invoke(delivery.dispatch,message)
         return invoke(lambda: {'invitation_id':str(issued.invitation_id),'expires_at':issued.expires_at.isoformat(),
-                'delivery_state':state.value,'delivery_channel':'local_test_mailbox'})
+                'delivery_state':state.value,'delivery_channel':delivery.channel})
 
     @app.post('/forge/v1/accounts/invitations/accept',status_code=201,response_model=EnrollmentResponse)
     def accept(body: AcceptBody,_: Annotated[None,Depends(ready)]):
@@ -605,7 +605,7 @@ def create_account_app(*,sessions: SessionService | None=None,
             message=invoke(delivery.queue_reset,intent)
             invoke(delivery.dispatch,message)
         # Same output for unknown, disabled, throttled and known accounts.
-        return {'status':'accepted','delivery_channel':'local_test_mailbox'}
+        return {'status':'accepted','delivery_channel':invoke(lambda: delivery.channel)}
 
     @app.post('/forge/v1/accounts/password-reset/consume',status_code=204)
     def consume_reset(body: ResetBody,_: Annotated[None,Depends(ready)]):

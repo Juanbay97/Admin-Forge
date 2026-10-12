@@ -37,10 +37,12 @@ HEALTH_TIMEOUT = 3
 _LOG = logging.getLogger('forge.serve')
 
 
-class UnconfiguredDelivery:
-    """No delivery channel is configured yet: fail loudly instead of writing a local mailbox."""
-    def deliver(self, message_id, recipient, name, link, *, purpose='invitation'):
-        raise RuntimeError('DELIVERY_NOT_CONFIGURED')
+def choose_delivery(config):
+    """Production delivers by SMTP only. Without settings it fails closed: a silent local mailbox would lose invitations."""
+    if config.smtp is None:
+        raise ConfigError('CONFIG_INVALID:FORGE_SMTP_HOST')
+    from forge.smtp_delivery import SmtpDelivery
+    return SmtpDelivery(config.smtp)
 
 
 def reserve_port(host, port):
@@ -78,13 +80,14 @@ def assemble_prod(app, config, readiness):
 
 def compose_prod(config, pools, *, pool_factory=None, readiness_factory=None, delivery=None):
     from forge import composition
+    delivery = choose_delivery(config) if delivery is None else delivery  # before any pool: a misconfiguration binds nothing
     try:
         owned = composition.open_pools(config.role_settings, pools, pool_factory=pool_factory)
     except Exception:
         raise ConfigError('DB_UNAVAILABLE') from None  # the pools opened so far stay in ``pools`` to be closed
     readiness = composition.attest(owned, readiness_factory=readiness_factory)
     app = composition.build_app(
-        owned, readiness=readiness, delivery_adapter=UnconfiguredDelivery() if delivery is None else delivery,
+        owned, readiness=readiness, delivery_adapter=delivery,
         onboarding_origin=config.public_origin, delivery_key=config.delivery_key, gateway_key=config.gateway_key,
         gateway_policy=config.gateway_policy)
     return assemble_prod(app, config, readiness)

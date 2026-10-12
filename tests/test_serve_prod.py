@@ -18,7 +18,8 @@ from forge.admin_mount import ADMIN_CSP
 from forge.mvp_local import ConfigError, ROLES
 from forge.mvp_profile import MVP_PROFILE
 from forge.prod_config import load_prod_config
-from forge.serve_prod import UnconfiguredDelivery, assemble_prod, compose_prod, healthcheck, main, serve
+from forge.smtp_delivery import SmtpDelivery
+from forge.serve_prod import assemble_prod, choose_delivery, compose_prod, healthcheck, main, serve
 from test_prod_config import Fixture, ORIGIN
 
 HOST = 'forge.example.test'
@@ -47,7 +48,9 @@ class Stack:
         self.admin.mkdir()
         (self.admin/'index.html').write_text('<title>Forge admin</title>', 'utf-8')
         self.port = free_port()
-        self.fixture.env.update(FORGE_ADMIN_DIR=str(self.admin), FORGE_PORT=str(self.port), FORGE_BIND_HOST='127.0.0.1')
+        self.fixture.env.update(FORGE_ADMIN_DIR=str(self.admin), FORGE_PORT=str(self.port), FORGE_BIND_HOST='127.0.0.1',
+                                FORGE_SMTP_HOST='mailpit', FORGE_SMTP_FROM='forge@example.test', FORGE_SMTP_SECURITY='none',
+                                FORGE_SMTP_PORT='1025')
         return self
 
     def __exit__(self, *exc):
@@ -194,11 +197,25 @@ class ComposeTests(unittest.TestCase):
             self.assertEqual(str(caught.exception), 'DB_UNAVAILABLE')
             self.assertEqual(len(pools), 1)
 
-    def test_without_a_configured_channel_delivery_fails_loudly_instead_of_writing_a_mailbox(self):
-        with self.assertRaises(RuntimeError) as caught:
-            UnconfiguredDelivery().deliver(None, 'person@example.test', 'Person', 'https://forge.example.test/onboarding')
-        self.assertEqual(str(caught.exception), 'DELIVERY_NOT_CONFIGURED')
-        self.assertNotIn('person', str(caught.exception))
+    def test_production_delivery_is_smtp_from_the_environment_and_never_a_local_mailbox(self):
+        with Stack() as s:
+            adapter = choose_delivery(s.config())
+            self.assertIsInstance(adapter, SmtpDelivery)
+            self.assertEqual((adapter.channel, adapter.settings.host, adapter.settings.port, adapter.settings.security),
+                             ('smtp', 'mailpit', 1025, 'none'))
+            other = choose_delivery(s.config(FORGE_SMTP_HOST='smtp.resend.com', FORGE_SMTP_SECURITY='starttls', FORGE_SMTP_PORT=None))
+            self.assertEqual((other.settings.host, other.settings.port, other.settings.security), ('smtp.resend.com', 587, 'starttls'))
+
+    def test_without_smtp_the_stack_fails_closed_before_any_pool_is_opened(self):
+        with Stack() as s:
+            config = s.config(FORGE_SMTP_HOST=None, FORGE_SMTP_FROM=None, FORGE_SMTP_SECURITY=None, FORGE_SMTP_PORT=None)
+            self.assertIsNone(config.smtp)
+            for call in (lambda: choose_delivery(config), lambda: compose_prod(config, pools, pool_factory=FakePool)):
+                pools = []
+                with self.assertRaises(ConfigError) as caught:
+                    call()
+                self.assertEqual(str(caught.exception), 'CONFIG_INVALID:FORGE_SMTP_HOST')
+                self.assertEqual((pools, FakePool.created), ([], []))
 
 
 def wait_listening(port, thread):

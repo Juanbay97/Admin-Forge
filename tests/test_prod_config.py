@@ -8,6 +8,7 @@ from cryptography.fernet import Fernet
 from forge.gateway_origins import DEFAULT_ENDPOINT
 from forge.mvp_local import ConfigError, FORBIDDEN_PORTS, ROLES
 from forge.prod_config import KNOWN_KEYS, load_prod_config, strip_libpq_environment
+from forge.smtp_delivery import SMTP_KEYS, SmtpSettings
 
 ORIGIN = 'https://forge.example.test'
 
@@ -41,6 +42,24 @@ class Fixture:
         with test.assertRaises(ConfigError) as caught:
             self.load(**change)
         test.assertEqual(str(caught.exception), 'CONFIG_INVALID:' + key)
+
+
+SMTP_ENV = {'FORGE_SMTP_HOST': 'mailpit', 'FORGE_SMTP_FROM': 'forge@example.test', 'FORGE_SMTP_SECURITY': 'none', 'FORGE_SMTP_PORT': '1025'}
+
+
+class SmtpLoadTests(unittest.TestCase):
+    def test_smtp_is_absent_without_any_smtp_key_and_loaded_with_the_rest_when_present(self):
+        with Fixture() as f:
+            self.assertIsNone(f.load().smtp)
+            settings = f.load(**SMTP_ENV).smtp
+        self.assertEqual(settings, SmtpSettings('mailpit', 1025, 'none', None, None, 'forge@example.test', None))
+
+    def test_every_smtp_key_is_a_known_key_and_an_invalid_value_fails_the_whole_load_by_name(self):
+        self.assertTrue(set(SMTP_KEYS) <= set(KNOWN_KEYS))
+        with Fixture() as f:
+            f.refused(self, 'FORGE_SMTP_PORT', **{**SMTP_ENV, 'FORGE_SMTP_PORT': '0'})
+            f.refused(self, 'FORGE_SMTP_HOST', FORGE_SMTP_FROM='forge@example.test')  # a partial configuration is not ignored
+            f.refused(self, 'unknown_key', **SMTP_ENV, FORGE_SMTP_RETRIES='3')
 
 
 class LoadTests(unittest.TestCase):

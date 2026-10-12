@@ -24,7 +24,8 @@ from forge.invitations import capability_digest
 
 
 class MessageDelivery(Protocol):
-    def deliver(self, message_id: UUID, recipient: str, name: str, link: str, *, purpose: str="invitation") -> Path:
+    channel: str
+    def deliver(self, message_id: UUID, recipient: str, name: str, link: str, *, purpose: str="invitation") -> "DeliveryReceipt":
         ...
 
 
@@ -47,12 +48,20 @@ def trusted_origin(value: str) -> str:
     return value
 
 
-def onboarding_link(origin: str, invitation_id: UUID, capability: str) -> str:
+COMPANY_CODE=re.compile(r'[a-z0-9][a-z0-9-]{0,62}')
+CHANNEL=re.compile(r'[a-z][a-z_]{0,31}')
+
+
+def onboarding_link(origin: str, invitation_id: UUID, capability: str, company_code: str | None=None) -> str:
+    """The capability stays in the fragment; the optional public company code is only a `c=` query hint before it."""
     origin=trusted_origin(origin)
     if type(invitation_id) is not UUID:
         raise ValueError("Invalid invitation identifier.")
     capability_digest(capability)
-    return origin+'/onboarding#'+urlencode({'invitation_id':str(invitation_id),'capability':capability})
+    if company_code is not None and (type(company_code) is not str or not COMPANY_CODE.fullmatch(company_code)):
+        raise ValueError("Invalid company code.")
+    hint='' if company_code is None else '?'+urlencode({'c':company_code})
+    return origin+'/onboarding'+hint+'#'+urlencode({'invitation_id':str(invitation_id),'capability':capability})
 
 
 @dataclass(frozen=True)
@@ -92,13 +101,15 @@ class LocalTestMailbox:
     cannot guarantee a private Windows ACL. Never use a public/static assets path.
     This output is local test delivery, not a claim of SMTP mail being sent.
     """
+    channel='local_test_mailbox'
+
     def __init__(self, directory: Path, *, sender: str):
         if not isinstance(directory,Path) or directory.is_symlink() or not directory.is_dir():
             raise ValueError("A caller-owned private mailbox directory is required.")
         self.directory=directory.resolve(strict=True)
         self.sender=canonical_email(sender)
 
-    def deliver(self, message_id: UUID, recipient: str, name: str, link: str, *, purpose: str="invitation") -> Path:
+    def deliver(self, message_id: UUID, recipient: str, name: str, link: str, *, purpose: str="invitation") -> DeliveryReceipt:
         message=build_message(self.sender,recipient,name,link,purpose,message_id)
         target=self.directory/(str(message_id)+'.eml')
         if self.directory.is_symlink() or not self.directory.is_dir():
@@ -112,7 +123,7 @@ class LocalTestMailbox:
         except Exception:
             target.unlink(missing_ok=True)
             raise
-        return target
+        return DeliveryReceipt(self.channel,str(message['Message-ID']))
 
 
 class DeliveryState(str, Enum):
@@ -145,6 +156,14 @@ class DeliveryCoordinator:
         self._cipher=Fernet(encryption_key)
         self.origin=trusted_origin(origin)
         self.store,self.adapter=store,adapter
+
+    @property
+    def channel(self) -> str:
+        """The channel the adapter really uses, so the API never claims one it does not."""
+        channel=getattr(self.adapter,'channel',None)
+        if type(channel) is not str or not CHANNEL.fullmatch(channel):
+            raise ValueError('The delivery adapter must name its channel.')
+        return channel
 
     def _payload(self,purpose: str,recipient: str,name: str,link: str) -> str:
         document={'version':1,'purpose':purpose,'recipient':canonical_email(recipient),

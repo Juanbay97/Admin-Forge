@@ -130,8 +130,39 @@ class AccountApiTests(unittest.TestCase):
         sessions=MagicMock()
         sessions.request_reset.return_value=None
         delivery=MagicMock()
+        delivery.channel='local_test_mailbox'
         with self.configured(sessions,delivery=delivery) as client:
             result=client.post('/forge/v1/accounts/password-reset/request',json={'email':'unknown@example.com'})
             self.assertEqual(result.status_code,202)
             self.assertEqual(result.json(),{'status':'accepted','delivery_channel':'local_test_mailbox'})
         delivery.queue_reset.assert_not_called()
+
+    def test_reset_and_invitation_report_the_channel_the_coordinator_really_uses(self):
+        from forge.account_sessions import ResetIntent
+        from forge.authorization import AuthorizationSnapshot, MembershipStatus
+        from forge.invitation_delivery import DeliveryState
+        from forge.invitations import IssuedInvitation
+        for channel in ('smtp','local_test_mailbox'):
+            with self.subTest(channel=channel):
+                actor=AuthenticatedIdentity('forge',ACCOUNT_ISSUER,str(uuid4()))
+                organization,department=uuid4(),uuid4()
+                sessions=MagicMock()
+                sessions.validate.return_value=actor
+                sessions.request_reset.return_value=ResetIntent(secrets.token_urlsafe(32),uuid4(),'a@example.com','Name')
+                reader=MagicMock()
+                reader.read.return_value=AuthorizationSnapshot(actor,organization,uuid4(),1,frozenset({'organization_admin'}),
+                                                               MembershipStatus.ACTIVE,True)
+                invitations=MagicMock()
+                invitations.issue.return_value=IssuedInvitation(uuid4(),secrets.token_urlsafe(32),datetime.now(timezone.utc)+timedelta(hours=1))
+                delivery=MagicMock()
+                delivery.channel=channel
+                delivery.dispatch.return_value=DeliveryState.DELIVERED
+                with self.configured(sessions,delivery=delivery,invitations=invitations,authorization_reader=reader) as client:
+                    reset=client.post('/forge/v1/accounts/password-reset/request',json={'email':'a@example.com'})
+                    invited=client.post('/forge/v1/accounts/invitations',json={
+                        'organization_id':str(organization),'department_id':str(department),'email':'new@example.com','name':'New Person'},
+                        headers={'Authorization':'Bearer '+secrets.token_urlsafe(32)})
+                self.assertEqual((reset.status_code,reset.json()),(202,{'status':'accepted','delivery_channel':channel}))
+                self.assertEqual(invited.status_code,201,invited.text)
+                self.assertEqual(set(invited.json()),{'invitation_id','expires_at','delivery_state','delivery_channel'})
+                self.assertEqual((invited.json()['delivery_state'],invited.json()['delivery_channel']),('delivered',channel))

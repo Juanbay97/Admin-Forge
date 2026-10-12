@@ -16,6 +16,7 @@ from cryptography.fernet import Fernet
 
 from forge.gateway_origins import canonical_origin, policy_from_env, ORIGINS_VARIABLE
 from forge.mvp_local import ConfigError, FORBIDDEN_PORTS, ROLES, _fail
+from forge.smtp_delivery import SMTP_KEYS, load_smtp_settings
 
 DEFAULT_PORT = 3410
 DEFAULT_BIND_HOST = '0.0.0.0'
@@ -27,7 +28,7 @@ _PLAIN = ('FORGE_PUBLIC_ORIGIN', 'FORGE_DB_HOST', 'FORGE_DB_PORT', 'FORGE_DB_NAM
           'FORGE_DB_ADMIN_USER', 'FORGE_ROLE_PASSWORDS_DIR', 'FORGE_ADMIN_DIR', 'FORGE_PORT', 'FORGE_BIND_HOST',
           'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE)
 # Later changes that add settings extend this tuple; any other FORGE_* name is a typo and refused.
-KNOWN_KEYS = (*_PLAIN, *_SECRETS, *(name + '_FILE' for name in _SECRETS))
+KNOWN_KEYS = (*_PLAIN, *_SECRETS, *(name + '_FILE' for name in _SECRETS), *SMTP_KEYS)
 _DB_HOST = re.compile(r'[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?')
 _IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]{0,62}')
 
@@ -54,6 +55,7 @@ class ProdConfig:
     port: int = DEFAULT_PORT
     bind_host: str = DEFAULT_BIND_HOST
     log_level: str = 'INFO'
+    smtp: object = None  # `SmtpSettings` when any FORGE_SMTP_* key is set; serving requires it, migrating does not
 
     @property
     def trusted_hosts(self):
@@ -195,4 +197,5 @@ def load_prod_config(environ):
     level = env.get('FORGE_LOG_LEVEL', 'INFO')
     if level not in LOG_LEVELS:
         _fail('FORGE_LOG_LEVEL')
-    return ProdConfig(public, db, roles, delivery, gateway, policy, admin_dir, port, bind, level)
+    smtp = load_smtp_settings(env) if any(name.startswith('FORGE_SMTP_') for name in env) else None
+    return ProdConfig(public, db, roles, delivery, gateway, policy, admin_dir, port, bind, level, smtp)

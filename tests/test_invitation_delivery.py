@@ -14,7 +14,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"src"))
 from forge.invitations import IssuedInvitation,InvitationRequest,InvitationUnavailable
 from forge.invitation_delivery import DeliveryCoordinator,DeliveryState
 from forge.account_sessions import ResetIntent
-from forge.invitation_delivery import LocalTestMailbox, onboarding_link
+from forge.invitation_delivery import DeliveryReceipt, LocalTestMailbox, onboarding_link
 
 class DeliveryTests(unittest.TestCase):
     def test_fragment_link_uses_only_explicit_trusted_origin(self):
@@ -32,8 +32,10 @@ class DeliveryTests(unittest.TestCase):
             mailbox=LocalTestMailbox(Path(owned),sender="forge@example.com")
             identifier=uuid4()
             link=onboarding_link("http://127.0.0.1:8000",uuid4(),secrets.token_urlsafe(32))
-            target=mailbox.deliver(identifier,"Invitee@Example.com","<script>& Name",link)
-            self.assertEqual(target,Path(owned).resolve()/f"{identifier}.eml")
+            receipt=mailbox.deliver(identifier,"Invitee@Example.com","<script>& Name",link)
+            target=Path(owned).resolve()/f"{identifier}.eml"
+            self.assertEqual(receipt,DeliveryReceipt('local_test_mailbox',f'<{identifier}@forge.local-test.invalid>'))
+            self.assertTrue(target.is_file())  # the .eml is written exactly where it always was
             message=BytesParser(policy=policy.default).parsebytes(target.read_bytes())
             self.assertEqual(str(message['To']),"invitee@example.com")
             self.assertEqual(str(message['From']),"forge@example.com")
@@ -109,3 +111,56 @@ class DeliveryTests(unittest.TestCase):
         for invalid in (None,b'invalid','text'):
             with self.assertRaises((ValueError,TypeError)):
                 DeliveryCoordinator(store,MagicMock(),origin='https://example.com',encryption_key=invalid)
+
+    def test_company_code_is_a_query_hint_before_the_fragment_and_never_the_capability(self):
+        identifier,token=uuid4(),secrets.token_urlsafe(32)
+        link=onboarding_link("https://onboarding.example.com",identifier,token,company_code="acme")
+        self.assertEqual(link,f"https://onboarding.example.com/onboarding?c=acme#invitation_id={identifier}&capability={token}")
+        self.assertNotIn(token,link.split("#")[0])
+        self.assertEqual(onboarding_link("https://onboarding.example.com",identifier,token,company_code="a-1"),
+                         f"https://onboarding.example.com/onboarding?c=a-1#invitation_id={identifier}&capability={token}")
+
+    def test_without_a_company_code_the_link_is_the_previous_form(self):
+        identifier,token=uuid4(),secrets.token_urlsafe(32)
+        self.assertEqual(onboarding_link("https://onboarding.example.com",identifier,token),
+                         f"https://onboarding.example.com/onboarding#invitation_id={identifier}&capability={token}")
+        self.assertEqual(onboarding_link("https://onboarding.example.com",identifier,token,company_code=None),
+                         onboarding_link("https://onboarding.example.com",identifier,token))
+
+    def test_a_malformed_company_code_is_refused(self):
+        for code in ("","Acme","a b","-acme","acme&x=1","acme#frag","a"*64,"ac\nme",7):
+            with self.subTest(code=code),self.assertRaises(ValueError):
+                onboarding_link("https://onboarding.example.com",uuid4(),secrets.token_urlsafe(32),company_code=code)
+
+    def test_every_adapter_reports_its_own_channel_through_the_coordinator(self):
+        class Adapter:
+            def __init__(self,channel):
+                self.channel=channel
+        for channel in ('smtp','local_test_mailbox'):
+            with self.subTest(channel=channel):
+                coordinator=DeliveryCoordinator(MagicMock(),Adapter(channel),origin='https://onboarding.example.com',
+                                                encryption_key=Fernet.generate_key())
+                self.assertEqual(coordinator.channel,channel)
+        with TemporaryDirectory() as owned:
+            mailbox=LocalTestMailbox(Path(owned),sender='forge@example.com')
+            self.assertEqual(DeliveryCoordinator(MagicMock(),mailbox,origin='https://onboarding.example.com',
+                                                 encryption_key=Fernet.generate_key()).channel,'local_test_mailbox')
+
+    def test_an_adapter_that_does_not_name_a_valid_channel_is_never_reported(self):
+        for adapter in (MagicMock(),type('NoChannel',(),{})(),type('Bad',(),{'channel':'Not A Channel'})()):
+            coordinator=DeliveryCoordinator(MagicMock(),adapter,origin='https://onboarding.example.com',
+                                            encryption_key=Fernet.generate_key())
+            with self.subTest(adapter=type(adapter).__name__),self.assertRaises(ValueError):
+                coordinator.channel
+
+    def test_the_coordinator_ignores_whatever_receipt_an_adapter_returns(self):
+        store=MagicMock()
+        store.queue_invitation.return_value=True
+        store.finish.return_value=True
+        adapter=MagicMock()
+        adapter.deliver.return_value=object()  # not a path, not a receipt: dispatch must not depend on it
+        coordinator=DeliveryCoordinator(store,adapter,origin='https://onboarding.example.com',encryption_key=Fernet.generate_key())
+        issued=IssuedInvitation(uuid4(),secrets.token_urlsafe(32),datetime.now(timezone.utc)+timedelta(hours=1))
+        message=coordinator.queue_invitation(issued,InvitationRequest(uuid4(),uuid4(),uuid4(),'a@example.com','Name'))
+        store.claim.return_value=store.queue_invitation.call_args.args[-1]
+        self.assertEqual(coordinator.dispatch(message),DeliveryState.DELIVERED)

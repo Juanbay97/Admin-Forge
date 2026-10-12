@@ -114,8 +114,8 @@ class DeliveryContent(Fixture):
     def test_it_builds_exactly_what_the_local_mailbox_writes(self):
         identifier = uuid4()
         with tempfile.TemporaryDirectory() as owned:
-            target = LocalTestMailbox(Path(owned), sender='forge@example.test').deliver(identifier, RECIPIENT, 'New Hire', LINK)
-            written = BytesParser(policy=policy.default).parsebytes(Path(target).read_bytes())
+            LocalTestMailbox(Path(owned), sender='forge@example.test').deliver(identifier, RECIPIENT, 'New Hire', LINK)
+            written = BytesParser(policy=policy.default).parsebytes((Path(owned)/('%s.eml' % identifier)).read_bytes())
         built = build_message('forge@example.test', RECIPIENT, 'New Hire', LINK, 'invitation', identifier)
         for header in ('From', 'To', 'Subject', 'Message-ID'):
             self.assertEqual(str(built[header]), str(written[header]), header)
