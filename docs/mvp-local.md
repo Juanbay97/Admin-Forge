@@ -132,5 +132,8 @@ detiene y elimina todo. Termina con `mvp-smoke: PASS` y código 0. Cada espera t
 - Docker Desktop (almacén containerd) puede fallar en `docker image inspect` por resumen hasta usar la imagen
   una vez (`CACHED_PINNED_IMAGE_REQUIRED`): `scripts\mvp-smoke.ps1` lo resuelve con un contenedor descartable;
   a mano, ejecute `docker run --rm --pull never --entrypoint postgres <imagen> --version` y reintente.
+- La migración 0019 (origen de puerta de enlace por organización) es solo hacia adelante: no hay mecanismo de
+  retroceso. Restaurar el CHECK de endpoint fijo es una precondición manual documentada (no debe haber filas con
+  origen distinto del predeterminado) y no se hace cumplir por código.
 
 Diseño y especificaciones: `openspec/changes/prometheon-forge-mvp/`.
