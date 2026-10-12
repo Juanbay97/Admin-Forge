@@ -53,13 +53,13 @@ Budget 800 lines/slice. **Dependency**: apply after `v1-multiuser`. W1 stacks on
 
 - [x] 3.1 RED/GREEN `theme/brand-input.ts` (exact-key schema, hostile payload tests)
 - [x] 3.2 `theme/palette.ts` vs vectors; replace `applyTheme` `textContent` with `setProperty`; keep `themeToCss` drift test
-- [ ] 3.3 `backend/app/forge_branding.py` + pytest (size caps, cache, offline); `branding-routes.ts` + 1-line middleware mount
-- [ ] 3.4 `branding-store.ts`, `company-code-gate.tsx`, `brand-provider.tsx`; BrandMark, title, favicon, login copy
-- [ ] 3.5 `npm run test:unit`, `npx tsc --noEmit`
+- [x] 3.3 `backend/app/forge_branding.py` + pytest (size caps, cache, offline); `branding-routes.ts` + 1-line middleware mount
+- [x] 3.4 `branding-store.ts`, `company-code-gate.tsx`, `brand-provider.tsx`; BrandMark, title, favicon, login copy
+- [x] 3.5 `npm run test:unit`, `npx tsc --noEmit`
 
 ## Phase 4: Seed, security, E2E (W6, C4)
 
 - [x] 4.1 Seed branding for org-a (Northwind Logistics) and org-b (Lumen Finance) + `docs/white-label.md`
-- [ ] 4.2 `next.config.ts` CSP; test header and no violation; tighten Tauri CSP after smoke
-- [ ] 4.3 Replace `src-tauri/icons` with Prometheon art (source from `Marca\Logos`); delete `OpenYak logo`; test LICENSE/NOTICE hashes
-- [ ] 4.4 `scripts/branding-smoke.ps1` + Playwright: two orgs visible in admin and client
+- [x] 4.2 `next.config.ts` CSP; test header and no violation; tighten Tauri CSP after smoke
+- [x] 4.3 Replace `src-tauri/icons` with Prometheon art (source from `Marca\Logos`); delete `OpenYak logo`; test LICENSE/NOTICE hashes
+- [x] 4.4 `scripts/branding-smoke.ps1` + Playwright: two orgs visible in admin and client
