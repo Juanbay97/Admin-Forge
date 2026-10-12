@@ -16,6 +16,9 @@ import sys
 from uuid import UUID, uuid4
 
 from forge.accounts import ACCOUNT_ISSUER, PasswordHasher, canonical_email, display_name
+from forge.branding import parse as parse_branding
+from forge.branding_assets import sanitize
+from forge.branding_seed import SEED_BRANDING, SeedBranding
 
 SLUG = re.compile(r'[a-z0-9][a-z0-9-]{0,62}')
 OPERATOR_KEYS = {'host', 'port', 'dbname', 'user', 'password'}
@@ -34,6 +37,8 @@ class OrganizationSpec:
     # Accounts that are members of this organization and, through the same email, of others: only the first
     # organization creates the account (and its one credential); the others reuse it.
     shared_members: tuple[tuple[str, str], ...] = ()
+    # Local-stack branding written as revision 1 by the operator; None leaves the Prometheon default.
+    branding: SeedBranding | None = None
 
     def __post_init__(self):
         if type(self.slug) is not str or not SLUG.fullmatch(self.slug):
@@ -81,9 +86,11 @@ SEED = tuple(
     for letter, department in (('A', 'Operations'), ('B', 'Finance')))
 
 
-# The same two organizations plus one account that belongs to both, for the multi-user local stack.
+# The same two organizations plus one account that belongs to both, for the multi-user local stack, each
+# with its own branding (white-label demo); the plain SEED keeps the Prometheon default.
 MULTIUSER_SEED = tuple(
-    OrganizationSpec(**{**vars(spec), 'shared_members': (('shared@forge.local.test', 'Shared Member'),)})
+    OrganizationSpec(**{**vars(spec), 'shared_members': (('shared@forge.local.test', 'Shared Member'),),
+                        'branding': SEED_BRANDING[spec.slug]})
     for spec in SEED)
 
 
@@ -114,6 +121,24 @@ def _member(connection, organization, department, email, name, role, hasher):
     return () if password is None else (NewAccount(email, name, role, password),)
 
 
+def _brand(connection, organization, admin_email, item):
+    """Write revision 1 of the organization's branding (and its logo) as the first administrator."""
+    actor = connection.execute('SELECT id FROM forge.owned_accounts WHERE canonical_email=%s', (admin_email,)).fetchone()[0]
+    asset = sanitize(item.mark_png, 'image/png')
+    value = parse_branding(item.document({'isotipo': asset.sha256}))
+    connection.execute('INSERT INTO forge.branding_assets(organization_id,sha256,content_type,width,height,body,created_by) '
+                       'VALUES(%s,%s,%s,%s,%s,%s,%s)',
+                       (organization, asset.sha256, asset.content_type, asset.width, asset.height, asset.data, actor))
+    columns = (value.name, value.login_copy, value.primary, value.accent, value.tint, value.heading, value.body,
+               value.assets.get('logoLight'), value.assets.get('logoDark'), value.assets.get('isotipo'))
+    connection.execute('INSERT INTO forge.organization_branding(organization_id,revision,name,login_copy,primary_color,'
+                       'accent_color,tint_color,heading_font,body_font,logo_light,logo_dark,isotipo,updated_by) '
+                       'VALUES(%s,1,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)', (organization, *columns, actor))
+    connection.execute("INSERT INTO forge.organization_branding_revisions(organization_id,revision,action,name,login_copy,"
+                       "primary_color,accent_color,tint_color,heading_font,body_font,logo_light,logo_dark,isotipo,actor_id) "
+                       "VALUES(%s,1,'save',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (organization, *columns, actor))
+
+
 def provision(connection, specs, deliver, *, hasher=None):
     """Create the missing organizations in ONE transaction; return only what this run created.
 
@@ -140,6 +165,8 @@ def provision(connection, specs, deliver, *, hasher=None):
                                     'member', hasher)
             for email, name in spec.shared_members:
                 accounts += _member(connection, organization, department, email, name, 'member', hasher)
+            if spec.branding is not None:
+                _brand(connection, organization, spec.admin_email, spec.branding)
             key = 'fake-%s-%s' % (spec.slug, secrets.token_urlsafe(24)) if spec.issue_gateway_key else None
             created.append(Provisioned(organization, department, spec.slug, accounts, key))
         if created:

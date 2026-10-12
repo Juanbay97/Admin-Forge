@@ -29,16 +29,20 @@ const orgA = seeded("org-a");
 const orgB = seeded("org-b");
 const ASSET_URL = /^\/forge\/v1\/branding\/assets\/([0-9a-f]{64})$/;
 
-// Golden vector "blue, amber, cool grey tint" (contract/branding-palette.vectors.json).
+// The local stack seeds org-a as Northwind Logistics (revision 1, blue, with an isotipo) and org-b as Lumen Finance
+// (revision 1, purple). The test brands org-a again with golden vector "near-black primary"
+// (contract/branding-palette.vectors.json) so the change is visible against the seed.
+const SEEDED_A = { name: "Northwind Logistics", primary: "#1D4ED8", title: "Northwind Logistics Admin" };
+const SEEDED_B = { name: "Lumen Finance", primary: "#7C3AED", title: "Lumen Finance Admin" };
 const ACME = {
   name: "Acme Labs",
   loginCopy: "Sign in to the Acme workspace.",
-  primary: "#1D4ED8",
-  accent: "#B45309",
-  tint: "#E5E7EB",
-  lightBrand: "rgb(29, 78, 216)",
-  darkBrand: "rgb(97, 131, 228)",
-  ink: "#091741",
+  primary: "#101820",
+  accent: "#B91C1C",
+  tint: "#F3F4F6",
+  lightBrand: "rgb(16, 24, 32)",
+  darkBrand: "rgb(124, 128, 132)",
+  ink: "#05070A",
 };
 
 interface PublicBranding {
@@ -86,10 +90,11 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
   const violations = await watchViolations(page);
   const logo = makePng(120, 60, [30, 90, 200]);
 
-  await test.step("both organizations start on the Prometheon default", async () => {
-    for (const slug of ["org-a", "org-b"]) {
+  await test.step("both organizations start on their own seeded branding, each with its isotipo", async () => {
+    for (const [slug, seeded] of [["org-a", SEEDED_A], ["org-b", SEEDED_B]] as const) {
       const view = await publicBranding(request, slug);
-      expect(view).toMatchObject({ revision: 0, name: "Prometheon Forge", assets: {} });
+      expect(view).toMatchObject({ revision: 1, name: seeded.name, theme: { primary: seeded.primary } });
+      expect(Object.keys(view.assets)).toEqual(["isotipo"]);
     }
   });
 
@@ -98,15 +103,15 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     await expect(page.getByRole("heading", { level: 1, name: "Organization A" })).toBeVisible();
     await page.getByRole("button", { name: "Branding" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Branding" })).toBeVisible();
-    await expect(field(page, "Product name")).toHaveValue("Prometheon Forge");
+    await expect(field(page, "Product name")).toHaveValue(SEEDED_A.name);
 
     await field(page, "Product name").fill(ACME.name);
     await field(page, "Login message").fill(ACME.loginCopy);
     await field(page, "Primary color").fill(ACME.primary);
     await field(page, "Accent color").fill(ACME.accent);
     await field(page, "Background tint").fill(ACME.tint);
-    await field(page, "Heading font").selectOption("source-sans-3");
-    await field(page, "Body font").selectOption("roboto");
+    await field(page, "Heading font").selectOption("nunito-sans");
+    await field(page, "Body font").selectOption("ibm-plex-sans");
     await field(page, "Logo for light backgrounds").setInputFiles({ name: "acme.png", mimeType: "image/png", buffer: logo });
     await expect(page.getByText("Uploaded 120×60 px. It goes live when you save.")).toBeVisible();
 
@@ -115,16 +120,16 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     await expect(preview("Dark").getByTestId("preview-button")).toHaveCSS("background-color", ACME.darkBrand);
     await expect(preview("Light")).toContainText(ACME.name);
     await expect(preview("Light").locator("canvas")).toBeVisible();
-    // Nothing is saved yet: the shell, the title and the public endpoint still show the default.
-    expect(await rootVar(page, "--brand-teal")).toBe("#0F6B6D");
-    expect(await page.title()).toBe("Prometheon Forge Admin");
-    expect((await publicBranding(request, "org-a")).name).toBe("Prometheon Forge");
+    // Nothing is saved yet: the shell, the title and the public endpoint still show the seeded branding.
+    expect(await rootVar(page, "--brand-teal")).toBe(SEEDED_A.primary);
+    expect(await page.title()).toBe(SEEDED_A.title);
+    expect((await publicBranding(request, "org-a")).name).toBe(SEEDED_A.name);
   });
 
   let logoUrl = "";
-  await test.step("save publishes revision 1 and re-themes the shell", async () => {
+  await test.step("save publishes revision 2 and re-themes the shell", async () => {
     await page.getByRole("button", { name: "Save branding" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Branding saved" })).toHaveText("Branding saved (revision 1).");
+    await expect(page.getByRole("status").filter({ hasText: "Branding saved" })).toHaveText("Branding saved (revision 2).");
     expect(await rootVar(page, "--brand-teal")).toBe(ACME.primary);
     expect(await rootVar(page, "--brand-primary")).toBe(ACME.ink);
     await expect(page.locator("header")).toContainText(ACME.name);
@@ -149,26 +154,27 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
       .poll(() =>
         page.evaluate(async () => {
           await document.fonts.ready;
-          return [...document.fonts].some((face) => face.family.includes("Source Sans 3") && face.status === "loaded");
+          return [...document.fonts].some((face) => face.family.includes("Nunito Sans") && face.status === "loaded");
         }),
       )
       .toBe(true);
     await page.getByRole("button", { name: "Branding" }).click();
     await expect(field(page, "Product name")).toHaveValue(ACME.name);
     await expect(field(page, "Primary color")).toHaveValue(ACME.primary);
-    await expect(field(page, "Heading font")).toHaveValue("source-sans-3");
-    await expect(page.getByText("The current logo is published.")).toBeVisible();
+    await expect(field(page, "Heading font")).toHaveValue("nunito-sans");
+    await expect(page.getByText("The current logo is published.").first()).toBeVisible();
   });
 
   await test.step("the public endpoint and the content-addressed asset serve exactly what was saved", async () => {
     const view = await publicBranding(request, "org-a");
     expect(view).toMatchObject({
-      revision: 1,
+      revision: 2,
       name: ACME.name,
       loginCopy: ACME.loginCopy,
-      theme: { primary: ACME.primary, accent: ACME.accent, tint: ACME.tint, heading: "source-sans-3", body: "roboto" },
+      theme: { primary: ACME.primary, accent: ACME.accent, tint: ACME.tint, heading: "nunito-sans", body: "ibm-plex-sans" },
     });
-    expect(Object.keys(view.assets)).toEqual(["logoLight"]);
+    // The seeded isotipo is kept by the form; the new light logo is added next to it.
+    expect(Object.keys(view.assets).sort()).toEqual(["isotipo", "logoLight"]);
     const asset = await request.get(logoUrl);
     expect(asset.status()).toBe(200);
     expect(asset.headers()["content-type"]).toBe("image/png");
@@ -179,16 +185,16 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
   });
 
   await test.step("org-b is untouched, publicly and for its own administrator", async () => {
-    expect(await publicBranding(request, "org-b")).toMatchObject({ revision: 0, name: "Prometheon Forge", assets: {} });
+    expect(await publicBranding(request, "org-b")).toMatchObject({ revision: 1, name: SEEDED_B.name });
     const other = await browser.newContext({ baseURL: process.env.FORGE_E2E_ADMIN_URL });
     try {
       const second = await other.newPage();
       await signIn(second, orgB.admin);
       await expect(second.getByRole("heading", { level: 1, name: "Organization B" })).toBeVisible();
-      await expect(second.locator("header")).toContainText("Prometheon Forge");
+      await expect(second.locator("header")).toContainText(SEEDED_B.name);
       await expect(second.locator("header")).not.toContainText(ACME.name);
-      expect(await rootVar(second, "--brand-teal")).toBe("#0F6B6D");
-      expect(await second.title()).toBe("Prometheon Forge Admin");
+      expect(await rootVar(second, "--brand-teal")).toBe(SEEDED_B.primary);
+      expect(await second.title()).toBe(SEEDED_B.title);
     } finally {
       await other.close();
     }
@@ -196,16 +202,16 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     const bearer = { Authorization: `Bearer ${await token(request, orgA.admin)}` };
     const crossRead = await request.get(`/forge/v1/orgs/${orgB.id}/branding`, { headers: bearer });
     expect(crossRead.status()).toBe(404);
-    const crossWrite = await request.post(`/forge/v1/orgs/${orgB.id}/branding/reset`, { headers: bearer, data: { expectedRevision: 0 } });
+    const crossWrite = await request.post(`/forge/v1/orgs/${orgB.id}/branding/reset`, { headers: bearer, data: { expectedRevision: 1 } });
     expect(crossWrite.status()).toBe(404);
-    expect((await publicBranding(request, "org-b")).revision).toBe(0);
+    expect((await publicBranding(request, "org-b")).revision).toBe(1);
   });
 
   await test.step("reset restores the Prometheon default as a new revision", async () => {
     await page.getByRole("button", { name: "Reset to default" }).click();
     await expect(page.getByText("Reset to the Prometheon default?")).toBeVisible();
     await page.getByRole("button", { name: "Confirm reset" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "reset" })).toHaveText("Branding reset to the Prometheon default (revision 2).");
+    await expect(page.getByRole("status").filter({ hasText: "reset" })).toHaveText("Branding reset to the Prometheon default (revision 3).");
     await expect(field(page, "Product name")).toHaveValue("Prometheon Forge");
     await expect(field(page, "Primary color")).toHaveValue("#0B1D26");
     expect(await rootVar(page, "--brand-teal")).toBe("#0F6B6D");
@@ -213,7 +219,8 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
     expect(await page.title()).toBe("Prometheon Forge Admin");
     await expect(page.locator("header")).toContainText("Prometheon Forge");
     const view = await publicBranding(request, "org-a");
-    expect(view).toMatchObject({ revision: 2, name: "Prometheon Forge", assets: {} });
+    expect(view).toMatchObject({ revision: 3, name: "Prometheon Forge" });
+    expect(view.assets).toEqual({});
     // The superseded logo is no longer referenced by a current revision, so it is no longer served.
     expect((await request.get(logoUrl)).status()).toBe(404);
   });

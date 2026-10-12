@@ -8,6 +8,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from forge.account_sessions import PostgresSessionStore, SessionService
+from forge.branding_seed import SEED_BRANDING
+from forge.branding_store import PostgresBrandingStore
 from forge.directory import DirectoryService
 from forge.directory_store import PostgresDirectoryStore
 from forge.provisioning import MULTIUSER_SEED, OrganizationSpec, SEED, main, provision
@@ -97,6 +99,33 @@ class PostgresProvisioningTests(unittest.TestCase):
                              {org_a.organization_id: ('member',), org_b.organization_id: ('member',)})
             single = directory.me(sessions.login(org_b.accounts[1].email, org_b.accounts[1].password).capability)
             self.assertEqual([o.id for o in single.organizations], [org_b.organization_id])
+
+    def test_the_multi_user_seed_publishes_distinct_branding_and_a_logo_per_organization(self):
+        with mvp_database() as db:
+            results = provision(db.admin, MULTIUSER_SEED, lambda results: None)
+            store = PostgresBrandingStore(db.pool('forge_gateway_service'), db.pool('forge_branding_service'))
+            published = {slug: store.public(slug) for slug in ('org-a', 'org-b')}
+            self.assertEqual([(slug, item.revision, item.name) for slug, item in published.items()],
+                             [('org-a', 1, 'Northwind Logistics'), ('org-b', 1, 'Lumen Finance')])
+            self.assertNotEqual(published['org-a'].primary, published['org-b'].primary)
+            for slug, item in published.items():
+                asset = store.asset(item.assets['isotipo'])
+                self.assertEqual((asset.content_type, asset.data), ('image/png', SEED_BRANDING[slug].mark_png))
+            history = db.admin.execute('SELECT organization_id,revision,action,actor_id FROM '
+                                       'forge.organization_branding_revisions').fetchall()
+            admins = {r.organization_id: db.admin.execute('SELECT id FROM forge.owned_accounts WHERE canonical_email=%s',
+                                                          (r.accounts[0].email,)).fetchone()[0] for r in results}
+            self.assertEqual(sorted(history), sorted((o, 1, 'save', admins[o]) for o in admins))
+            self.assertEqual(provision(db.admin, MULTIUSER_SEED, lambda results: None), ())
+            self.assertEqual(count(db, 'organization_branding_revisions'), 2)
+            self.assertEqual(store.public('org-a').revision, 1)
+
+    def test_the_plain_seed_leaves_both_organizations_on_the_default(self):
+        with mvp_database() as db:
+            provision(db.admin, SEED, lambda results: None)
+            store = PostgresBrandingStore(db.pool('forge_gateway_service'), db.pool('forge_branding_service'))
+            self.assertEqual([store.public(slug).revision for slug in ('org-a', 'org-b')], [0, 0])
+            self.assertEqual(count(db, 'organization_branding'), 0)
 
     def test_a_partial_seed_only_creates_the_missing_organization(self):
         with mvp_database() as db:
