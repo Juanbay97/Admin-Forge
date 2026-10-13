@@ -68,3 +68,10 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 ## H4 Smoke stability
 - [x] H4.1 RED/GREEN: e2e API sessions reused per account and released after each journey (production limits untouched)
 - [ ] H4.2 BLOCKED (not ours): `forge-multiuser-flow` fails identically at the baseline 10b5509 (org-B chat gets no reply, composer says "Models unavailable"); client side to diagnose
+
+## I Final gap closure (client slices are recorded in the client repository)
+- [x] I1.1 RED/GREEN (client, `2103dcd`, `f90bd4e`): installer configuration handoff. The NSIS hook copies `forge-install.json` (from `/CONFIG=<path>` or beside the setup) into the data directory with size and shape checks; the desktop shell validates it at first start (company code, allow-listed origin, key set) and binds the company; the worker pins its keys and rejects a hostile or foreign file; `docs/policy-key-pinning.md` updated. makensis-level, Rust and Python tests.
+- [x] I2.1 RED/GREEN (client, `0216db3`): sandbox session primitive (`open_session`) hosting a long-lived child over line-framed stdio under the layers of a run.
+- [x] I2.2 RED/GREEN (client, `87f79b3`, `4739317`): local stdio MCP connector host governed by the signed policy, DPAPI vault token, lifecycle tied to the profile runtime, proven with a fixture MCP server inside an AppContainer. No real launcher ships (product decision); only tools are bridged.
+- [x] I3.1 RED/GREEN: `docs/deploy-proxmox.md`, the Proxmox VM guide for `forge.prometheonlab.com` (DNS, ports, Docker, Resend, first owner and TOTP, OmniRoute key in the console, first company, installer publishing, client install, backups, upgrades, troubleshooting), plus `tests/test_deploy_proxmox_guide.py` that fails when the guide names a setting, script, service, secret file or path that does not exist in `deploy/` and `scripts/`.
+- [x] I4.1 Verification: mvp-smoke, branding-smoke, admin-e2e and deploy-smoke run sequentially after the slices (results in the apply report).

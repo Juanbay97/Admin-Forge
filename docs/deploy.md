@@ -481,5 +481,7 @@ unverified, so the supported way to handle more load today is a larger server.
 
 ## Next step
 
+A step-by-step walk-through for a Proxmox VM (DNS, Resend mail, the first owner, the gateway key, the first company, the installer and a client PC) is [deploy-proxmox.md](deploy-proxmox.md).
+
 Local rehearsal on a workstation with Docker: `scripts/deploy-smoke.ps1` runs this same stack with
 `deploy/compose.dev.yml` (internal CA, loopback ports, Mailpit as the mail relay), proves it - including an invitation email and its link - and removes everything it created.
