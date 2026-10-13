@@ -35,7 +35,7 @@ DEFAULT_THEME = ('Prometheon Forge', 'Sign in to your Forge workspace.', '#0B1D2
 def drop_authorities():
     with connect() as admin:
         for role in ('forge_branding_authority', 'forge_branding_service', 'forge_directory_authority',
-                 'forge_platform_authority', 'forge_platform_service'):
+                 'forge_platform_authority', 'forge_platform_service', 'forge_capability_authority', 'forge_capability_service'):
             admin.execute('DROP ROLE IF EXISTS ' + role)
 
 

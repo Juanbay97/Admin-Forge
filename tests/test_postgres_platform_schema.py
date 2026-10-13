@@ -55,7 +55,8 @@ PRIVILEGES = ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 
 
 def drop_platform_roles():
     with connect() as admin:
-        for role in (*PLATFORM_ROLES, 'forge_branding_authority', 'forge_branding_service', 'forge_directory_authority'):
+        for role in (*PLATFORM_ROLES, 'forge_branding_authority', 'forge_branding_service', 'forge_directory_authority',
+                 'forge_capability_authority', 'forge_capability_service'):
             admin.execute('DROP ROLE IF EXISTS ' + role)
 
 
