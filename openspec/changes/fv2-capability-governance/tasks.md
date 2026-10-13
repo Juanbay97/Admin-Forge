@@ -41,9 +41,9 @@ Chain strategy: stacked-to-main
 - [x] 2.4 Tests: cross-org denied, audit immutability, platform-only catalog write
 
 ## S3 APIs
-- [ ] 3.1 RED→GREEN `capability_api.py` platform routes via `platform_lock_owner`
-- [ ] 3.2 Company-admin enable/disable + audit read; `LOCKED` rejection
-- [ ] 3.3 Hidden-route test + MVP contract pin unchanged
+- [x] 3.1 RED→GREEN `capability_api.py` platform routes via `platform_lock_owner`
+- [x] 3.2 Company-admin enable/disable + audit read; `LOCKED` rejection
+- [x] 3.3 Hidden-route test + MVP contract pin unchanged
 
 ## S4 Effective policy
 - [ ] 4.1 `capability_signing.py` Ed25519, kid, canonical JSON; vectors

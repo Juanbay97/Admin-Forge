@@ -74,6 +74,9 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.authorization_store import PostgresAuthorizationReader
     from forge.branding_api import mount_branding
     from forge.branding_store import PostgresBrandingStore
+    from forge.capability_api import mount_company_capabilities
+    from forge.capability_service import Capabilities
+    from forge.capability_store import PostgresCapabilityStore
     from forge.directory import DirectoryService
     from forge.directory_store import PostgresDirectoryStore
     from forge.gateway_catalog import GatewayCatalog
@@ -116,9 +119,11 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
                                            usage=PostgresUsageStore(gateway)),
         directory=DirectoryService(PostgresDirectoryStore(gateway)))
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
+    capabilities = Capabilities(PostgresCapabilityStore(capability))
     mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),
                    sessions=sessions, readiness=readiness, keys=GatewayKeys(PostgresGatewayKeyStore(platform), cipher),
-                   usage=PlatformUsage(PostgresPlatformUsageStore(platform)))
+                   usage=PlatformUsage(PostgresPlatformUsageStore(platform)), capabilities=capabilities)
+    mount_company_capabilities(app, capabilities=capabilities, sessions=sessions, readiness=readiness)
     mount_company_usage(app, usage=CompanyUsage(PostgresCompanyUsageStore(gateway)), sessions=sessions,
                         authorization_reader=PostgresAuthorizationReader(bootstrap), readiness=readiness)
     return app

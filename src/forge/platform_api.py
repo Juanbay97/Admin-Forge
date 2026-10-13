@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from forge.api import ErrorDetail, ErrorEnvelope
 from forge.branding import BrandingInvalid, parse, public_view
 from forge.branding_api import _MESSAGES as BRANDING_MESSAGES
+from forge.capability_model import CapabilityConflict, CapabilityDenied, CapabilityInvalid, CapabilityLocked, CapabilityNotFound
 from forge.invitations import capability_digest
 from forge.platform import (COMPANY_CODE, MAX_PAGE, MAX_REVISION, CompanyConflict, KeyConflict, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired,
                             PlatformDenied, PlatformInvalid, PlatformNotFound, RevisionConflict)
@@ -36,7 +37,12 @@ _FAILURES = ((PlatformDenied, 403, 'PLATFORM_DENIED', 'Platform access denied.')
              (MfaLocked, 429, 'MFA_LOCKED', 'Too many attempts; try again later.'),
              (MfaEnrolled, 409, 'MFA_ENROLLED', 'A second factor is already enrolled.'),
              (PlatformInvalid, 422, 'INVALID_REQUEST', 'The platform request is invalid.'),
-             (PlatformNotFound, 404, 'NOT_FOUND', 'The requested resource is unavailable.'))
+             (PlatformNotFound, 404, 'NOT_FOUND', 'The requested resource is unavailable.'),
+             (CapabilityLocked, 409, 'LOCKED', 'The capability is locked.'),
+             (CapabilityConflict, 409, 'REVISION_CONFLICT', 'The revision changed.'),
+             (CapabilityInvalid, 422, 'INVALID_REQUEST', 'The platform request is invalid.'),
+             (CapabilityDenied, 403, 'PLATFORM_DENIED', 'Platform access denied.'),
+             (CapabilityNotFound, 404, 'NOT_FOUND', 'The requested resource is unavailable.'))
 _QUERY_KEYS = {'companies': {'after', 'page'}, 'audit': {'before', 'page'}}
 _DIGITS = re.compile(r'[0-9]{1,18}')
 _COMPANY_KEYS = {'slug', 'display_name', 'department', 'admin_email', 'admin_name'}
@@ -138,7 +144,7 @@ def _company(company):
     return {'id': str(company.organization_id), 'slug': company.slug, 'display_name': company.display_name, 'active': company.active}
 
 
-def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None, usage=None):
+def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None, usage=None, capabilities=None):
     """Add the platform routes (all ``include_in_schema=False``, so the contract pin is unchanged)."""
     def blocking(function, *arguments, **keywords):
         return run_sync(lambda: function(*arguments, **keywords), abandon_on_cancel=False)
@@ -289,3 +295,6 @@ def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None
     if usage is not None:
         from forge.platform_usage_api import mount_usage
         mount_usage(app, usage=usage, guarded=guarded, blocking=blocking)
+    if capabilities is not None:
+        from forge.capability_api import mount_platform_capabilities
+        mount_platform_capabilities(app, capabilities=capabilities, guarded=guarded, blocking=blocking)
