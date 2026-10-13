@@ -1,4 +1,5 @@
 import type { Installer, InstallerManifest } from "../api/downloads";
+import type { InstallerConfig } from "../api/installer";
 
 export type Offer = { kind: "download"; installer: Installer } | { kind: "unsupported"; system: string } | { kind: "none" };
 
@@ -33,3 +34,18 @@ export function formatBytes(bytes: number): string {
 
 /** Opens the desktop app on the right control plane and company: `prometheon-forge://join?cp=<origin>&code=<company code>`. */
 export const deepLink = (origin: string, code: string): string => `prometheon-forge://join?cp=${encodeURIComponent(origin)}&code=${encodeURIComponent(code)}`;
+
+/** The configuration as the file the installer reads: pretty JSON with a trailing newline under a fixed name. */
+export const configFile = (config: InstallerConfig): { filename: string; text: string } => ({ filename: "forge-install.json", text: JSON.stringify(config, null, 2) + "\n" });
+
+/** Hands text to the browser as a file download (an object URL on the same origin, revoked straight away). */
+export function saveTextFile(file: { filename: string; text: string }): void {
+  const url = URL.createObjectURL(new Blob([file.text], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}

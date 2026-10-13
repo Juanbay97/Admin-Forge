@@ -25,7 +25,9 @@ used by the platform owner's bootstrap link (see `docs/platform-console.md`).
    that address and lands on `/portal/download`.
 5. The download page shows the company code with a copy button, the installer from `/downloads/latest.json` (version, size, date, SHA-256 and
    how to verify it), an "Open Forge" button using `prometheon-forge://join?cp=<origin>&code=<code>` with a manual fallback, and the SmartScreen note.
-   Non-Windows systems are told "Windows only for now".
+   Non-Windows systems are told "Windows only for now". "Download configuration" saves `forge-install.json`
+   (`GET /forge/v1/capabilities/installer-config`, hidden): the company code, the control plane origin and the public policy keys to pin
+   (`forge.installer-config.v1`, see "Rotate the policy signing key" in `docs/deploy.md`); it holds no secret.
 
 Failure states: an expired, used, withdrawn, wrong or unknown invitation (the server folds all of them into one 404, for the preview and for accept, so
 nothing can be enumerated; the page shows one generic message, "This invitation can no longer be used", before anything is typed), an incomplete link, an existing account

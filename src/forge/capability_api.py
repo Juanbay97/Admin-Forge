@@ -210,7 +210,7 @@ async def _session_company(request, token, organizations, blocking):
     raise _invalid()  # several companies: the member must say which
 
 
-def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations):
+def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations, installer=None):
     """``GET /forge/v1/capabilities/effective`` (a member session, ``sandbox_level`` 0..4 optional, ``org`` optional when the
     session has exactly one company) and the public ``GET /forge/v1/capabilities/keys``. Both are 503 without a signing key."""
     def blocking(function, *arguments):
@@ -245,6 +245,22 @@ def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations)
             return JSONResponse(policy.keys(), headers={'Cache-Control': 'public, max-age=300'})
         except Exception as error:
             return company_failure(error)
+
+    if installer is not None:
+        @app.get('/forge/v1/capabilities/installer-config', include_in_schema=False)
+        async def installer_config(request: Request):
+            """The member's per-company installer configuration as a download (``org`` optional like the effective policy)."""
+            try:
+                token = await authenticate(request)
+                if set(request.query_params) - {'org'} or len(request.query_params.getlist('org')) > 1:
+                    raise _invalid()
+                org = await _session_company(request, token, organizations, blocking)
+                document = await blocking(installer.document, token, org)
+                return JSONResponse(document, headers={**headers, 'Content-Disposition': 'attachment; filename="forge-install.json"'})
+            except _Refusal as refusal:
+                return refusal.response
+            except Exception as error:
+                return company_failure(error)
 
     @app.get('/forge/v1/capabilities/pinning', include_in_schema=False)
     async def pinning():

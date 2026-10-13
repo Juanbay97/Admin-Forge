@@ -19,6 +19,8 @@ export interface PortalWorld {
   invitations: Record<string, "valid" | "invalid" | "existing" | "outage">;
   /** The installer manifest the downloads mount serves; null is a 404. */
   manifest: Json | null;
+  /** The per-company installer configuration; null is a 404. */
+  installer: Json | null;
   /** `usage/me`: null means this server has no such route (404). */
   usageMe: Json | null;
   roles: string[];
@@ -37,6 +39,7 @@ export const newPortalWorld = (): PortalWorld => ({
   brandingDelayMs: 0,
   invitations: { [CAPABILITY]: "valid" },
   manifest: fixture("manifest"),
+  installer: fixture("installer-config"),
   usageMe: null,
   roles: ["member"],
   members: fixture<{ members: Json[] }>("usage-members").members,
@@ -97,6 +100,7 @@ export async function installPortal(page: Page, world: PortalWorld = newPortalWo
     if (authorization !== `Bearer ${MEMBER.token}`) return reply(route, 401, envelope("UNAUTHENTICATED"));
     if (path === "/forge/v1/platform/me") return reply(route, 403, envelope("PLATFORM_DENIED"));
     if (path === "/forge/v1/accounts/logout") return reply(route, 204);
+    if (path === "/forge/v1/capabilities/installer-config") return world.installer ? reply(route, 200, world.installer) : reply(route, 503, envelope("SERVICE_UNAVAILABLE"));
     if (path === "/forge/v1/accounts/me") {
       return reply(route, 200, { account: { id: INVITATION, email: MEMBER.email, display_name: MEMBER.name }, organizations: [{ id: ORG, display_name: "Acme Corp", status: "active", roles: world.roles, departments: world.departments }] });
     }

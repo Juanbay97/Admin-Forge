@@ -466,6 +466,16 @@ try {
     Assert-True ($items0['tool:code_execute'].state -eq 'blocked_attestation') 'a missing level report was not treated as level 0'
     Write-Pass 'governance: the signed policy verifies inside the control plane image (a tampered copy fails); defaults and the attestation gate hold with no company rows'
 
+    # Policy key distribution: the public pinning set (keys plus the rotation chain) and the file a member downloads from the portal.
+    $pinning = Invoke-Curl '/forge/v1/capabilities/pinning' -Arguments @('-H', "Origin: $origin")
+    $pinned = if ($pinning.Status -eq 200) { $pinning.Body | ConvertFrom-Json } else { $null }
+    Assert-True ($pinning.Status -eq 200 -and $pinned.schema -eq 'forge.policy-pinning.v1' -and @($pinned.keys).Count -ge 1 -and @($pinned.rotations).Count -eq 0) "the pinning set is not served ($($pinning.Status) $($pinning.Body))"
+    Assert-True ((Invoke-Curl '/forge/v1/capabilities/installer-config' -Arguments @('-H', "Origin: $origin")).Status -eq 401) 'the installer configuration was served without a session'
+    $installer = Invoke-Authenticated '/forge/v1/capabilities/installer-config' $memberToken
+    $installerDocument = if ($installer.Status -eq 200) { $installer.Body | ConvertFrom-Json } else { $null }
+    Assert-True ($installer.Status -eq 200 -and $installerDocument.schema -eq 'forge.installer-config.v1' -and $installerDocument.company_code -eq 'smoke-co' -and $installerDocument.control_plane_origin -eq $origin -and @($installerDocument.policy_keys.keys | Where-Object { $_.status -eq 'active' }).Count -eq 1 -and $installerDocument.policy_keys.keys[0].kid -eq $pinned.keys[0].kid -and $installer.Body -notmatch 'password|secret|seed') "the installer configuration carries the company code, the origin and the pinned keys: it does not ($($installer.Status) $($installer.Body))"
+    Write-Pass 'governance: the pinning set is public and the installer configuration carries the company code, the origin and the pinned keys'
+
     $epochBefore = ($level2.Body | ConvertFrom-Json).org_epoch
     $lock = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/capabilities/connector:github" @{ state = $null; lock = 'forced_off' } $ownerToken
     Assert-True ($lock.Status -eq 200 -and ($lock.Body | ConvertFrom-Json).changed) "the owner could not force-off a connector for the company ($($lock.Status) $($lock.Body))"

@@ -4,6 +4,7 @@ import type { CatalogApi } from "./catalog";
 import type { DownloadsApi } from "./downloads";
 import type { GatewayApi } from "./gateway";
 import type { UsageApi } from "./usage";
+import type { InstallerApi } from "./installer";
 import type { InvitationsApi } from "./invitations";
 import type { MembersApi } from "./members";
 import type { PlatformApi } from "./platform";
@@ -18,5 +19,6 @@ export interface Services {
   platform: PlatformApi;
   invitations: InvitationsApi;
   downloads: DownloadsApi;
+  installer: InstallerApi;
   usage: UsageApi;
 }

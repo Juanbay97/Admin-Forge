@@ -1,7 +1,7 @@
-import { Download as DownloadIcon, ExternalLink, ShieldCheck, TriangleAlert } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Download as DownloadIcon, ExternalLink, FileJson, ShieldCheck, TriangleAlert } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { formatDate } from "../../lib/format";
-import { deepLink, formatBytes, pickInstaller } from "../../portal/download";
+import { configFile, deepLink, formatBytes, pickInstaller, saveTextFile } from "../../portal/download";
 import { Alert } from "../../ui/Alert";
 import { Badge } from "../../ui/Badge";
 import { Button, buttonVariants } from "../../ui/Button";
@@ -15,6 +15,7 @@ export function Download() {
   const { services, code, organization } = usePortal();
   const manifest = useQuery({ queryKey: ["portal", "manifest"], queryFn: () => services.downloads.latest(), retry: false });
   const offer = manifest.isSuccess ? pickInstaller(manifest.data, navigator.userAgent) : null;
+  const configuration = useMutation({ mutationFn: async () => saveTextFile(configFile(await services.installer.config(organization.id))) });
 
   return (
     <section className="flex flex-col gap-6">
@@ -71,6 +72,16 @@ export function Download() {
                     </div>
                     <p className="text-muted">In PowerShell: <code className="font-mono">Get-FileHash .\Forge-Setup.exe -Algorithm SHA256</code></p>
                   </details>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button variant="outline" disabled={configuration.isPending} onClick={() => configuration.mutate()}>
+                        <FileJson aria-hidden="true" className="size-4" />
+                        Download configuration
+                      </Button>
+                      <span className="text-caption text-muted">Keep it next to the installer: it carries your company code, this server and the public keys the app trusts. It holds no password or key.</span>
+                    </div>
+                    {configuration.isError && <Alert tone="destructive">The configuration could not be prepared. Try again in a moment.</Alert>}
+                  </div>
                 </>
               )}
             </CardContent>

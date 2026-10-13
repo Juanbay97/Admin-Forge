@@ -1,5 +1,6 @@
 import { expect, expectAccessible, expectNoHorizontalScroll, test, viewports } from "./support";
-import { newPortalWorld } from "./portalSupport";
+import { readFileSync } from "node:fs";
+import { MEMBER, ORG, newPortalWorld } from "./portalSupport";
 import { joinAndLand } from "./portalSession";
 
 
@@ -29,6 +30,28 @@ test.describe("download page", () => {
     await expect(page.getByText("SmartScreen")).toBeVisible();
   });
 
+  test("downloads the installer configuration of the chosen company", async ({ page, adminUrl }) => {
+    const { requests } = await joinAndLand(page, adminUrl);
+    const waiting = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download configuration" }).click();
+    const download = await waiting;
+    expect(download.suggestedFilename()).toBe("forge-install.json");
+    const file = JSON.parse(readFileSync((await download.path())!, "utf8")) as { company_code: string; policy_keys: { keys: Array<{ status: string }> } };
+    expect(file.company_code).toBe("acme");
+    expect(file.policy_keys.keys.map((key) => key.status)).toEqual(["active", "retired"]);
+    const asked = requests.find((request) => request.path === "/forge/v1/capabilities/installer-config");
+    expect(asked?.search).toBe(`?org=${ORG}`);
+    expect(asked?.authorization).toBe(`Bearer ${MEMBER.token}`);
+  });
+
+  test("a configuration that cannot be prepared is explained and can be retried", async ({ page, adminUrl }) => {
+    const world = newPortalWorld();
+    world.installer = null;
+    await joinAndLand(page, adminUrl, world);
+    await page.getByRole("button", { name: "Download configuration" }).click();
+    await expect(page.getByText("The configuration could not be prepared")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Download configuration" })).toBeEnabled();
+  });
   test("copies the company code", async ({ page, adminUrl, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await joinAndLand(page, adminUrl);

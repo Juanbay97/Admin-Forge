@@ -471,11 +471,18 @@ class PolicyKeyRotationPolicy(unittest.TestCase):
         values = dict(line.split('=', 1) for line in text('deploy/.env.example').splitlines() if line and not line.startswith('#'))
         self.assertEqual(values['FORGE_POLICY_ROTATIONS'], '')
 
+    def test_the_smoke_proves_the_pinning_set_and_the_installer_configuration_a_member_downloads(self):
+        script = text('scripts/deploy-smoke.ps1')
+        for needle in ('/forge/v1/capabilities/pinning', 'forge.policy-pinning.v1', '/forge/v1/capabilities/installer-config',
+                       'forge.installer-config.v1', 'the installer configuration carries the company code, the origin and the pinned keys'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, script)
+
     def test_the_runbook_chains_the_new_key_to_the_pinned_one_and_documents_the_distribution(self):
         doc = text('docs/deploy.md')
         section = doc.split('## Rotate the policy signing key')[1].split('\n## ')[0]
         for needle in ('forge.capability_rotation', 'FORGE_POLICY_ROTATIONS', '/forge/v1/capabilities/pinning', 'forge.policy-key-rotation.v1',
-                       'CONFIG_INVALID:FORGE_POLICY_ROTATIONS'):
+                       'CONFIG_INVALID:FORGE_POLICY_ROTATIONS', 'forge.installer-config.v1', 'installer-config', 'forge-install.json'):
             self.assertIn(needle, section)
 
     def test_the_runbook_has_the_whole_procedure(self):

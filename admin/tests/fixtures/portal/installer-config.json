@@ -1,0 +1,12 @@
+{
+  "schema": "forge.installer-config.v1",
+  "company_code": "acme",
+  "control_plane_origin": "https://forge.example.test",
+  "policy_keys": {
+    "schema": "forge.capability-keys.v1",
+    "keys": [
+      { "kid": "0123456789abcdef", "alg": "Ed25519", "public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "status": "active" },
+      { "kid": "fedcba9876543210", "alg": "Ed25519", "public_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "status": "retired" }
+    ]
+  }
+}

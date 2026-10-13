@@ -325,8 +325,20 @@ the old *public* key must stay in the published set as `retired` until then. Rot
 
 Rotating does not change what is signed: epochs and the schema stay, only `kid` and `sig` differ.
 
-**How a client follows a rotation.** The desktop client pins the keys it received in the installer configuration (a TLS download from its own
-control plane) and learns a new key only from a statement signed by a key it has already pinned:
+**Where a client gets the keys first.** The member portal's download page offers "Download configuration"
+(`GET /forge/v1/capabilities/installer-config`, a member session, hidden) as `forge-install.json`, one per company, for the installer to read:
+
+```json
+{"schema": "forge.installer-config.v1", "company_code": "acme", "control_plane_origin": "<FORGE_PUBLIC_ORIGIN>",
+ "policy_keys": {"schema": "forge.capability-keys.v1",
+                 "keys": [{"kid": "<16 hex>", "alg": "Ed25519", "public_key": "<base64url, 32 bytes>", "status": "active"}]}}
+```
+
+It holds no secret (the keys are public) and `policy_keys` is exactly `GET /forge/v1/capabilities/keys`; the origin is `FORGE_PUBLIC_ORIGIN`.
+That file is the one trust-on-first-use step: it comes over TLS from the control plane the member signed in to.
+
+**How a client follows a rotation.** The desktop client pins the keys it received in that file and learns a new key only from a statement
+signed by a key it has already pinned:
 
 * it fetches `/forge/v1/capabilities/pinning` over TLS from the pinned control-plane origin and applies each statement whose `old_kid` is pinned
   and not retired: the signature must verify with that key, `new_kid` must be the first 16 hex characters of the SHA-256 of `new_public_key`

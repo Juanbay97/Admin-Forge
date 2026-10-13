@@ -79,6 +79,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.capability_attestation import AttestationReports
     from forge.capability_audit import InvocationLog
     from forge.capability_effective import EffectivePolicy
+    from forge.capability_installer import InstallerConfig
     from forge.capability_signing import load_signer
     from forge.connector_api import mount_connectors
     from forge.connector_cipher import ConnectorCipher
@@ -162,7 +163,10 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
             return [item.id for item in directory.me(token).organizations if item.status == 'active']
         except (DirectoryDenied, DirectorySuspended):
             return []  # a stale, suspended or unknown member has no company: the route answers the same 404
-    mount_effective(app, policy=EffectivePolicy(PostgresCapabilityStore(capability), signer), sessions=sessions, readiness=readiness, organizations=companies)
+    effective = EffectivePolicy(PostgresCapabilityStore(capability), signer)
+    # The per-company installer configuration needs the public origin the desktop client will talk to; without it the route is not mounted.
+    installer = None if public_origin is None else InstallerConfig(effective, public_origin, lambda token, organization: branding_store.read(capability_digest(token), organization).code)
+    mount_effective(app, policy=effective, sessions=sessions, readiness=readiness, organizations=companies, installer=installer)
     mount_invocation_audit(app, log=InvocationLog(PostgresCapabilityStore(capability)), sessions=sessions, readiness=readiness, organizations=companies)
     mount_client_attestation(app, reports=AttestationReports(PostgresCapabilityStore(capability)), sessions=sessions, readiness=readiness, organizations=companies)
     mount_connectors(app, service=connectors, oauth=oauth, broker=broker_proxy, sessions=sessions, readiness=readiness, organizations=companies)
