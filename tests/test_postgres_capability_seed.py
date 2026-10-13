@@ -49,7 +49,7 @@ class SeedSyncTests(GovernanceWorld, unittest.TestCase):
             broken = [*entries[:3], {**entries[3], 'risk': 'severe'}]
             with self.assertRaises(Exception):
                 sync(db.admin, broken)
-            self.assertEqual(db.admin.execute('SELECT (SELECT count(*) FROM forge.capability_catalog),(SELECT count(*) FROM forge.capability_change_audit),(SELECT epoch FROM forge.capability_platform_epoch)').fetchone(), (0, 0, 1))
+            self.assertEqual(db.admin.execute('SELECT (SELECT count(*) FROM forge.capability_catalog),(SELECT count(*) FROM forge.capability_change_audit),(SELECT epoch FROM forge.capability_platform_epoch)').fetchone(), (0, 0, None))
 
     def test_seeded_defaults_resolve_as_the_binding_rules_require(self):
         with mvp_database() as db:

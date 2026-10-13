@@ -87,11 +87,18 @@ class CatalogSchemaTests(unittest.TestCase):
 
     def test_the_service_pool_reads_nothing_and_the_epoch_starts_at_one(self):
         with mvp_database(migrations=(*MIGRATIONS, *MVP_ADDITIONS[:at(CAPABILITY_CATALOG_MIGRATION) + 1])) as db:
-            self.assertEqual(db.admin.execute('SELECT singleton,epoch FROM forge.capability_platform_epoch').fetchall(), [(True, 1)])
+            self.assertEqual(db.admin.execute('SELECT singleton,epoch FROM forge.capability_platform_epoch').fetchall(), [], 'no row: an absent epoch is 1 (a migration must not seed data)')
             with service_connection(db) as connection:
                 for table in TABLES:
                     with self.assertRaises(errors.InsufficientPrivilege):
                         connection.execute('SELECT * FROM forge.' + table)
+
+    def test_a_freshly_migrated_database_holds_no_row_in_any_forge_table(self):
+        """The backup/restore contract (deploy/backup/restore.sh restores data into an empty, freshly migrated database): a migration seeds nothing."""
+        with mvp_database() as db:
+            rows = db.admin.execute("SELECT coalesce(sum((xpath('/row/c/text()', query_to_xml(format('SELECT count(*) AS c FROM %I.%I', schemaname, tablename), false, true, '')))[1]::text::bigint), 0) "
+                                    "FROM pg_tables WHERE schemaname = 'forge'").fetchone()[0]
+            self.assertEqual(rows, 0)
 
     def test_catalog_rows_are_validated_by_the_database(self):
         with mvp_database(migrations=(*MIGRATIONS, *MVP_ADDITIONS[:at(CAPABILITY_CATALOG_MIGRATION) + 1])) as db:
@@ -110,7 +117,7 @@ class CatalogSchemaTests(unittest.TestCase):
             with self.assertRaises(errors.CheckViolation):
                 db.admin.execute("INSERT INTO forge.capability_platform_policy(capability_id,lock) VALUES('skill:pdf','locked')")
             with self.assertRaises(errors.CheckViolation):
-                db.admin.execute('INSERT INTO forge.capability_platform_epoch(singleton,epoch) VALUES(false,1)')
+                db.admin.execute('INSERT INTO forge.capability_platform_epoch(singleton,epoch) VALUES(false,2)')
 
 
 if __name__ == '__main__':

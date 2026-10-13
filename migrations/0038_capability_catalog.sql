@@ -5,7 +5,8 @@
 -- * The catalog and the platform policy are platform-global data, not tenant data: only the authority holds a grant, and only a
 --   function (which re-validates a fresh verified platform owner, 0039) writes them. No role holds BYPASSRLS.
 -- * The platform epoch is one monotonic counter bumped by every catalog or platform-policy change; per-company epochs live with
---   the company tables (0039). A client rejects a document whose epochs went down.
+--   the company tables (0039). A client rejects a document whose epochs went down. No row means epoch 1: a migration seeds no data, so
+--   the backup restore (data into a freshly migrated, empty database) stays valid; the first change writes epoch 2.
 -- * ``attributes`` is a closed-size JSON object for connector transport, auth type, OAuth endpoints, MCP URL and egress hosts
 --   (read by the connector broker); the application validates its shape, the database only bounds it.
 BEGIN;
@@ -49,9 +50,8 @@ CREATE TABLE forge.capability_platform_policy (
 
 CREATE TABLE forge.capability_platform_epoch (
  singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
- epoch bigint NOT NULL CHECK(epoch BETWEEN 1 AND 9223372036854775806)
+ epoch bigint NOT NULL CHECK(epoch BETWEEN 2 AND 9223372036854775806)
 );
-INSERT INTO forge.capability_platform_epoch(singleton,epoch) VALUES(true,1);
 
 DO $$ DECLARE t text; BEGIN
  FOREACH t IN ARRAY ARRAY['capability_catalog','capability_platform_policy','capability_platform_epoch'] LOOP

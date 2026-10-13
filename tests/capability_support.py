@@ -76,7 +76,7 @@ class GovernanceWorld:
         return self.role.call('SELECT * FROM forge.cap_catalog_put(%s,%s,%s,%s::jsonb)', (self.owner, identifier, expected, entry(**change)))
 
     def epochs(self, org):
-        platform = self.db.admin.execute('SELECT epoch FROM forge.capability_platform_epoch').fetchone()[0]
+        platform = (self.db.admin.execute('SELECT epoch FROM forge.capability_platform_epoch').fetchone() or (1,))[0]
         company = self.db.admin.execute('SELECT epoch FROM forge.capability_org_epochs WHERE organization_id=%s', (org,)).fetchone()
         return platform, company[0] if company else 1
 

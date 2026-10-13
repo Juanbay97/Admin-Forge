@@ -112,7 +112,8 @@ $$;
 
 CREATE FUNCTION forge.cap_bump_platform() RETURNS void
 LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$
- UPDATE forge.capability_platform_epoch SET epoch=epoch+1 WHERE singleton
+ INSERT INTO forge.capability_platform_epoch(singleton,epoch) VALUES(true,2)
+ ON CONFLICT(singleton) DO UPDATE SET epoch=forge.capability_platform_epoch.epoch+1
 $$;
 
 CREATE FUNCTION forge.cap_bump_org(org uuid) RETURNS void
@@ -284,7 +285,7 @@ RETURNS TABLE(id text,kind text,version text,risk text,is_base boolean,default_s
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
  SELECT c.id,c.kind,c.version,c.risk,c.is_base,c.default_state,c.min_sandbox_level,c.manifest_sha256,c.credential_locus,
   c.declared_permissions,c.granted_permissions,p.state,coalesce(p.lock,'none'),o.state,coalesce(o.lock,'none'),s.enabled,
-  (SELECT e.epoch FROM forge.capability_platform_epoch e WHERE e.singleton),
+  coalesce((SELECT e.epoch FROM forge.capability_platform_epoch e WHERE e.singleton),1),
   coalesce((SELECT g.epoch FROM forge.capability_org_epochs g WHERE g.organization_id=org),1)
  FROM forge.capability_catalog c
  LEFT JOIN forge.capability_platform_policy p ON p.capability_id=c.id

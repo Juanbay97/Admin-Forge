@@ -81,7 +81,7 @@ def sync(connection, entries, *, update=False) -> SyncResult:
             else:
                 unchanged += 1
         if created or updated:
-            connection.execute('UPDATE forge.capability_platform_epoch SET epoch=epoch+1 WHERE singleton')
+            connection.execute('INSERT INTO forge.capability_platform_epoch(singleton,epoch) VALUES(true,2) ON CONFLICT(singleton) DO UPDATE SET epoch=forge.capability_platform_epoch.epoch+1')
     return SyncResult(created, updated, unchanged)
 
 
