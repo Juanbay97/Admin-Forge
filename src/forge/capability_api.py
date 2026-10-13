@@ -246,6 +246,14 @@ def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations)
         except Exception as error:
             return company_failure(error)
 
+    @app.get('/forge/v1/capabilities/pinning', include_in_schema=False)
+    async def pinning():
+        """The keys to pin and the rotation statements that chain a new key to a pinned one (public; see ``forge.capability_rotation``)."""
+        try:
+            return JSONResponse(policy.pinning(), headers={'Cache-Control': 'public, max-age=300'})
+        except Exception as error:
+            return company_failure(error)
+
 
 AUDIT_LIMIT = 65536
 

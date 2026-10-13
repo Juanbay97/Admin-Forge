@@ -27,6 +27,12 @@ class EffectivePolicy:
             raise CapabilityUnavailable()
         return self._signer.keyset()
 
+    def pinning(self):
+        """The key set and the rotation chain a client pins (public, no session needed)."""
+        if self._signer is None:
+            raise CapabilityUnavailable()
+        return self._signer.pinning()
+
     def document(self, token, org, level):
         """``level`` is the level the request claims: None (not claimed) is 0 unless the device has a recent attestation; anything else must
         be an int in 0..4. The level used (and signed as ``reported_level``) is the lower of the claim and the latest attestation."""

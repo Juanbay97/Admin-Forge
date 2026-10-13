@@ -9,6 +9,7 @@ process by ``strip_libpq_environment`` so they can never steer a connection.
 import base64
 from dataclasses import dataclass, field
 from ipaddress import ip_address
+import json
 from pathlib import Path
 import re
 from urllib.parse import urlsplit
@@ -28,7 +29,7 @@ _SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_PLATFORM_KEY', 'FO
 _PLAIN = ('FORGE_PUBLIC_ORIGIN', 'FORGE_DB_HOST', 'FORGE_DB_PORT', 'FORGE_DB_NAME', 'FORGE_DB_SSLMODE',
           'FORGE_DB_ADMIN_USER', 'FORGE_ROLE_PASSWORDS_DIR', 'FORGE_ADMIN_DIR', 'FORGE_PORT', 'FORGE_BIND_HOST',
           'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE, 'FORGE_GATEWAY_CA_FILE', 'FORGE_CONNECTOR_TEST_FIXTURES_FILE',
-          'FORGE_POLICY_RETIRED_KEYS', 'FORGE_POLICY_RETIRED_KEYS_FILE')
+          'FORGE_POLICY_RETIRED_KEYS', 'FORGE_POLICY_RETIRED_KEYS_FILE', 'FORGE_POLICY_ROTATIONS', 'FORGE_POLICY_ROTATIONS_FILE')
 # Later changes that add settings extend this tuple; any other FORGE_* name is a typo and refused.
 KNOWN_KEYS = (*_PLAIN, *_SECRETS, *(name + '_FILE' for name in _SECRETS), *SMTP_KEYS)
 _DB_HOST = re.compile(r'[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?')
@@ -64,6 +65,7 @@ class ProdConfig:
     connector_key: bytes | None = field(default=None, repr=False)  # seals connector credentials; None = the connector routes answer 503
     connector_fixtures: dict | None = None  # loopback/dev fixture hosts for the egress guard; NEVER set in production
     policy_retired_keys: tuple = ()  # retired PUBLIC policy keys of a rotation, kept in the published key set
+    policy_rotations: tuple = ()  # signed rotation statements (old key -> new key) published for client pinning
 
     @property
     def trusted_hosts(self):
@@ -163,6 +165,28 @@ def _retired_policy_keys(env, policy_key):
         _fail('FORGE_POLICY_RETIRED_KEYS')
 
 
+def _policy_rotations(env, policy_key, retired):
+    """The optional rotation statements (public data, a JSON list): each signed by a retired key, see ``forge.capability_rotation``."""
+    path, direct = env.get('FORGE_POLICY_ROTATIONS_FILE'), env.get('FORGE_POLICY_ROTATIONS')
+    if path is not None and direct is not None:
+        _fail('FORGE_POLICY_ROTATIONS')
+    if path is not None:
+        if not path or not Path(path).is_absolute():
+            _fail('FORGE_POLICY_ROTATIONS')
+        direct = _read(path, 'FORGE_POLICY_ROTATIONS')
+    if not (direct or '').strip():
+        return ()
+    from forge.capability_rotation import parse_rotations
+    from forge.capability_signing import PolicySigner, unb64u
+    try:
+        if policy_key is None or not retired:
+            raise ValueError
+        return parse_rotations(json.loads(direct), active_public=PolicySigner(unb64u(policy_key)).public_raw(),
+                               retired=tuple(unb64u(item) for item in retired))
+    except (ValueError, TypeError):
+        _fail('FORGE_POLICY_ROTATIONS')
+
+
 def _connector_key(env, others):
     """The optional connector sealing key: a Fernet key of its own, never one of the other secrets."""
     value = _secret(env, 'FORGE_CONNECTOR_KEY')
@@ -255,6 +279,7 @@ def load_prod_config(environ):
         _fail('FORGE_PLATFORM_KEY')
     policy_key = _policy_key(env, (delivery, gateway, platform))
     policy_retired = _retired_policy_keys(env, policy_key)
+    policy_rotations = _policy_rotations(env, policy_key, policy_retired)
     connector_key = _connector_key(env, (delivery, gateway, platform, *(() if policy_key is None else (policy_key,))))
     connector_fixtures = _connector_fixtures(env)
     try:
@@ -277,4 +302,4 @@ def load_prod_config(environ):
     gateway_ca = env.get('FORGE_GATEWAY_CA_FILE')
     if gateway_ca is not None and (not Path(gateway_ca).is_absolute() or not Path(gateway_ca).is_file()):
         _fail('FORGE_GATEWAY_CA_FILE')
-    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key, connector_key, connector_fixtures, policy_retired)
+    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key, connector_key, connector_fixtures, policy_retired, policy_rotations)

@@ -303,18 +303,40 @@ the old *public* key must stay in the published set as `retired` until then. Rot
 1. **Record the current public key.** `curl -s https://forge.example.test/forge/v1/capabilities/keys` and copy the `public_key` of the entry with
    `"status": "active"` (and its `kid`). It is public; nothing secret is copied.
 2. **Back up the old seed offline**, then create the new one (`head -c 32 /dev/urandom | basenc --base64url | tr -d '='`, or the
-   `scripts/deploy-secrets.*` generator into a scratch directory) and write it to `deploy/secrets/policy_key`.
+   `scripts/deploy-secrets.*` generator into a scratch directory) into a scratch file.
+   **Sign the rotation statement with the OLD key before replacing the secret** (one line of JSON on stdout, public data):
+   `docker compose run --rm --entrypoint python -v <dir>:/keys:ro control-plane -m forge.capability_rotation sign --old-seed-file /keys/policy_key.old --new-seed-file /keys/policy_key.new`
+   (`--new-public-key <key>` instead of the seed file, `--issued-at 2026-10-13T00:00:00Z` to fix the date). The statement is
+   `{"schema": "forge.policy-key-rotation.v1", "old_kid", "new_kid", "new_public_key", "issued_at", "sig"}`; `sig` is Ed25519 by the old key
+   over the canonical JSON (sorted keys, no whitespace) of the other fields. Then install the new seed as `deploy/secrets/policy_key`.
 3. **List the old public key as retired** in `deploy/.env` (space or comma separated, at most 8; keep the previous rotation's keys while their
    documents could still be alive, then drop them): `FORGE_POLICY_RETIRED_KEYS=<old public_key>`. A file works too:
-   `FORGE_POLICY_RETIRED_KEYS_FILE=/run/secrets/...` (one key per line, `#` comments allowed). Setting both is refused.
+   `FORGE_POLICY_RETIRED_KEYS_FILE=/run/secrets/...` (one key per line, `#` comments allowed). Setting both is refused. **Add the statement** to
+   `FORGE_POLICY_ROTATIONS` (a JSON list, oldest first, one statement per retired key; `FORGE_POLICY_ROTATIONS_FILE` works too).
 4. **Restart the control plane** (`docker compose up -d control-plane`). It refuses to start (`CONFIG_INVALID:FORGE_POLICY_RETIRED_KEYS`) when a key is
-   not 32 bytes of base64url, is repeated, is the new active key, or when there is no signing key at all.
-5. **Check** `GET /forge/v1/capabilities/keys`: the new key is `active` and the old `kid` is `retired`. Members' devices keep verifying documents
+   not 32 bytes of base64url, is repeated, is the new active key, or when there is no signing key at all, and
+   (`CONFIG_INVALID:FORGE_POLICY_ROTATIONS`) when a statement is not signed by one of the retired keys, names a key that is neither retired nor
+   the active one, repeats a signer or is not valid JSON.
+5. **Check** `GET /forge/v1/capabilities/keys`: the new key is `active` and the old `kid` is `retired`; `GET /forge/v1/capabilities/pinning`
+   (public, hidden) returns `{"schema": "forge.policy-pinning.v1", "keys": [...], "rotations": [...]}`. Members' devices keep verifying documents
    signed by the old key until they expire and fetch signed-by-new documents on their next refresh.
-6. After 24 hours (plus the clients' refresh interval) the retired key can be removed from `FORGE_POLICY_RETIRED_KEYS`.
+6. After 24 hours (plus the clients' refresh interval) the retired key can be removed from `FORGE_POLICY_RETIRED_KEYS`. Keep its statement in
+   `FORGE_POLICY_ROTATIONS` while a device may still pin only that key (a device that was offline during several rotations walks the whole chain).
 
-Rotating does not change what is signed: epochs and the schema stay, only `kid` and `sig` differ. Clients that pin a `kid` must be told the new
-one first (see `docs/capability-governance.md`).
+Rotating does not change what is signed: epochs and the schema stay, only `kid` and `sig` differ.
+
+**How a client follows a rotation.** The desktop client pins the keys it received in the installer configuration (a TLS download from its own
+control plane) and learns a new key only from a statement signed by a key it has already pinned:
+
+* it fetches `/forge/v1/capabilities/pinning` over TLS from the pinned control-plane origin and applies each statement whose `old_kid` is pinned
+  and not retired: the signature must verify with that key, `new_kid` must be the first 16 hex characters of the SHA-256 of `new_public_key`
+  (32 raw bytes), and `issued_at` must be a `YYYY-MM-DDTHH:MM:SSZ` time; it then pins the new key;
+* the old key is retired at the statement's `issued_at` and signs nothing else; a policy document it signed is accepted only when its
+  `issued_at` is earlier than that time;
+* statements from keys it has not pinned, replays and forgeries change nothing, and a chain of several rotations may arrive in any order;
+* the keys in the published set that no statement leads to are never trusted: a leaked database or a proxy cannot add a key.
+
+The reference is `forge.capability_rotation` (`apply_rotations`, `key_usable`); test vectors are `contract/forge-policy-rotation.v1.json`.
 
 ## What the edge forwards
 

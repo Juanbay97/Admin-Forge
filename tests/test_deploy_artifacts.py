@@ -466,6 +466,18 @@ class PolicyKeyRotationPolicy(unittest.TestCase):
         values = dict(line.split('=', 1) for line in text('deploy/.env.example').splitlines() if line and not line.startswith('#'))
         self.assertEqual(values['FORGE_POLICY_RETIRED_KEYS'], '')
 
+    def test_compose_passes_the_rotation_statements_as_plain_configuration_and_the_template_leaves_them_empty(self):
+        self.assertIn('FORGE_POLICY_ROTATIONS: ${FORGE_POLICY_ROTATIONS:-}', text(COMPOSE))
+        values = dict(line.split('=', 1) for line in text('deploy/.env.example').splitlines() if line and not line.startswith('#'))
+        self.assertEqual(values['FORGE_POLICY_ROTATIONS'], '')
+
+    def test_the_runbook_chains_the_new_key_to_the_pinned_one_and_documents_the_distribution(self):
+        doc = text('docs/deploy.md')
+        section = doc.split('## Rotate the policy signing key')[1].split('\n## ')[0]
+        for needle in ('forge.capability_rotation', 'FORGE_POLICY_ROTATIONS', '/forge/v1/capabilities/pinning', 'forge.policy-key-rotation.v1',
+                       'CONFIG_INVALID:FORGE_POLICY_ROTATIONS'):
+            self.assertIn(needle, section)
+
     def test_the_runbook_has_the_whole_procedure(self):
         doc = text('docs/deploy.md')
         section = doc.split('## Rotate the policy signing key')[1].split('\n## ')[0]

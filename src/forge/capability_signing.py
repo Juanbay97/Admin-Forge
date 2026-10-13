@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 SCHEMA = 'forge.capability-policy.v1'
 KEYS_SCHEMA = 'forge.capability-keys.v1'
+PINNING_SCHEMA = 'forge.policy-pinning.v1'
 LIFETIME_SECONDS = 24 * 3600
 _B64 = re.compile(r'\A[A-Za-z0-9_-]+\Z')
 _SIGNATURE_LENGTH = 86  # 64 bytes, base64url without padding
@@ -60,12 +61,12 @@ def _seconds(text) -> int:
 
 
 class PolicySigner:
-    def __init__(self, seed: bytes, *, retired=()):
+    def __init__(self, seed: bytes, *, retired=(), rotations=()):
         if type(seed) is not bytes or len(seed) != 32:
             raise ValueError('The policy signing seed must be 32 bytes.')
         self._key = Ed25519PrivateKey.from_private_bytes(seed)
         self._public = self._key.public_key().public_bytes_raw()
-        self._retired = tuple(retired)
+        self._retired, self._rotations = tuple(retired), tuple(rotations)
         for raw in self._retired:
             Ed25519PublicKey.from_public_bytes(raw)
         self.kid = kid_of(self._public)
@@ -82,6 +83,10 @@ class PolicySigner:
         keys = [{'kid': self.kid, 'alg': 'Ed25519', 'public_key': b64u(self._public), 'status': 'active'}]
         keys += [{'kid': kid_of(raw), 'alg': 'Ed25519', 'public_key': b64u(raw), 'status': 'retired'} for raw in self._retired]
         return {'schema': KEYS_SCHEMA, 'keys': keys}
+
+    def pinning(self) -> dict:
+        """What a client pins and follows across a rotation: the key set and the statements (see ``forge.capability_rotation``)."""
+        return {'schema': PINNING_SCHEMA, 'keys': self.keyset()['keys'], 'rotations': [dict(item) for item in self._rotations]}
 
 
 MAX_RETIRED = 8
@@ -111,13 +116,13 @@ def split_retired_keys(text: str) -> list:
     return [item for line in text.splitlines() for item in line.split('#', 1)[0].replace(',', ' ').split()]
 
 
-def load_signer(value, *, retired=()) -> PolicySigner:
+def load_signer(value, *, retired=(), rotations=()) -> PolicySigner:
     """From the deployment secret: a base64url 32-byte seed. Anything else raises ValueError, never a partial signer."""
     try:
         seed = unb64u(value)
     except (ValueError, TypeError):
         raise ValueError('The policy signing key is invalid.') from None
-    return PolicySigner(seed, retired=tuple(unb64u(item) for item in retired))
+    return PolicySigner(seed, retired=tuple(unb64u(item) for item in retired), rotations=rotations)
 
 
 def verify_document(document: dict, keyset: dict, *, now: float, minimum_epochs=(0, 0)) -> None:

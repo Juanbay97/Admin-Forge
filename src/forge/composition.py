@@ -67,7 +67,7 @@ def add_status(app, readiness, admin_dir):
 
 
 def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery_key, gateway_key, platform_key,
-              gateway_policy, gateway_ca_file=None, policy_key=None, connector_key=None, connector_fixtures=None, public_origin=None, policy_retired_keys=()):
+              gateway_policy, gateway_ca_file=None, policy_key=None, connector_key=None, connector_fixtures=None, public_origin=None, policy_retired_keys=(), policy_rotations=()):
     import ssl
     from forge.account_api import create_account_app
     from forge.account_sessions import PostgresSessionStore, SessionService
@@ -156,7 +156,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
                    usage=PlatformUsage(PostgresPlatformUsageStore(platform)), capabilities=capabilities, connectors=connectors,
                    reads=PlatformReads(PostgresPlatformReadsStore(platform)))
     mount_company_capabilities(app, capabilities=capabilities, sessions=sessions, readiness=readiness)
-    signer = None if policy_key is None else load_signer(policy_key, retired=policy_retired_keys)  # absent: the effective-policy routes answer 503
+    signer = None if policy_key is None else load_signer(policy_key, retired=policy_retired_keys, rotations=policy_rotations)  # absent: the effective-policy routes answer 503
     def companies(token):
         try:
             return [item.id for item in directory.me(token).organizations if item.status == 'active']

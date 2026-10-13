@@ -1,0 +1,103 @@
+{
+  "expected": [
+    {
+      "kid": "34750f98bd59fcfc",
+      "public_key": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
+      "retired_at": "2026-10-01T00:00:00Z"
+    },
+    {
+      "kid": "6a3803d5f059902a",
+      "public_key": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "retired_at": "2026-11-01T00:00:00Z"
+    },
+    {
+      "kid": "b62e867fa2f33afe",
+      "public_key": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
+      "retired_at": null
+    }
+  ],
+  "note": "Test vectors only: the keys derive from the seeds 0x01*32, 0x02*32 and 0x03*32 and secure nothing.",
+  "pinned": [
+    {
+      "kid": "34750f98bd59fcfc",
+      "public_key": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+    }
+  ],
+  "rejected": [
+    {
+      "name": "signed by a key that is not pinned",
+      "statement": {
+        "issued_at": "2026-10-01T00:00:00Z",
+        "new_kid": "b62e867fa2f33afe",
+        "new_public_key": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
+        "old_kid": "dbc298251c51321b",
+        "schema": "forge.policy-key-rotation.v1",
+        "sig": "-uhkFIOSF9Qu_7mj1yY21a31vhA98iF71voFRUUoxSObvxR6Mxz8bNYgusSqU7z2cYIuR03AT-3TQmZY9B73Dg"
+      }
+    },
+    {
+      "name": "new key swapped after signing",
+      "statement": {
+        "issued_at": "2026-10-01T00:00:00Z",
+        "new_kid": "b62e867fa2f33afe",
+        "new_public_key": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
+        "old_kid": "34750f98bd59fcfc",
+        "schema": "forge.policy-key-rotation.v1",
+        "sig": "GKNWfaBQxLYjrmZrG26f87FJyZqKtGOapzopDmpn7zxODcEzgiJz5XCR0qT5E-5-PryR_oENTI_BAN1BolXHAA"
+      }
+    },
+    {
+      "name": "new kid does not match the key",
+      "statement": {
+        "issued_at": "2026-10-01T00:00:00Z",
+        "new_kid": "b62e867fa2f33afe",
+        "new_public_key": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+        "old_kid": "34750f98bd59fcfc",
+        "schema": "forge.policy-key-rotation.v1",
+        "sig": "GKNWfaBQxLYjrmZrG26f87FJyZqKtGOapzopDmpn7zxODcEzgiJz5XCR0qT5E-5-PryR_oENTI_BAN1BolXHAA"
+      }
+    },
+    {
+      "name": "date changed after signing",
+      "statement": {
+        "issued_at": "2026-12-01T00:00:00Z",
+        "new_kid": "6a3803d5f059902a",
+        "new_public_key": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+        "old_kid": "34750f98bd59fcfc",
+        "schema": "forge.policy-key-rotation.v1",
+        "sig": "GKNWfaBQxLYjrmZrG26f87FJyZqKtGOapzopDmpn7zxODcEzgiJz5XCR0qT5E-5-PryR_oENTI_BAN1BolXHAA"
+      }
+    },
+    {
+      "name": "unknown field",
+      "statement": {
+        "issued_at": "2026-10-01T00:00:00Z",
+        "new_kid": "6a3803d5f059902a",
+        "new_public_key": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+        "old_kid": "34750f98bd59fcfc",
+        "role": "admin",
+        "schema": "forge.policy-key-rotation.v1",
+        "sig": "GKNWfaBQxLYjrmZrG26f87FJyZqKtGOapzopDmpn7zxODcEzgiJz5XCR0qT5E-5-PryR_oENTI_BAN1BolXHAA"
+      }
+    }
+  ],
+  "schema": "forge.policy-key-rotation.vectors.v1",
+  "statements": [
+    {
+      "issued_at": "2026-10-01T00:00:00Z",
+      "new_kid": "6a3803d5f059902a",
+      "new_public_key": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "old_kid": "34750f98bd59fcfc",
+      "schema": "forge.policy-key-rotation.v1",
+      "sig": "GKNWfaBQxLYjrmZrG26f87FJyZqKtGOapzopDmpn7zxODcEzgiJz5XCR0qT5E-5-PryR_oENTI_BAN1BolXHAA"
+    },
+    {
+      "issued_at": "2026-11-01T00:00:00Z",
+      "new_kid": "b62e867fa2f33afe",
+      "new_public_key": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
+      "old_kid": "6a3803d5f059902a",
+      "schema": "forge.policy-key-rotation.v1",
+      "sig": "qi6l-c3q584T_n_IwA04SWxbFMxQPL28U4liIr0SlVfvCTBYXYMMAlT3qtYPJDnJfUWv_dvwWonxDTqY7RUcDQ"
+    }
+  ]
+}
