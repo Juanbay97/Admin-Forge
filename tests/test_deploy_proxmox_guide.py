@@ -14,7 +14,7 @@ DOMAIN = 'prometheonlab.com'  # confirmed by the owner for this guide; every oth
 CLIENT_BUILD_VARIABLES = {'FORGE_DEFAULT_CP_ORIGIN', 'FORGE_ALLOWED_ORIGINS'}
 PACKAGE_NAMES = {'containerd.io'}  # an apt package of Docker's repository, not a host
 # Created on the server by the operator or by the stack, so they cannot be checked into the repository.
-CREATED_PATHS = {'deploy/.env', 'deploy/secrets', 'deploy/credentials', 'deploy/backups', 'deploy/downloads'}
+CREATED_PATHS = {'deploy/.env', 'deploy/secrets', 'deploy/credentials', 'deploy/backups', 'deploy/downloads', 'deploy/gateway-ca'}
 HEADINGS = ('## Quick path', '## Before you start', '## 1. Prepare the VM', '## 2. DNS and ports', '## 3. Install Docker',
             '## 4. Configure Forge', '## 5. Mail through Resend', '## 6. Start the stack', '## 7. First platform owner',
             '## 8. Connect OmniRoute', '## 9. Create the first company', '## 10. Publish the installer',
@@ -94,6 +94,12 @@ class Guide(unittest.TestCase):
         runbook = text('docs/deploy.md')
         self.assertIn('deploy-proxmox.md', runbook)
         self.assertEqual(concrete_domains(runbook), [])
+
+    def test_the_private_gateway_certificate_option_is_documented_where_the_gateway_is_connected(self):
+        for document in (text(GUIDE), text('docs/deploy.md')):
+            self.assertIn('FORGE_GATEWAY_CA_FILE=/run/gateway-ca/', document)
+            self.assertIn('deploy/gateway-ca/', document)
+            self.assertNotIn('the production compose passes no private CA through', document)
 
     def test_it_closes_with_a_checklist_the_reader_can_confirm(self):
         checklist = self.doc[self.doc.index('## Checklist'):]

@@ -66,7 +66,7 @@ only Caddy. PostgreSQL and the control plane have no published port and live on 
 | `FORGE_ACME_EMAIL` | Contact address Let's Encrypt uses for expiry notices (`acme` only) |
 | `FORGE_SMTP_*` | The mail relay for invitations and password resets ([Email delivery](#email-delivery-smtp)); required |
 | `FORGE_GATEWAY_ORIGINS` | Comma-separated https origins of your model gateway; empty keeps the built-in default. It is the only origin authority: a gateway key can only be created for an origin listed here |
-| `FORGE_GATEWAY_CA_FILE` | Optional absolute path of an extra CA certificate for a private gateway (the allow-list stays https-only); unset means the system trust store |
+| `FORGE_GATEWAY_CA_FILE` | Optional, unset by default (a publicly trusted gateway certificate needs nothing). For a gateway signed by a private CA put the PEM certificate in `deploy/gateway-ca/` (mounted read-only at `/run/gateway-ca/`; `FORGE_GATEWAY_CA_DIR` changes the host directory) and set `FORGE_GATEWAY_CA_FILE=/run/gateway-ca/ca.pem`, then `docker compose up -d control-plane`. A wrong path stops the start with `CONFIG_INVALID:FORGE_GATEWAY_CA_FILE`; the allow-list stays https-only |
 | `FORGE_BACKUP_CRON`, `FORGE_BACKUP_KEEP` | Backup schedule (UTC, 5 fields) and how many dumps to keep (default 14) |
 | `FORGE_UID`, `FORGE_GID` | Your user, so `backups/` and `credentials/` stay readable by you |
 

@@ -130,6 +130,8 @@ services:
     stop_grace_period: 20s
     environment:
       <<: [*forge-env, *forge-smtp]
+      # Null: only passed when deploy/.env sets it (a private gateway CA, see docs/deploy.md).
+      FORGE_GATEWAY_CA_FILE:
     secrets:  # no database administrator secret: the serving process never holds DDL rights
       - forge_account_service
       - forge_enrollment
@@ -145,6 +147,8 @@ services:
       - policy_key
       - connector_key
       - smtp_password
+    volumes:
+      - ${FORGE_GATEWAY_CA_DIR:-./gateway-ca}:/run/gateway-ca:ro  # empty unless a private gateway CA certificate is placed there
     depends_on:
       postgres:
         condition: service_healthy

@@ -121,7 +121,7 @@ Set these values (everything else in `.env` can keep its default):
 | `FORGE_DOMAIN=forge.prometheonlab.com` | Your Forge host | Must resolve to the VM's public address before `acme` can issue |
 | `FORGE_TLS=acme` | Public certificate from Let's Encrypt | `FORGE_TLS=internal` is the fallback for a private network |
 | `FORGE_ACME_EMAIL=you@prometheonlab.com` | Expiry notices | A real mailbox |
-| `FORGE_GATEWAY_ORIGINS=https://ia.prometheonlab.com` | OmniRoute | The only origin a gateway key may be created for. OmniRoute must present a certificate a public CA signed (the production compose passes no private CA through) |
+| `FORGE_GATEWAY_ORIGINS=https://ia.prometheonlab.com` | OmniRoute | The only origin a gateway key may be created for. A publicly trusted OmniRoute certificate needs nothing more. For a private CA, copy its PEM certificate to `deploy/gateway-ca/ca.pem`, add `FORGE_GATEWAY_CA_FILE=/run/gateway-ca/ca.pem` to `.env` and run `docker compose up -d control-plane` |
 | `FORGE_SMTP_HOST`, `FORGE_SMTP_PORT`, `FORGE_SMTP_SECURITY`, `FORGE_SMTP_USER`, `FORGE_SMTP_FROM`, `FORGE_SMTP_PASSWORD_FILE` | See step 5 | Required |
 | `FORGE_UID`, `FORGE_GID` | Your user | Appended below so `backups/` and `credentials/` stay yours |
 

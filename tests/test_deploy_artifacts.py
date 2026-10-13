@@ -370,6 +370,24 @@ class ComposePolicy(unittest.TestCase):
         self.assertNotIn('smtp_password', self.services['migrate'])  # the one-shot job never needs the relay
         self.assertNotIn('forge-smtp', self.services['migrate'])
 
+    def test_a_private_gateway_ca_is_an_optional_read_only_mount_for_the_control_plane_only_and_unset_by_default(self):
+        from forge.prod_config import KNOWN_KEYS
+        block = self.services['control-plane']
+        self.assertIn('FORGE_GATEWAY_CA_FILE', KNOWN_KEYS)
+        self.assertRegex(block, r'(?m)^      FORGE_GATEWAY_CA_FILE:$')  # null: present in the container only when .env sets it
+        self.assertIn('- ${FORGE_GATEWAY_CA_DIR:-./gateway-ca}:/run/gateway-ca:ro', block)
+        for name, other in self.services.items():
+            if name != 'control-plane':
+                with self.subTest(service=name):
+                    self.assertNotIn('FORGE_GATEWAY_CA', other)
+        self.assertNotIn('FORGE_GATEWAY_CA_FILE', '\n'.join(top_level(self.source, 'x-forge-env').splitlines()))  # never defaulted
+        self.assertTrue((ROOT/'deploy'/'gateway-ca'/'.gitignore').is_file())  # the mount point exists, so Docker never creates it as root
+        ignore = text('deploy/gateway-ca/.gitignore').split()
+        self.assertEqual(ignore, ['*', '!.gitignore'])  # a certificate dropped there is not committed by accident
+        example = text('deploy/.env.example')
+        self.assertRegex(example, r'(?m)^# FORGE_GATEWAY_CA_FILE=/run/gateway-ca/[A-Za-z0-9._-]+$')
+        self.assertRegex(example, r'(?m)^# FORGE_GATEWAY_CA_DIR=\./gateway-ca$')
+
     def test_the_public_origin_comes_from_the_domain_variables_alone(self):
         origin = re.search(r'(?m)^  FORGE_PUBLIC_ORIGIN: (.+)$', self.source).group(1)
         self.assertRegex(origin, r'^https://\$\{FORGE_DOMAIN:\?[^}]+\}\$\{FORGE_PORT_SUFFIX:-\}$')
