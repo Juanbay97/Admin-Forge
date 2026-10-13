@@ -25,11 +25,14 @@ SERVICE_FUNCTIONS = ('forge.platform_me(text)', 'forge.platform_company_list(tex
                      'forge.platform_gateway_key_rotate(text,uuid,bigint,text,text)',
                      'forge.platform_gateway_key_set_status(text,uuid,boolean)', 'forge.platform_company_gateway_get(text,uuid)',
                      'forge.platform_company_gateway_set(text,uuid,jsonb)', 'forge.platform_company_model_access_get(text,uuid)',
-                     'forge.platform_company_model_access_set(text,uuid,text[])')
+                     'forge.platform_company_model_access_set(text,uuid,text[])',
+                     # 0036: versioned model prices
+                     'forge.platform_price_set(text,text,bigint,bigint,timestamptz)', 'forge.platform_price_list(text,text)')
 INTERNAL_FUNCTIONS = ('forge.platform_lock_owner(text,boolean)', 'forge.platform_audit_write(uuid,text,uuid)',
                       'forge.platform_audit_write(uuid,text,uuid,uuid)', 'forge.platform_gateway_key_meta(uuid)',
                       'forge.platform_owner_exists(uuid)')
-AUTHORITY_GRANTS = {('gateway_keys', 'SELECT'), ('gateway_keys', 'INSERT'), ('gateway_keys', 'UPDATE'),
+AUTHORITY_GRANTS = {('model_prices', 'SELECT'), ('model_prices', 'INSERT'),  # 0036: versioned prices
+                    ('gateway_keys', 'SELECT'), ('gateway_keys', 'INSERT'), ('gateway_keys', 'UPDATE'),
                     ('organization_gateway_profiles', 'SELECT'), ('organization_gateway_profiles', 'INSERT'),
                     ('organization_gateway_profiles', 'UPDATE'), ('organization_gateway_keys', 'SELECT'),
                     ('organization_gateway_keys', 'INSERT'), ('organization_gateway_keys', 'UPDATE'),
