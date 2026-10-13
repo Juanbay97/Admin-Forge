@@ -104,7 +104,7 @@ export function UsageSection({ services, organization }: { services: Services; o
         <>
           <section aria-label="Key figures">
             <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat label="People using Forge">{totals.withUsage} of {totals.people}</Stat>
+              <Stat label="People using Forge">{totals.withUsage} of {Math.max(totals.people, (roster.data ?? []).length)}</Stat>
               <Stat label="Tokens"><span className="flex flex-wrap items-center gap-2">{formatTokens(totals.tokens)}{previous.data && <Delta change={changeOf(totals.tokens, earlier.tokens)} />}</span></Stat>
               <Stat label="Cost"><span className="flex flex-wrap items-center gap-2">{formatCostMicros(totals.cost_micros)}{previous.data && <Delta change={changeOf(totals.cost_micros, earlier.cost_micros)} />}</span></Stat>
               <Stat label="Requests">{totals.requests.toLocaleString("en-US")}</Stat>

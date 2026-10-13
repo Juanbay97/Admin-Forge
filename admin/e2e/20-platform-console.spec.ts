@@ -13,7 +13,8 @@ test.afterEach(async ({ page }) => {
 });
 
 test("the overview shows real metered usage, the key pool and the audit trail", async ({ page, request }) => {
-  const orgA = seededOrg("org-a");
+  // org-b carries the metered traffic: the older journeys (admin-flow) publish and inspect org-a's catalogue themselves.
+  const orgA = seededOrg("org-b");
   const alias = await ensureCatalogue(request, orgA.id, await tokenFor(request, orgA.admin));
   await meteredChat(request, orgA.id, await tokenFor(request, orgA.member), alias);
 
@@ -134,7 +135,7 @@ test("branding, keys and models tabs apply to the company and the public brandin
   await expect(page.getByRole("region", { name: "Setup" }).getByText("3 allowed")).toBeVisible();
 });
 test("a company's usage tab shows what its members really consumed", async ({ page }) => {
-  const orgA = seededOrg("org-a");
+  const orgA = seededOrg("org-b");
   await signInOwner(page, `/admin/platform/companies/${orgA.id}?tab=usage`);
   const kpis = page.getByRole("region", { name: "Company usage" });
   await expect(kpis.getByText("Requests", { exact: true })).toBeVisible();

@@ -123,7 +123,8 @@ test("an admin invites a member, suspends access, sees the platform-managed gate
   await test.step("see the gateway key as platform-managed and read-only", async () => {
     await page.getByRole("button", { name: "Gateway" }).click();
     await expect(page.getByText("Configured", { exact: true })).toBeVisible();
-    await expect(page.getByText("Usable platform keys: 1")).toBeVisible();
+    await expect(page.getByLabel("Gateway status").getByText("Usable platform keys")).toBeVisible();
+    await expect(page.getByLabel("Gateway status").getByText("1", { exact: true })).toBeVisible();
     await expect(page.getByLabel("API key")).toHaveCount(0);
     expect(await page.content()).not.toContain(orgA!.gateway_key);
   });

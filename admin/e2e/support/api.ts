@@ -1,4 +1,4 @@
-﻿import { randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, type APIRequestContext } from "@playwright/test";
 
@@ -23,7 +23,7 @@ export async function tokenFor(request: APIRequestContext, account: Account): Pr
 }
 
 /** Publishes a catalogue for the organization when it has none, then returns the alias a member can chat with. */
-export async function ensureCatalogue(request: APIRequestContext, orgId: string, adminToken: string): Promise<string> {
+export async function ensureCatalogue(request: APIRequestContext, orgId: string, adminToken: string, model = "fake-fast"): Promise<string> {
   const headers = { Authorization: `Bearer ${adminToken}` };
   const published = await request.get(`/forge/v1/orgs/${orgId}/models`, { headers });
   if (published.ok()) return ((await published.json()) as { models: Array<{ id: string }> }).models[0]!.id;
@@ -33,7 +33,7 @@ export async function ensureCatalogue(request: APIRequestContext, orgId: string,
   const discovered = (await refresh.json()) as { gateway_revision: number; model_ids: string[] };
   const publish = await request.post(`/forge/v1/orgs/${orgId}/models/publish`, {
     headers,
-    data: { operation_id: randomUUID(), expected_catalogue_revision: status.catalogue_revision, expected_gateway_revision: discovered.gateway_revision, aliases: { fast: discovered.model_ids[0] }, default_alias: "fast" },
+    data: { operation_id: randomUUID(), expected_catalogue_revision: status.catalogue_revision, expected_gateway_revision: discovered.gateway_revision, aliases: { fast: discovered.model_ids.includes(model) ? model : discovered.model_ids[0] }, default_alias: "fast" },
   });
   expect(publish.ok(), "catalogue publish").toBe(true);
   return "fast";

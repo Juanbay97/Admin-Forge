@@ -63,10 +63,10 @@ test("a token revoked on the server expires the session in place and sign-in res
   await expect(page.getByRole("heading", { level: 1, name: "Members" })).toBeVisible();
 });
 
-test("an unregistered area is not found and the phone layout uses a drawer", async ({ page }) => {
+test("the platform area is closed to a company administrator and the phone layout uses a drawer", async ({ page }) => {
   await page.goto("/admin/platform");
   await signIn(page);
-  await expect(page.getByRole("heading", { level: 1, name: "Not found" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
   await page.goto("/admin/company");
   await signIn(page);
   await expect(page.getByRole("heading", { level: 1, name: "Organization A" })).toBeVisible();
