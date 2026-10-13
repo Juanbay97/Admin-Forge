@@ -30,6 +30,9 @@ class AdminBuildMissing(Exception):
         super().__init__('ADMIN_BUILD_MISSING')
 
 
+# The public-origin links the control plane mails and redirects into the admin SPA. ``deploy/Caddyfile`` forwards exactly these paths.
+LINK_REDIRECTS = {'/join': '/admin/join', '/onboarding': '/admin/join', '/reset-password': '/admin/reset-password'}
+
 def _refusal(code, message):
     envelope = ErrorEnvelope(error=ErrorDetail(code=code, message=message, request_id=uuid4(), retryable=False,
                                                retry_after_seconds=None, reset_at=None))
@@ -66,7 +69,7 @@ def mount_admin(app: FastAPI, directory, *, required: bool):
             query = request.url.query
             return RedirectResponse(target + ('?' + query if query else ''), status_code=307, headers={'Cache-Control': 'no-store'})
         return redirect
-    for source, target in (('/join', '/admin/join'), ('/onboarding', '/admin/join'), ('/reset-password', '/admin/reset-password')):
+    for source, target in LINK_REDIRECTS.items():
         app.get(source, include_in_schema=False)(entry(target))
 
     @app.get('/admin', include_in_schema=False)

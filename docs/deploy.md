@@ -287,6 +287,19 @@ Expected: `{"status": "provisioned", "credentials_file": "...", "organizations":
 2. Delete the file once delivered; it is the only copy.
 3. The administrator signs in at `https://forge.example.test/admin/` and invites members from there.
 
+## What the edge forwards
+
+Caddy answers only these paths; everything else on the public host is a `404` and an unknown `Host` is a `421`:
+
+| Path | Where it goes |
+|------|---------------|
+| `/admin`, `/admin/*`, `/status`, `/livez`, `/forge/*` | the control plane |
+| `/onboarding`, `/join`, `/reset-password` (exactly these three) | the control plane, which redirects them (307, query kept, fragment untouched) into the admin SPA. These are the links Forge mails on the public origin: the member invitation (`/onboarding?c=<company code>#invitation_id=...&capability=...`, `/join` is its alias) and the platform owner's set-password link (`/reset-password#capability=...`). Without this forward the links 404 at the edge. |
+| `/downloads/*` | Caddy itself, from the read-only `deploy/downloads/` volume (below) |
+
+`tests/test_deploy_artifacts.py` pins the three link paths against the control plane's own redirect table, and `scripts/deploy-smoke.ps1`
+requests each through the real proxy.
+
 ## Publish installers
 
 Copy release files into `deploy/downloads/` on the server. Caddy serves that directory read-only at

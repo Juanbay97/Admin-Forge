@@ -405,6 +405,22 @@ class CaddyfilePolicy(unittest.TestCase):
         self.assertIn('reverse_proxy control-plane:3410', self.source)
         self.assertRegex(self.source, r'handle \{\n\s+respond "Not found" 404\n\s+\}')
 
+    def test_the_mailed_links_reach_the_control_plane_and_only_those_paths(self):
+        # The invitation link (/onboarding), its alias (/join) and the owner/password-reset link (/reset-password) are mailed on the public
+        # origin without /admin; the control plane redirects them to the admin SPA, so the edge must forward exactly these three paths.
+        match = re.search(r'@links path ([^\n]+)\n\s+handle @links \{\n(?:.*\n)*?\s+reverse_proxy control-plane:3410', self.source)
+        self.assertIsNotNone(match, 'a named matcher for the mailed links is proxied to the control plane')
+        self.assertEqual(sorted(match.group(1).split()), ['/join', '/onboarding', '/reset-password'])
+        self.assertNotRegex(match.group(1), r'\*', 'exact paths only: no wildcard widens what the proxy forwards')
+        from forge.admin_mount import LINK_REDIRECTS
+        self.assertEqual(sorted(LINK_REDIRECTS), sorted(match.group(1).split()), 'the proxy forwards exactly what the control plane redirects')
+
+    def test_the_link_handler_preserves_the_host_and_streams_like_the_application_handler(self):
+        block = re.search(r'handle @links \{\n((?:.*\n)*?)\s+\}\n', self.source).group(1)
+        self.assertIn('reverse_proxy control-plane:3410', block)
+        self.assertIn('flush_interval -1', block)
+        self.assertNotIn('header_up Host', block, 'the control plane only accepts its configured public host: the Host is preserved')
+
     def test_security_headers_are_added_but_the_application_csp_is_left_alone(self):
         for header in ('Strict-Transport-Security', 'X-Content-Type-Options nosniff', 'Referrer-Policy'):
             self.assertIn(header, self.source)
@@ -419,6 +435,22 @@ class CaddyfilePolicy(unittest.TestCase):
 
     def test_an_unknown_host_is_answered_by_the_proxy_itself(self):
         self.assertRegex(self.source, r'(?m)^:443 \{\n(?:.*\n)*?\s+respond "Misdirected request" 421')
+
+
+class SmokeCoversTheMailedLinks(unittest.TestCase):
+    """The deployment smoke proves through the real proxy what the Caddyfile policy only states."""
+    def setUp(self):
+        self.script = text('scripts/deploy-smoke.ps1')
+
+    def test_each_mailed_path_is_requested_through_caddy_and_a_wider_path_is_refused(self):
+        for path in ('/onboarding?c=smoke-co', '/join?c=smoke-co', '/reset-password'):
+            self.assertIn("'%s'" % path, self.script)
+        self.assertIn("'/onboarding/anything').Status -eq 404", self.script)
+
+    def test_the_administrator_invitation_must_carry_the_company_code_and_the_preview_must_name_the_person(self):
+        self.assertIn(r'/onboarding\?c=smoke-co#invitation_id=', self.script)
+        self.assertIn('/forge/v1/accounts/invitations/preview', self.script)
+        self.assertIn("-eq 'newhire@smoke.example.test'", self.script)
 
 
 class EnvExample(unittest.TestCase):

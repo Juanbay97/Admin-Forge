@@ -185,6 +185,14 @@ try {
     Assert-True ((Invoke-Curl '/downloads/').Status -eq 404) 'the downloads directory is listed'
     Write-Pass 'unknown Host refused; downloads served without listing and latest.json no-cache'
 
+    # The links the control plane mails name the public origin without /admin: the edge must forward them (curl does not follow redirects).
+    foreach ($entry in @(@('/onboarding?c=smoke-co', '/admin/join?c=smoke-co'), @('/join?c=smoke-co', '/admin/join?c=smoke-co'), @('/reset-password', '/admin/reset-password'))) {
+        $hop = Invoke-Curl $entry[0]
+        Assert-True ($hop.Status -eq 307 -and $hop.Headers['location'] -eq $entry[1]) "$($entry[0]) did not reach the control plane through the proxy ($($hop.Status) $($hop.Headers['location']))"
+    }
+    Assert-True ((Invoke-Curl '/onboarding/anything').Status -eq 404) 'the proxy forwards more than the three exact link paths'
+    Write-Pass 'the mailed link paths (/onboarding, /join, /reset-password) reach the control plane through the proxy; nothing wider does'
+
     $first = (Invoke-Compose @('run', '--rm', '-T', 'provision', 'org', '--slug', 'smoke-co', '--name', 'Smoke Company', '--department', 'Operations',
             '--admin-email', 'admin@smoke.example.test', '--admin-name', 'Smoke Admin') -Global @('--profile', 'tools')).Output
     Assert-True ($first -match '"status": "provisioned"' -and $first -match '"created": true') "first company was not provisioned: $first"
@@ -225,9 +233,12 @@ try {
     Assert-True ($found.Count -eq 1 -and $found[0].Subject -eq 'Your Forge invitation') 'Mailpit did not capture exactly one invitation for the invited person'
     $message = Invoke-RestMethod -Uri "$mailpit/api/v1/message/$($found[0].ID)" -TimeoutSec 20
     Assert-True ($message.From.Address -eq 'forge@smoke.example.test' -and $message.Text -match 'Hello New Hire') 'the captured message has the wrong sender or content'
-    Assert-True ($message.Text -match '(https://localhost:\d+)/onboarding#invitation_id=([0-9a-f-]{36})&capability=([A-Za-z0-9_-]{43})') 'the message holds no onboarding link'
+    Assert-True ($message.Text -match '(https://localhost:\d+)/onboarding\?c=smoke-co#invitation_id=([0-9a-f-]{36})&capability=([A-Za-z0-9_-]{43})') 'the message holds no onboarding link with the company code'
     Assert-True ($Matches[1] -eq $origin -and $Matches[2] -eq $invitation.invitation_id) 'the link does not use the public origin and the issued invitation'
     $capability = $Matches[3]
+    $peek = Invoke-Json '/forge/v1/accounts/invitations/preview' @{ invitation_id = $invitation.invitation_id; capability = $capability }
+    Assert-True ($peek.Status -eq 200 -and ($peek.Body | ConvertFrom-Json).account_email -eq 'newhire@smoke.example.test') "the invitation preview did not name the invited person ($($peek.Status))"
+    Assert-True ((Invoke-Json '/forge/v1/accounts/invitations/preview' @{ invitation_id = $invitation.invitation_id; capability = ('A' * 43) }).Status -eq 404) 'a wrong capability was not the uniform 404'
     Assert-True (-not $message.Text.Contains($administrator.password) -and -not $message.HTML.Contains($administrator.password)) 'the message carries a password'
     Write-Pass 'invitation email captured by Mailpit over smtp with the link on the public origin'
 

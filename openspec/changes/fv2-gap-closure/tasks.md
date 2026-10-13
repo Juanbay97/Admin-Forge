@@ -41,7 +41,7 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 - [x] 5.2 RED/GREEN: `invitation_identity` function + hidden route; join page uses it; one generic unusable-link message
 
 ## G6 Edge forwards
-- [ ] 6.1 RED/GREEN: Caddyfile forwards + static policy tests
+- [x] 6.1 RED/GREEN: Caddyfile forwards + static policy tests
 
 ## G7 Client attestation (migration 0047)
 - [ ] 7.1 RED/GREEN: table + ingest function + route `POST /client/attestation`, audited

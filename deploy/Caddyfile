@@ -36,6 +36,15 @@
 		}
 	}
 
+	# The links the control plane mails on the public origin (invitation, its /join alias, owner and password-reset): exactly these paths,
+	# which the control plane redirects into the admin SPA (the fragment with the private capability survives the redirect).
+	@links path /onboarding /join /reset-password
+	handle @links {
+		reverse_proxy control-plane:3410 {
+			flush_interval -1
+		}
+	}
+
 	@app path /admin /admin/* /status /livez /forge/*
 	handle @app {
 		# Host is preserved on purpose: the control plane only accepts its configured public host.
