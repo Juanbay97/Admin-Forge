@@ -17,15 +17,18 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from forge.api import ErrorDetail, ErrorEnvelope
+from forge.branding import BrandingInvalid, parse, public_view
+from forge.branding_api import _MESSAGES as BRANDING_MESSAGES
 from forge.invitations import capability_digest
-from forge.platform import (COMPANY_CODE, MAX_PAGE, CompanyConflict, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired,
-                            PlatformDenied, PlatformInvalid, PlatformNotFound)
+from forge.platform import (COMPANY_CODE, MAX_PAGE, MAX_REVISION, CompanyConflict, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired,
+                            PlatformDenied, PlatformInvalid, PlatformNotFound, RevisionConflict)
 
 PREFIX = '/forge/v1/platform'
 JSON_LIMIT = 1024
 LOCK_SECONDS = 900
 _UNAVAILABLE = ('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable.')
 _FAILURES = ((PlatformDenied, 403, 'PLATFORM_DENIED', 'Platform access denied.'),
+             (RevisionConflict, 409, 'REVISION_CONFLICT', 'The branding revision changed.'),
              (CompanyConflict, 409, 'COMPANY_CONFLICT', 'A company with this code already exists.'),
              (MfaRequired, 403, 'MFA_REQUIRED', 'A verified second factor is required.'),
              (MfaInvalid, 403, 'MFA_INVALID', 'The verification code was not accepted.'),
@@ -60,8 +63,8 @@ def _unique(pairs):
     return dict(pairs)
 
 
-async def _object(request):
-    """A small JSON object whose values are all strings (the caller checks the key set)."""
+async def _document(request):
+    """A small JSON object (the caller checks its keys and values)."""
     media = request.headers.get('content-type', '').split(';')[0].strip().lower()
     if media != 'application/json':
         raise _Refusal(_envelope(415, 'UNSUPPORTED_MEDIA_TYPE', 'The request body must be application/json.'))
@@ -79,9 +82,23 @@ async def _object(request):
         document = json.loads(bytes(data).decode('utf-8'), object_pairs_hook=_unique)
     except (ValueError, UnicodeDecodeError):
         raise _invalid() from None
-    if type(document) is not dict or any(type(value) is not str for value in document.values()):
+    if type(document) is not dict:
         raise _invalid()
     return document
+
+
+async def _object(request):
+    """A small JSON object whose values are all strings."""
+    document = await _document(request)
+    if any(type(value) is not str for value in document.values()):
+        raise _invalid()
+    return document
+
+
+def _revision(value):
+    if type(value) is not int or not 0 <= value <= MAX_REVISION:
+        raise _invalid()
+    return value
 
 
 async def _factor_body(request):
@@ -153,6 +170,8 @@ def mount_platform(app: FastAPI, *, service, sessions, readiness=None):
             return await operation(token)
         except _Refusal as refusal:
             return refusal.response
+        except BrandingInvalid as error:
+            return _envelope(422, 'INVALID_REQUEST', BRANDING_MESSAGES.get(error.reason, BRANDING_MESSAGES['shape']))
         except MfaLocked:
             return _envelope(429, 'MFA_LOCKED', 'Too many attempts; try again later.', retry=LOCK_SECONDS,
                              headers={'Retry-After': str(LOCK_SECONDS)})
@@ -206,6 +225,44 @@ def mount_platform(app: FastAPI, *, service, sessions, readiness=None):
             return JSONResponse({**_company(created.company), 'invitation': {
                 'id': str(created.invitation_id), 'expires_at': created.expires_at.isoformat(),
                 'delivery_state': created.delivery_state, 'delivery_channel': created.delivery_channel}}, status_code=201)
+        return await guarded(request, operation)
+
+    @app.post(PREFIX + '/companies/{organization_id}/suspend', include_in_schema=False)
+    async def suspend(organization_id: UUID, request: Request):
+        async def operation(token):
+            return JSONResponse(_company(await blocking(service.suspend_company, token, organization_id)))
+        return await guarded(request, operation)
+
+    @app.post(PREFIX + '/companies/{organization_id}/reactivate', include_in_schema=False)
+    async def reactivate(organization_id: UUID, request: Request):
+        async def operation(token):
+            return JSONResponse(_company(await blocking(service.reactivate_company, token, organization_id)))
+        return await guarded(request, operation)
+
+    @app.get(PREFIX + '/companies/{organization_id}/branding', include_in_schema=False)
+    async def read_branding(organization_id: UUID, request: Request):
+        async def operation(token):
+            return JSONResponse(public_view(await blocking(service.company_branding, token, organization_id)))
+        return await guarded(request, operation)
+
+    @app.put(PREFIX + '/companies/{organization_id}/branding', include_in_schema=False)
+    async def save_branding(organization_id: UUID, request: Request):
+        async def operation(token):
+            document = await _document(request)
+            if set(document) != {'expectedRevision', 'branding'}:
+                raise _invalid()
+            expected, value = _revision(document['expectedRevision']), parse(document['branding'])
+            return JSONResponse(public_view(await blocking(service.save_company_branding, token, organization_id, expected, value)))
+        return await guarded(request, operation)
+
+    @app.post(PREFIX + '/companies/{organization_id}/branding/reset', include_in_schema=False)
+    async def reset_branding(organization_id: UUID, request: Request):
+        async def operation(token):
+            document = await _document(request)
+            if set(document) != {'expectedRevision'}:
+                raise _invalid()
+            return JSONResponse(public_view(await blocking(service.reset_company_branding, token, organization_id,
+                                                           _revision(document['expectedRevision']))))
         return await guarded(request, operation)
 
     @app.get(PREFIX + '/companies/{organization_id}', include_in_schema=False)

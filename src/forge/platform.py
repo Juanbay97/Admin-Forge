@@ -16,6 +16,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from forge.accounts import canonical_email, display_name as clean_name
+from forge.branding import DEFAULT_INPUT, Branding, BrandingInput
 from forge.invitations import InvitationRequest, IssuedInvitation, capability_digest
 from forge.platform_totp import (SecretSealer, SecretUnreadable, generate_recovery_codes, generate_secret, hash_recovery_code,
                                  match_step, otpauth_uri)
@@ -57,6 +58,11 @@ class PlatformUnavailable(PlatformError):
 class CompanyConflict(PlatformError):
     code = 'COMPANY_CONFLICT'
     message = 'A company with this code already exists.'
+
+
+class RevisionConflict(PlatformError):
+    code = 'REVISION_CONFLICT'
+    message = 'The branding revision changed.'
 
 
 class MfaRequired(PlatformError):
@@ -142,6 +148,9 @@ class MfaEnrollment:
 
 
 class PlatformStore(Protocol):
+    def set_company_active(self, digest: str, organization_id: UUID, turn_on: bool) -> bool: ...
+    def company_branding(self, digest: str, organization_id: UUID) -> Branding: ...
+    def save_company_branding(self, digest: str, organization_id: UUID, expected: int, change: str, value: BrandingInput) -> Branding: ...
     def create_company(self, digest: str, ids: dict, details: dict, invitation_digest: str, lifetime: int) -> datetime: ...
     def mfa_status(self, digest: str) -> MfaStatus: ...
     def mfa_enroll(self, digest: str, sealed: str, hashes: list[str]) -> None: ...
@@ -161,6 +170,7 @@ def _page(value):
 
 
 ACCOUNT_LABEL = 'platform-owner'
+MAX_REVISION = 2 ** 63 - 3
 INVITATION_SECONDS = 604800  # the first administrator has a week to accept
 
 
@@ -257,6 +267,39 @@ class PlatformService:
             state = 'failed'  # the company exists; only a finite state is reported, never the relay's message
         return CreatedCompany(Company(ids['organization'], slug, details['display_name'], True), ids['invitation'], expires,
                               state, self.delivery.channel)
+
+    def suspend_company(self, token: str, organization_id: UUID) -> Company:
+        """Deny every member, administrator and inference path of the company at once; nothing is deleted."""
+        return self._set_active(token, organization_id, False)
+
+    def reactivate_company(self, token: str, organization_id: UUID) -> Company:
+        return self._set_active(token, organization_id, True)
+
+    def _set_active(self, token, organization_id, turn_on):
+        digest = self._digest(token)
+        if type(organization_id) is not UUID:
+            raise PlatformInvalid()
+        self.store.set_company_active(digest, organization_id, turn_on)
+        return self.company(token, organization_id)
+
+    def company_branding(self, token: str, organization_id: UUID) -> Branding:
+        digest = self._digest(token)
+        if type(organization_id) is not UUID:
+            raise PlatformInvalid()
+        return self.store.company_branding(digest, organization_id)
+
+    def save_company_branding(self, token: str, organization_id: UUID, expected: int, value: BrandingInput) -> Branding:
+        return self._save_branding(token, organization_id, expected, 'save', value)
+
+    def reset_company_branding(self, token: str, organization_id: UUID, expected: int) -> Branding:
+        return self._save_branding(token, organization_id, expected, 'reset', DEFAULT_INPUT)
+
+    def _save_branding(self, token, organization_id, expected, change, value):
+        digest = self._digest(token)
+        if (type(organization_id) is not UUID or type(expected) is not int or not 0 <= expected <= MAX_REVISION
+                or type(value) is not BrandingInput):
+            raise PlatformInvalid()
+        return self.store.save_company_branding(digest, organization_id, expected, change, value)
 
     def audit(self, token: str, *, before: int | None = None, page: int = DEFAULT_PAGE) -> list[AuditEntry]:
         digest = self._digest(token)

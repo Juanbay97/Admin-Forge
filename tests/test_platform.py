@@ -9,11 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from forge.invitations import capability_digest
 from cryptography.fernet import Fernet
+from forge.branding import DEFAULT, DEFAULT_INPUT, parse
 from forge.invitation_delivery import DeliveryState
 from forge.invitations import InvitationRequest
 from forge.platform import (AuditEntry, Company, CompanyConflict, CreatedCompany, MfaChallenge, MfaEnrolled, MfaInvalid,
                             MfaLocked, MfaRequired, MfaStatus, PlatformDenied, PlatformIdentity, PlatformInvalid,
-                            PlatformNotFound, PlatformService, PlatformUnavailable)
+                            PlatformNotFound, PlatformService, PlatformUnavailable, RevisionConflict)
 from forge.platform_totp import SecretSealer, generate_secret, hash_recovery_code, match_step, totp
 
 ACCOUNT, ORG = uuid4(), uuid4()
@@ -171,6 +172,93 @@ class MfaServiceTests(unittest.TestCase):
                          {'MfaRequired': 'MFA_REQUIRED', 'MfaInvalid': 'MFA_INVALID', 'MfaLocked': 'MFA_LOCKED',
                           'MfaEnrolled': 'MFA_ENROLLED'})
         self.assertEqual(self.service(MfaStore(self.digest)).mfa_status(self.token), MfaStatus('active', True, True))
+
+
+class OperationsStore(FakeStore):
+    """Suspend/reactivate and branding: records each call; ``company`` answers with the state the last change set."""
+    BRANDED = DEFAULT
+
+    def __init__(self, known=None, fail=None):
+        super().__init__(known)
+        self.active, self.fail = True, fail
+
+    def set_company_active(self, digest, organization_id, enable):
+        self.calls.append(('set_company_active', digest, organization_id, enable))
+        self._check(digest)
+        if self.fail:
+            raise self.fail
+        self.active = enable
+        return True
+
+    def company(self, digest, organization_id):
+        self.calls.append(('company', digest, organization_id))
+        self._check(digest)
+        return Company(organization_id, 'acme', 'Acme', self.active)
+
+    def company_branding(self, digest, organization_id):
+        self.calls.append(('company_branding', digest, organization_id))
+        self._check(digest)
+        return self.BRANDED
+
+    def save_company_branding(self, digest, organization_id, expected, change, value):
+        self.calls.append(('save_company_branding', digest, organization_id, expected, change, value))
+        self._check(digest)
+        if self.fail:
+            raise self.fail
+        return self.BRANDED
+
+
+class OperationsServiceTests(unittest.TestCase):
+    def setUp(self):
+        self.token = secrets.token_urlsafe(32)
+        self.digest = capability_digest(self.token)
+        self.store = OperationsStore(self.digest)
+        self.service = PlatformService(self.store)
+
+    def test_suspending_and_reactivating_change_the_state_then_return_the_company_as_it_now_is(self):
+        suspended = self.service.suspend_company(self.token, ORG)
+        self.assertEqual((suspended.organization_id, suspended.active), (ORG, False))
+        self.assertEqual(self.service.reactivate_company(self.token, ORG).active, True)
+        self.assertEqual([call[:4] for call in self.store.calls if call[0] == 'set_company_active'],
+                         [('set_company_active', self.digest, ORG, False), ('set_company_active', self.digest, ORG, True)])
+
+    def test_a_bad_company_id_or_token_never_reaches_the_store(self):
+        for run in (self.service.suspend_company, self.service.reactivate_company):
+            for bad in ('x', None, str(ORG), 3):
+                with self.subTest(bad=bad), self.assertRaises(PlatformInvalid):
+                    run(self.token, bad)
+            with self.assertRaises(PlatformDenied):
+                run('short', ORG)
+        self.assertEqual(self.store.calls, [])
+
+    def test_branding_is_validated_and_passed_with_its_change_kind_and_the_expected_revision(self):
+        document = {'name': 'Acme', 'loginCopy': 'Hi', 'assets': {},
+                    'theme': {'primary': '#0B1D26', 'accent': '#B45309', 'tint': '#E8DCC1', 'heading': 'inter', 'body': 'inter'}}
+        value = parse(document)
+        self.assertEqual(self.service.company_branding(self.token, ORG), DEFAULT)
+        self.service.save_company_branding(self.token, ORG, 3, value)
+        self.service.reset_company_branding(self.token, ORG, 4)
+        saves = [call for call in self.store.calls if call[0] == 'save_company_branding']
+        self.assertEqual([(c[3], c[4]) for c in saves], [(3, 'save'), (4, 'reset')])
+        self.assertEqual((saves[0][5], saves[1][5]), (value, DEFAULT_INPUT))
+
+    def test_the_expected_revision_is_a_bounded_non_negative_integer(self):
+        value = parse({'name': 'Acme', 'loginCopy': '', 'assets': {},
+                       'theme': {'primary': '#0B1D26', 'accent': '#B45309', 'tint': '#E8DCC1', 'heading': 'inter', 'body': 'inter'}})
+        for bad in (-1, 2 ** 63 - 2, True, 1.5, '1', None):
+            with self.subTest(bad=bad), self.assertRaises(PlatformInvalid):
+                self.service.save_company_branding(self.token, ORG, bad, value)
+            with self.subTest(bad=bad, reset=True), self.assertRaises(PlatformInvalid):
+                self.service.reset_company_branding(self.token, ORG, bad)
+        with self.assertRaises(PlatformInvalid):
+            self.service.save_company_branding(self.token, ORG, 0, {'name': 'raw dict'})
+        self.assertEqual(self.store.calls, [])
+
+    def test_a_revision_conflict_is_its_own_finite_code(self):
+        service = PlatformService(OperationsStore(self.digest, fail=RevisionConflict()))
+        with self.assertRaises(RevisionConflict) as caught:
+            service.reset_company_branding(self.token, ORG, 0)
+        self.assertEqual(caught.exception.code, 'REVISION_CONFLICT')
 
 
 class CompanyStore(FakeStore):

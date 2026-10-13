@@ -11,12 +11,15 @@ from psycopg.pq import TransactionStatus
 from psycopg.rows import tuple_row
 
 from forge.account_store import _KEYS, _ROLE
+from forge.branding_store import _branding
 from forge.platform import (AuditEntry, Company, CompanyConflict, MfaChallenge, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
-                            PlatformDenied, PlatformError, PlatformIdentity, PlatformInvalid, PlatformUnavailable)
+                            PlatformDenied, PlatformError, PlatformIdentity, PlatformInvalid, PlatformNotFound, PlatformUnavailable,
+                            RevisionConflict)
 
 ROLE = 'forge_platform_service'
 _MESSAGES = {'PLATFORM_DENIED': PlatformDenied, 'PLATFORM_INVALID': PlatformInvalid, 'MFA_REQUIRED': MfaRequired,
-             'MFA_INVALID': MfaInvalid, 'MFA_LOCKED': MfaLocked, 'MFA_ENROLLED': MfaEnrolled, 'COMPANY_CONFLICT': CompanyConflict}
+             'MFA_INVALID': MfaInvalid, 'MFA_LOCKED': MfaLocked, 'MFA_ENROLLED': MfaEnrolled, 'COMPANY_CONFLICT': CompanyConflict,
+             'PLATFORM_NOT_FOUND': PlatformNotFound, 'REVISION_CONFLICT': RevisionConflict}
 
 
 class PlatformConnection:
@@ -65,6 +68,30 @@ class PostgresPlatformStore:
             if row is None or row[0] is None:
                 raise PlatformUnavailable()
             return row[0]
+
+    def set_company_active(self, digest, organization_id, turn_on):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT forge.platform_company_set_active(%s,%s,%s)', (digest, organization_id, turn_on))
+            return cursor.fetchone() == (True,)
+
+    def company_branding(self, digest, organization_id):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.platform_company_branding_read(%s,%s)', (digest, organization_id))
+            row = cursor.fetchone()
+            if row is None:
+                raise PlatformUnavailable()
+            return _branding(row)
+
+    def save_company_branding(self, digest, organization_id, expected, change, value):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.platform_company_branding_save(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                           (digest, organization_id, expected, change, value.name, value.login_copy, value.primary, value.accent,
+                            value.tint, value.heading, value.body, value.assets.get('logoLight'), value.assets.get('logoDark'),
+                            value.assets.get('isotipo')))
+            row = cursor.fetchone()
+            if row is None:
+                raise PlatformUnavailable()
+            return _branding(row)
 
     def mfa_status(self, digest):
         with self.connection.cursor() as cursor:

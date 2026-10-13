@@ -12,9 +12,10 @@ from fastapi.testclient import TestClient
 from forge import contract
 from forge.account_api import create_account_app
 from forge.foundation import AuthenticatedIdentity
+from forge.branding import DEFAULT, Branding
 from forge.platform import (AuditEntry, Company, CompanyConflict, CreatedCompany, MfaEnrolled, MfaEnrollment, MfaInvalid, MfaLocked,
                             MfaRequired, MfaStatus, PlatformDenied, PlatformIdentity, PlatformInvalid, PlatformNotFound,
-                            PlatformUnavailable)
+                            PlatformUnavailable, RevisionConflict)
 from forge.platform_api import mount_platform
 
 ORG, ACCOUNT, INVITATION = uuid4(), uuid4(), uuid4()
@@ -78,6 +79,21 @@ class FakeService:
     def create_company(self, token, **details):
         return self._do('create_company', token, **details)
 
+    def suspend_company(self, token, organization_id):
+        return self._do('suspend_company', token, organization_id)
+
+    def reactivate_company(self, token, organization_id):
+        return self._do('reactivate_company', token, organization_id)
+
+    def company_branding(self, token, organization_id):
+        return self._do('company_branding', token, organization_id)
+
+    def save_company_branding(self, token, organization_id, expected, value):
+        return self._do('save_company_branding', token, organization_id, expected, value)
+
+    def reset_company_branding(self, token, organization_id, expected):
+        return self._do('reset_company_branding', token, organization_id, expected)
+
     _me = lambda self, token: PlatformIdentity(ACCOUNT, 'platform_owner')
     _mfa_status = lambda self, token: MfaStatus('active', True, False)
     _enroll_mfa = lambda self, token: MfaEnrollment('JBSWY3DPEHPK3PXP', 'otpauth://totp/x?secret=JBSWY3DPEHPK3PXP', ('AAAA-BBBB-CCCC-DDDD',))
@@ -87,6 +103,13 @@ class FakeService:
     _company = lambda self, token, organization_id: Company(organization_id, 'acme', 'Acme', True)
     _create_company = lambda self, token, **details: CreatedCompany(Company(ORG, details['slug'], details['display_name'], True), INVITATION,
                                                                     WHEN, 'delivered', 'smtp')
+    _suspend_company = lambda self, token, organization_id: Company(organization_id, 'acme', 'Acme', False)
+    _reactivate_company = lambda self, token, organization_id: Company(organization_id, 'acme', 'Acme', True)
+    _company_branding = lambda self, token, organization_id: DEFAULT
+    _save_company_branding = lambda self, token, organization_id, expected, value: Branding(expected + 1, value.name, value.login_copy, value.primary,
+                                                                                             value.accent, value.tint, value.heading, value.body, {})
+    _reset_company_branding = lambda self, token, organization_id, expected: Branding(expected + 1, 'Prometheon Forge', '', '#0B1D26', '#E07A2D',
+                                                                                       '#E8DCC1', 'montserrat', 'inter', {})
     _audit = lambda self, token, before=None, page=50: [AuditEntry(7, ACCOUNT, 'company.created', ORG, WHEN),
                                                       AuditEntry(5, ACCOUNT, 'company.suspended', None, WHEN)]
 
@@ -264,6 +287,53 @@ class CreateCompanyRouteTests(unittest.TestCase):
                 http, _ = client(FakeService(fail=failure))
                 response = self.post(http, self.BODY)
                 self.assertEqual((response.status_code, response.json()['error']['code']), (status, code))
+
+
+class CompanyOperationRouteTests(unittest.TestCase):
+    DOC = {'name': 'Acme Labs', 'loginCopy': 'Welcome.', 'assets': {},
+           'theme': {'primary': '#0B1D26', 'accent': '#B45309', 'tint': '#E8DCC1', 'heading': 'inter', 'body': 'inter'}}
+
+    def send(self, http, method, path, body=None, **kw):
+        headers = {**HEADERS, 'Content-Type': 'application/json'}
+        return http.request(method, BASE + path, headers=headers, content=None if body is None else json.dumps(body), **kw)
+
+    def test_suspend_and_reactivate_answer_with_the_company_as_it_now_is(self):
+        service = FakeService()
+        http, _ = client(service)
+        down = self.send(http, 'POST', '/companies/%s/suspend' % ORG)
+        up = self.send(http, 'POST', '/companies/%s/reactivate' % ORG)
+        self.assertEqual((down.status_code, down.json()['active'], up.status_code, up.json()['active']), (200, False, 200, True))
+        self.assertEqual([call[0] for call in service.calls], ['suspend_company', 'reactivate_company'])
+        self.assertEqual(self.send(http, 'POST', '/companies/not-a-uuid/suspend').status_code, 422)
+        denied = client(FakeService(fail=MfaRequired()))[0]
+        self.assertEqual(self.send(denied, 'POST', '/companies/%s/suspend' % ORG).json()['error']['code'], 'MFA_REQUIRED')
+
+    def test_the_branding_is_read_and_saved_with_the_same_document_shape_as_the_company_admin_api(self):
+        service = FakeService()
+        http, _ = client(service)
+        read = self.send(http, 'GET', '/companies/%s/branding' % ORG)
+        self.assertEqual((read.status_code, read.json()['revision'], read.json()['name']), (200, 0, DEFAULT.name))
+        saved = self.send(http, 'PUT', '/companies/%s/branding' % ORG, {'expectedRevision': 3, 'branding': self.DOC})
+        self.assertEqual((saved.status_code, saved.json()['revision'], saved.json()['name']), (200, 4, 'Acme Labs'))
+        self.assertEqual(service.calls[-1][1][1:3], (ORG, 3))
+        reset = self.send(http, 'POST', '/companies/%s/branding/reset' % ORG, {'expectedRevision': 4})
+        self.assertEqual((reset.status_code, reset.json()['revision'], service.calls[-1][0]), (200, 5, 'reset_company_branding'))
+
+    def test_a_malformed_branding_request_is_422_before_the_service_and_a_stale_revision_is_409(self):
+        service = FakeService()
+        http, _ = client(service)
+        bad_theme = {**self.DOC, 'theme': {**self.DOC['theme'], 'primary': 'red'}}
+        for body in ({}, {'branding': self.DOC}, {'expectedRevision': -1, 'branding': self.DOC}, {'expectedRevision': True, 'branding': self.DOC},
+                     {'expectedRevision': '1', 'branding': self.DOC}, {'expectedRevision': 1, 'branding': bad_theme},
+                     {'expectedRevision': 1, 'branding': 'x'}, {'expectedRevision': 1, 'branding': self.DOC, 'extra': 1}):
+            with self.subTest(body=body):
+                response = self.send(http, 'PUT', '/companies/%s/branding' % ORG, body)
+                self.assertEqual((response.status_code, response.json()['error']['code']), (422, 'INVALID_REQUEST'))
+        self.assertEqual(self.send(http, 'POST', '/companies/%s/branding/reset' % ORG, {'expectedRevision': 'x'}).status_code, 422)
+        self.assertEqual(service.calls, [])
+        stale = client(FakeService(fail=RevisionConflict()))[0]
+        conflict = self.send(stale, 'PUT', '/companies/%s/branding' % ORG, {'expectedRevision': 1, 'branding': self.DOC})
+        self.assertEqual((conflict.status_code, conflict.json()['error']['code']), (409, 'REVISION_CONFLICT'))
 
 
 class ErrorMappingTests(unittest.TestCase):
