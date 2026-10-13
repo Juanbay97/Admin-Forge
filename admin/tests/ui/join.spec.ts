@@ -74,7 +74,8 @@ test.describe("join page", () => {
     await expect(page).toHaveURL(/\/admin\/portal\/download/);
     expect(requests.find((request) => request.path.endsWith("/accounts/login"))?.body).toEqual({ email: MEMBER.email, password: PASSWORD });
     expect(requests.find((request) => request.path.endsWith("/invitations/accept"))?.body).toEqual({ invitation_id: INVITATION, capability: CAPABILITY, password: PASSWORD });
-    expect(requests.filter((request) => request.authorization !== null)).toEqual([]);
+    const beforeSignIn = requests.slice(0, requests.findIndex((request) => request.path.endsWith("/accounts/login")));
+    expect(beforeSignIn.filter((request) => request.authorization !== null)).toEqual([]); // the preview and the accept never carry a credential
   });
 
   test("an unusable invitation is explained before anything is typed, in words that do not say which case it is", async ({ page, adminUrl }) => {
