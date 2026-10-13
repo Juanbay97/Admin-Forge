@@ -89,7 +89,7 @@ class ServeTests(unittest.TestCase):
             for key in ('secret-key-a', 'secret-key-b'):
                 response = httpx.get(base + '/v1/models', headers={'Authorization': 'Bearer ' + key})
                 self.assertEqual((response.status_code, sorted(m['id'] for m in response.json()['data'])),
-                                 (200, ['fake-error', 'fake-fast', 'fake-malformed', 'fake-slow']))
+                                 (200, ['fake-error', 'fake-fast', 'fake-malformed', 'fake-nousage', 'fake-slow']))
                 self.assertNotIn(key, response.text)
             self.assertEqual(httpx.get(base + '/v1/models', headers={'Authorization': 'Bearer other'}).status_code, 401)
         self.assertEqual(running.failures, [])

@@ -15,6 +15,19 @@ MAX_EVENT_BYTES = 16384
 MAX_EVENTS = 1024
 MAX_OUTPUT_CHARS = 32768
 RETRYABLE_STATUS = frozenset({401, 429})  # plus every 5xx
+MAX_TOKENS = 10 ** 9
+USAGE_KEYS = frozenset({'prompt_tokens', 'completion_tokens', 'total_tokens'})
+
+
+def parse_usage(value):
+    """The one terminal usage chunk: empty ``choices`` and exactly the token counters, as plain bounded integers."""
+    usage = value.get('usage') if type(value) is dict else None
+    if (type(value) is not dict or value.get('choices') != [] or type(value.get('choices')) is not list
+            or type(usage) is not dict or not {'prompt_tokens', 'completion_tokens'} <= set(usage)
+            or set(usage) - USAGE_KEYS
+            or any(type(count) is not int or not 0 <= count <= MAX_TOKENS for count in usage.values())):
+        raise GatewayUnavailable()
+    return dict(usage)
 
 
 class PrivateEchoGuard:
@@ -61,7 +74,8 @@ class HttpxTextAdapter:
                             json={'model': upstream_id,
                                   'messages': [{'role': role, 'content': content}
                                                for role, content in request.messages],
-                                  'max_tokens': request.max_output_tokens, 'stream': True}) as response:
+                                  'max_tokens': request.max_output_tokens, 'stream': True,
+                                  'stream_options': {'include_usage': True}}) as response:
                         started = True
                         if response.status_code in RETRYABLE_STATUS or response.status_code >= 500:
                             raise RetryableUpstream()
@@ -74,7 +88,7 @@ class HttpxTextAdapter:
                         buffer = ''
                         lines = []
                         total = events = output = 0
-                        finish = None
+                        finish = usage = None
                         iterator = response.aiter_raw().__aiter__()
                         # No chunk_size: every received fragment reaches the deadline/size checks.
                         while True:
@@ -120,10 +134,18 @@ class HttpxTextAdapter:
                                     if tail:
                                         yield 'text', tail
                                     yield 'finish', finish
+                                    if usage is not None:
+                                        yield 'usage', usage
                                     return
-                                if finish is not None:
-                                    raise GatewayUnavailable()
                                 value = json.loads(document)
+                                if finish is not None:
+                                    # After the finish chunk only one exact usage chunk may follow, then [DONE].
+                                    if usage is not None:
+                                        raise GatewayUnavailable()
+                                    usage = parse_usage(value)
+                                    continue
+                                if type(value) is dict and 'usage' in value:
+                                    raise GatewayUnavailable()
                                 choices = value.get('choices') if type(value) is dict else None
                                 if type(choices) is not list or len(choices) != 1:
                                     raise GatewayUnavailable()

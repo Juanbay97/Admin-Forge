@@ -302,7 +302,7 @@ class InferenceAdapterOriginTests(unittest.IsolatedAsyncioTestCase):
         subject = policy(LOOPBACK, dev=True)
         adapter = HttpxTextAdapter(transport=httpx.ASGITransport(app=gateway.app), policy=subject)
         events = [item async for item in adapter.events(self.bound_key(LOOPBACK, subject), 'fake-fast', self.REQUEST)]
-        self.assertEqual(events[-1], ('finish', 'stop'))
+        self.assertEqual(events[-2:], [('finish', 'stop'), ('usage', {'prompt_tokens': 2, 'completion_tokens': 6, 'total_tokens': 8})])
         self.assertEqual(''.join(value for kind, value in events if kind == 'text'), 'This is a fake gateway reply.')
         self.assertEqual([(record.path, record.authorization) for record in gateway.records],
                          [('/v1/chat/completions', 'Bearer ' + KEY)])

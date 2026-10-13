@@ -46,7 +46,8 @@ class AdapterTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(request.headers['authorization'], 'Bearer ' + KEY)
             data = json.loads(request.content)
             self.assertEqual(data['model'], UPSTREAM)
-            self.assertEqual(set(data), {'model','messages','max_tokens','stream'})
+            self.assertEqual(set(data), {'model','messages','max_tokens','stream','stream_options'})
+            self.assertEqual(data['stream_options'], {'include_usage': True})
             return httpx.Response(status, headers=headers or {'content-type':'text/event-stream'},
                                   stream=body)
         return HttpxTextAdapter(transport=httpx.MockTransport(labelled))
@@ -189,3 +190,93 @@ class RetryClassificationTests(unittest.IsolatedAsyncioTestCase):
                         emitted.append(item)
                 self.assertEqual(emitted[:1], [('text', 'Hello')], 'the failure happened after output was produced')
                 self.assertNotIsInstance(caught.exception, RetryableUpstream)
+
+
+def usage_chunk(usage, **extra):
+    return ('data: ' + json.dumps({'id': 'chatcmpl-usage', 'object': 'chat.completion.chunk', 'model': UPSTREAM,
+                                   'choices': [], 'usage': usage, **extra}) + '\n\n').encode()
+
+
+STOP = event('Hello') + event(finish='stop')
+DONE = b'data: [DONE]\n\n'
+
+
+class UsageTests(unittest.IsolatedAsyncioTestCase):
+    """The final usage chunk is accepted only in its exact shape: after the finish chunk, once, with plain integers."""
+    adapter = AdapterTests.adapter
+    collect = AdapterTests.collect
+
+    async def test_a_valid_terminal_usage_chunk_is_emitted_after_the_finish_event(self):
+        for usage, expected in (({'prompt_tokens': 12, 'completion_tokens': 5}, {'prompt_tokens': 12, 'completion_tokens': 5}),
+                                ({'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0},
+                                 {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}),
+                                ({'prompt_tokens': 3, 'completion_tokens': 4, 'total_tokens': 7},
+                                 {'prompt_tokens': 3, 'completion_tokens': 4, 'total_tokens': 7})):
+            with self.subTest(usage=usage):
+                body = Body([STOP + usage_chunk(usage) + DONE])
+                self.assertEqual(await self.collect(self.adapter(body)), [('text', 'Hello'), ('finish', 'stop'), ('usage', expected)])
+                self.assertTrue(body.closed)
+
+    async def test_a_gateway_without_usage_still_succeeds_and_emits_no_usage_event(self):
+        body = Body([STOP + DONE])
+        self.assertEqual(await self.collect(self.adapter(body)), [('text', 'Hello'), ('finish', 'stop')])
+
+    async def test_every_malformed_or_misplaced_usage_fails_closed(self):
+        good = {'prompt_tokens': 1, 'completion_tokens': 2}
+        cases = {
+            'unknown usage key': STOP + usage_chunk({**good, 'cost': 1}) + DONE,
+            'nested details': STOP + usage_chunk({**good, 'prompt_tokens_details': {'cached_tokens': 0}}) + DONE,
+            'negative': STOP + usage_chunk({'prompt_tokens': -1, 'completion_tokens': 2}) + DONE,
+            'float': STOP + usage_chunk({'prompt_tokens': 1.0, 'completion_tokens': 2}) + DONE,
+            'bool': STOP + usage_chunk({'prompt_tokens': True, 'completion_tokens': 2}) + DONE,
+            'string': STOP + usage_chunk({'prompt_tokens': '1', 'completion_tokens': 2}) + DONE,
+            'null': STOP + usage_chunk({'prompt_tokens': None, 'completion_tokens': 2}) + DONE,
+            'huge': STOP + usage_chunk({'prompt_tokens': 10 ** 12, 'completion_tokens': 2}) + DONE,
+            'missing completion': STOP + usage_chunk({'prompt_tokens': 1}) + DONE,
+            'bad total': STOP + usage_chunk({**good, 'total_tokens': -3}) + DONE,
+            'usage not an object': STOP + usage_chunk([1, 2]) + DONE,
+            'usage null': STOP + usage_chunk(None) + DONE,
+            'duplicate usage': STOP + usage_chunk(good) + usage_chunk(good) + DONE,
+            'usage before finish (own chunk)': event('Hello') + usage_chunk(good) + event(finish='stop') + DONE,
+            'usage riding a content chunk': (('data: ' + json.dumps({'id': 'x', 'choices': [{'index': 0, 'delta': {'content': 'a'}, 'finish_reason': None}],
+                                                                      'usage': good}) + '\n\n').encode() + event(finish='stop') + DONE),
+            'usage chunk with a choice': STOP + (('data: ' + json.dumps({'id': 'x', 'usage': good, 'choices': [
+                {'index': 0, 'delta': {'content': 'x'}, 'finish_reason': None}]}) + '\n\n').encode()) + DONE,
+            'empty choices without usage': STOP + (('data: ' + json.dumps({'id': 'x', 'choices': []}) + '\n\n').encode()) + DONE,
+            'content after usage': STOP + usage_chunk(good) + event('late') + DONE,
+            'usage then eof without done': STOP + usage_chunk(good),
+        }
+        for name, value in cases.items():
+            with self.subTest(name):
+                body = Body([value])
+                with self.assertRaises(GatewayUnavailable) as caught:
+                    await self.collect(self.adapter(body))
+                self.assertNotIsInstance(caught.exception, RetryableUpstream)
+                self.assertTrue(body.closed)
+
+    async def test_a_seeded_fuzz_of_usage_shapes_accepts_exactly_the_specified_ones(self):
+        import random
+        rng = random.Random(20261012)
+        scalars = [0, 1, 7, 2 ** 31, 10 ** 12, -1, -(10 ** 9), 1.0, 2.5, True, False, None, '3', [], {}, [1]]
+        keys = ['prompt_tokens', 'completion_tokens', 'total_tokens', 'cost', 'prompt_tokens_details', '']
+
+        def expected(usage):
+            if type(usage) is not dict or not {'prompt_tokens', 'completion_tokens'} <= set(usage) or set(usage) - {'prompt_tokens', 'completion_tokens', 'total_tokens'}:
+                return False
+            return all(type(value) is int and 0 <= value <= 10 ** 9 for value in usage.values())
+
+        accepted = rejected = 0
+        for _ in range(240):
+            usage = {key: rng.choice(scalars) for key in rng.sample(keys, rng.randint(0, 5))}
+            if rng.random() < .5:
+                usage.update(prompt_tokens=rng.choice([0, 5, 99]), completion_tokens=rng.choice([0, 3, 42]))
+            body = Body([STOP + usage_chunk(usage) + DONE])
+            if expected(usage):
+                accepted += 1
+                self.assertEqual((await self.collect(self.adapter(body)))[-1], ('usage', usage), usage)
+            else:
+                rejected += 1
+                with self.assertRaises(GatewayUnavailable):
+                    await self.collect(self.adapter(body))
+        self.assertGreater(accepted, 20)
+        self.assertGreater(rejected, 20)

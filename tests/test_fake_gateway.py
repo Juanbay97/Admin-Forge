@@ -57,7 +57,7 @@ class ModelsTests(GatewayCase):
         document = response.json()
         self.assertEqual(document['object'], 'list')
         self.assertEqual([item['id'] for item in document['data']],
-                         ['fake-error', 'fake-fast', 'fake-malformed', 'fake-slow'])
+                         ['fake-error', 'fake-fast', 'fake-malformed', 'fake-nousage', 'fake-slow'])
         self.assertEqual(tuple(item['id'] for item in document['data']), tuple(sorted(MODELS)))
         self.assertTrue(all(item['object'] == 'model' for item in document['data']))
 
@@ -240,6 +240,39 @@ class FaultInjectionTests(GatewayCase):
         self.assertEqual(self.gateway.records, ())
 
 
+class UsageTests(GatewayCase):
+    """Usage is emitted only when requested (like a real gateway) and never for the no-usage model."""
+    async def blocks(self, model, **extra):
+        self.make()
+        response = await self.client().post('/v1/chat/completions', json=chat(model, **extra),
+                                            headers={'Authorization': 'Bearer ' + KEY})
+        self.assertEqual(response.status_code, 200)
+        return sse_events(response.text)
+
+    async def test_the_default_model_emits_one_terminal_usage_chunk_when_requested(self):
+        events = await self.blocks('fake-fast', stream_options={'include_usage': True})
+        self.assertEqual(events[-1], '[DONE]')
+        usage = json.loads(events[-2])
+        self.assertEqual((usage['choices'], usage['usage']), ([], {'prompt_tokens': 2, 'completion_tokens': 6, 'total_tokens': 8}))
+        self.assertEqual(json.loads(events[-3])['choices'][0]['finish_reason'], 'stop')
+        self.assertEqual(sum(1 for event in events[:-1] if 'usage' in json.loads(event)), 1)
+
+    async def test_the_prompt_count_follows_the_request_size(self):
+        self.make()
+        long = {'model': 'fake-fast', 'stream': True, 'stream_options': {'include_usage': True},
+                'messages': [{'role': 'user', 'content': 'x' * 400}]}
+        response = await self.client().post('/v1/chat/completions', json=long, headers={'Authorization': 'Bearer ' + KEY})
+        self.assertEqual(json.loads(sse_events(response.text)[-2])['usage']['prompt_tokens'], 100)
+
+    async def test_no_usage_without_the_request_and_never_for_the_nousage_model(self):
+        for model, extra in (('fake-fast', {}), ('fake-fast', {'stream_options': {'include_usage': False}}),
+                             ('fake-nousage', {'stream_options': {'include_usage': True}})):
+            with self.subTest(model=model, extra=extra):
+                events = await self.blocks(model, **extra)
+                self.assertTrue(all('usage' not in json.loads(event) for event in events[:-1]))
+                self.assertEqual(json.loads(events[-2])['choices'][0]['finish_reason'], 'stop')
+
+
 class AdapterCompatibilityTests(GatewayCase):
     def transport(self):
         return httpx.ASGITransport(app=self.gateway.app)
@@ -247,7 +280,7 @@ class AdapterCompatibilityTests(GatewayCase):
     async def test_catalog_adapter_accepts_fake_models(self):
         self.make()
         ids = await HttpxModelsAdapter(transport=self.transport()).discover_async(KEY)
-        self.assertEqual(ids, ('fake-error', 'fake-fast', 'fake-malformed', 'fake-slow'))
+        self.assertEqual(ids, ('fake-error', 'fake-fast', 'fake-malformed', 'fake-nousage', 'fake-slow'))
         self.assertEqual([(record.path, record.authorization) for record in self.gateway.records],
                          [('/v1/models', 'Bearer ' + KEY)])
 
@@ -271,10 +304,19 @@ class AdapterCompatibilityTests(GatewayCase):
         self.make()
         items, failed = await self.collect('fake-fast')
         self.assertFalse(failed)
-        self.assertEqual(items[-1], ('finish', 'stop'))
-        self.assertEqual(''.join(text for kind, text in items[:-1] if kind == 'text'), REPLY)
-        self.assertEqual({kind for kind, _ in items[:-1]}, {'text'})
+        # The adapter always asks for usage, so the default model ends with finish and then its counters.
+        self.assertEqual(items[-2:], [('finish', 'stop'), ('usage', {'prompt_tokens': 2, 'completion_tokens': 6, 'total_tokens': 8})])
+        self.assertEqual(''.join(text for kind, text in items[:-2] if kind == 'text'), REPLY)
+        self.assertEqual({kind for kind, _ in items[:-2]}, {'text'})
         self.assertEqual(self.gateway.records[0].model, 'fake-fast')
+
+    async def test_the_nousage_model_streams_without_a_usage_event_and_the_adapter_still_succeeds(self):
+        self.make()
+        items, failed = await self.collect('fake-nousage')
+        self.assertFalse(failed)
+        self.assertEqual(items[-1], ('finish', 'stop'))
+        self.assertEqual(''.join(text for kind, text in items if kind == 'text'), REPLY)
+        self.assertNotIn('usage', {kind for kind, _ in items})
 
     async def test_inference_adapter_rejects_malformed_stream_without_leaking_text(self):
         self.make()

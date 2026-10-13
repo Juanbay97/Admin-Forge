@@ -20,7 +20,8 @@ from threading import Event, Thread
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-MODELS = ('fake-fast', 'fake-slow', 'fake-error', 'fake-malformed')
+MODELS = ('fake-fast', 'fake-slow', 'fake-error', 'fake-malformed', 'fake-nousage')
+NO_USAGE_MODEL = 'fake-nousage'  # a gateway that ignores include_usage: the stream carries no usage chunk
 REPLY = 'This is a fake gateway reply.'
 DEFAULT_PORT = 3413
 MAX_KEYS = 8
@@ -78,6 +79,19 @@ def _event(model: str, delta: dict, finish_reason=None) -> str:
     return 'data: ' + json.dumps(chunk, separators=(',', ':')) + '\n\n'
 
 
+def _usage_event(model: str, prompt_tokens: int, completion_tokens: int) -> str:
+    chunk = {'id': 'chatcmpl-fake', 'object': 'chat.completion.chunk', 'created': 0, 'model': model, 'choices': [],
+             'usage': {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens,
+                       'total_tokens': prompt_tokens + completion_tokens}}
+    return 'data: ' + json.dumps(chunk, separators=(',', ':')) + '\n\n'
+
+
+def _prompt_tokens(messages) -> int:
+    """Deterministic stand-in for tokenization: one token per four characters of text, rounded up."""
+    return sum(-(-len(item['content']) // 4) for item in messages
+               if type(item) is dict and type(item.get('content')) is str)
+
+
 class FakeGateway:
     def __init__(self, configuration: FakeGatewayConfiguration, sleep):
         self.configuration = configuration
@@ -102,7 +116,7 @@ class FakeGateway:
         self._records.append(GatewayRecord(request.method, request.url.path, model,
                                            request.headers.get('authorization')))
 
-    async def _stream(self, model: str):
+    async def _stream(self, model: str, prompt_tokens=None):
         """Role chunk, word deltas, a stop chunk, then ``[DONE]``; faults are model-id driven."""
         yield _event(model, {'role': 'assistant', 'content': ''})
         words = REPLY.split(' ')
@@ -114,6 +128,8 @@ class FakeGateway:
                 delta['function_call'] = None
             yield _event(model, delta)
         yield _event(model, {}, 'stop')
+        if prompt_tokens is not None and model != NO_USAGE_MODEL:
+            yield _usage_event(model, prompt_tokens, len(words))
         yield 'data: [DONE]\n\n'
 
     def _build(self) -> FastAPI:
@@ -156,7 +172,10 @@ class FakeGateway:
                 return failure(404, 'Unknown model.')
             if model == 'fake-error':
                 return failure(500, 'Fake gateway failure.', 'server_error')
-            return StreamingResponse(self._stream(model), media_type='text/event-stream',
+            # Like a real gateway, usage is sent only when the caller asked for it.
+            wanted = body.get('stream_options') == {'include_usage': True}
+            return StreamingResponse(self._stream(model, _prompt_tokens(body['messages']) if wanted else None),
+                                     media_type='text/event-stream',
                                      headers={'Cache-Control': 'no-store'})
 
         @app.get('/__fake/requests')

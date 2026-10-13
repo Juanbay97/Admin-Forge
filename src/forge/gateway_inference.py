@@ -243,6 +243,8 @@ class GatewayInference:
                     yield chunk(value)
                 elif kind == 'finish':
                     yield chunk(finish=value)
+                elif kind == 'usage':
+                    continue  # recorded by the metering seam; never relayed to the member
                 else:
                     raise GatewayUnavailable()
             yield b'data: [DONE]\n\n'
