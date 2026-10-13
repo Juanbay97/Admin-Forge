@@ -1,4 +1,4 @@
-﻿import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page } from "@playwright/test";
 import { nextCode } from "./totp";
@@ -57,3 +57,33 @@ export async function signInOwner(page: Page, path = "/admin/platform") {
   await passCodeStep(page);
   await expect(page.getByRole("banner").getByText("Platform console").first()).toBeVisible();
 }
+
+/** Decodes a quoted-printable body (soft line breaks and =XX escapes) the way a mail client would. */
+function unquote(text: string): string {
+  return text.replace(/=\r?\n/g, "").replace(/=([0-9A-F]{2})/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+/** The newest local-mailbox message to `recipient`: its onboarding or set-password link, moved onto the control-plane origin. */
+export function mailTo(recipient: string): { subject: string; link: string; path: string } {
+  const directory = join(workspace(), "mailbox");
+  const matches = readdirSync(directory)
+    .filter((name) => name.endsWith(".eml"))
+    .map((name) => ({ name, text: unquote(readFileSync(join(directory, name), "utf8")) }))
+    .filter(({ text }) => new RegExp(`^To:.*${recipient.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "mi").test(text));
+  const last = matches.at(-1);
+  if (!last) throw new Error(`no mailbox message for ${recipient}`);
+  const link = /https?:\/\/[^\s"<>]+\/(?:onboarding|reset-password)[^\s"<>]*/.exec(last.text)?.[0];
+  if (!link) throw new Error("the message carries no link");
+  const subject = /^Subject:\s*(.*)$/m.exec(last.text)?.[1] ?? "";
+  return { subject, link: link.replace(/^https?:\/\/[^/]+/, "http://127.0.0.1:3410"), path: join(directory, last.name) };
+}
+
+export interface CreatedCompanyState {
+  id: string;
+  slug: string;
+  name: string;
+  adminEmail: string;
+}
+const companyFile = () => join(workspace(), "e2e-company.json");
+export const writeCompany = (state: CreatedCompanyState) => writeFileSync(companyFile(), JSON.stringify(state), "utf8");
+export const readCompany = (): CreatedCompanyState => JSON.parse(readFileSync(companyFile(), "utf8")) as CreatedCompanyState;

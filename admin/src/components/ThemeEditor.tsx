@@ -89,10 +89,12 @@ interface ThemeEditorProps {
   onChange: <K extends keyof Draft>(key: K, value: Draft[K]) => void;
   onUpload: (kind: AssetKind, file: File) => void;
   onRemove: (kind: AssetKind) => void;
+  /** The platform API has no logo upload, so the platform console hides the logo fields. */
+  logos?: boolean;
 }
 
 /** The fields of a brand theme: name, login message, three colours, two fonts and the three logos. Reusable by the setup wizard. */
-export function ThemeEditor({ draft, issues, saved, uploads, busy, onChange, onUpload, onRemove }: ThemeEditorProps) {
+export function ThemeEditor({ draft, issues, saved, uploads, busy, onChange, onUpload, onRemove, logos = true }: ThemeEditorProps) {
   return (
     <>
       <Field label="Product name">
@@ -115,7 +117,7 @@ export function ThemeEditor({ draft, issues, saved, uploads, busy, onChange, onU
         <FontField label="Heading font" value={draft.heading} onChange={(value) => onChange("heading", value)} />
         <FontField label="Body font" value={draft.body} onChange={(value) => onChange("body", value)} />
       </div>
-      <fieldset className="flex min-w-0 flex-col gap-4">
+      {logos && <fieldset className="flex min-w-0 flex-col gap-4">
         <legend className="mb-1 text-body font-medium text-fg">Logos (PNG or WebP, up to 256 KB)</legend>
         {ASSET_KINDS.map((kind) => {
           const hash = draft.assets[kind];
@@ -151,7 +153,7 @@ export function ThemeEditor({ draft, issues, saved, uploads, busy, onChange, onU
             </div>
           );
         })}
-      </fieldset>
+      </fieldset>}
     </>
   );
 }

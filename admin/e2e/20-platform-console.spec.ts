@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ensureCatalogue, meteredChat, seededOrg, tokenFor } from "./support/api";
-import { shot, signInOwner } from "./support/stack";
+import { mailTo, shot, signInOwner, writeCompany } from "./support/stack";
 
 // The platform console against the real stack, after 10-platform-owner created the owner. Each journey signs in with a password
 // and the next TOTP step; usage comes from real metered chats through the fake gateway.
@@ -58,4 +58,45 @@ test("companies are listed, searched, opened and suspended with the typed code, 
   await expect(page.getByText("This company is suspended")).toHaveCount(0);
   const back = await request.post("/forge/v1/accounts/login", { data: { email: orgB.admin.email, password: orgB.admin.password } });
   expect(back.ok()).toBe(true);
+});
+test("the wizard creates a company, applies keys and models and mails the first administrator's invitation", async ({ page }) => {
+  await signInOwner(page, "/admin/platform/companies/new");
+  await expect(page.getByRole("heading", { level: 1, name: "Create a company" })).toBeVisible();
+  await page.getByLabel("Company name").fill("E2E Initech");
+  await expect(page.getByLabel("Company code")).toHaveValue("e2e-initech");
+  await expect(page.getByText("Code is available")).toBeVisible();
+  await shot(page, "console", "30-wizard-company");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("checkbox", { name: "Customize branding" }).check();
+  await page.getByLabel("Product name").fill("Initech Forge");
+  await page.getByLabel("Primary color", { exact: true }).fill("#1D4ED8");
+  await shot(page, "console", "31-wizard-branding");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByLabel("Administrator email").fill("ada@e2e-initech.test");
+  await page.getByLabel("Administrator name").fill("Ada Initech");
+  await page.getByRole("button", { name: "Next" }).click();
+  const keys = page.getByRole("group", { name: "Gateway keys" }).getByRole("checkbox");
+  await expect(keys.first()).toBeVisible();
+  await keys.first().check();
+  await page.getByLabel("Add a model").fill("fake-fast");
+  await page.getByRole("button", { name: "Add model" }).click();
+  await page.getByLabel("Add a model").fill("fake-slow");
+  await page.getByRole("button", { name: "Add model" }).click();
+  await shot(page, "console", "32-wizard-keys-models");
+  await page.getByRole("button", { name: "Next" }).click();
+  await shot(page, "console", "33-wizard-review");
+  await page.getByRole("button", { name: "Create company" }).click();
+  await expect(page.getByRole("heading", { name: "E2E Initech is ready" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Invitation sent to ada@e2e-initech.test")).toBeVisible();
+  await shot(page, "console", "34-wizard-success");
+  const mail = mailTo("ada@e2e-initech.test");
+  expect(mail.link).toMatch(/\/onboarding\?c=e2e-initech#invitation_id=[0-9a-f-]{36}&capability=[A-Za-z0-9_-]{43}$/);
+  const href = (await page.getByRole("link", { name: "Open company" }).getAttribute("href")) ?? "";
+  const id = href.split("/").pop()!;
+  writeCompany({ id, slug: "e2e-initech", name: "E2E Initech", adminEmail: "ada@e2e-initech.test" });
+  await page.getByRole("link", { name: "Open company" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "E2E Initech" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Setup" }).getByText("2 allowed")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Setup" }).getByText("1 assigned")).toBeVisible();
+  await expect(page.getByText("Finish setup")).toHaveCount(0);
 });

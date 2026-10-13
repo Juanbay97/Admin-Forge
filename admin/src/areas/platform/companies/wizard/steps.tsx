@@ -1,0 +1,163 @@
+import { Plus, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_BRANDING, draftFrom, type Draft } from "../../../../brand/branding";
+import { isCompanyCode, slugFromName } from "../../../../platform/companies";
+import { errorMessage } from "../../../../shell/errors";
+import { useServices } from "../../../../shell/services";
+import { Alert } from "../../../../ui/Alert";
+import { Button } from "../../../../ui/Button";
+import { Checkbox } from "../../../../ui/Choice";
+import { Field } from "../../../../ui/Field";
+import { useZodForm } from "../../../../ui/form";
+import { Input } from "../../../../ui/Input";
+import { BrandDraftEditor, hasIssues } from "../../branding/BrandDraftEditor";
+import { loadAllCompanies } from "../data";
+import { adminSchema, companySchema, type AdminStep, type CompanyStep } from "./schema";
+
+export const defaultDraft = (): Draft => draftFrom(DEFAULT_BRANDING);
+
+function Nav({ onBack, nextLabel = "Next", nextDisabled, loading }: { onBack?: () => void; nextLabel?: string; nextDisabled?: boolean; loading?: boolean }) {
+  return (
+    <div className="flex justify-between gap-3 pt-2">
+      {onBack ? <Button variant="outline" onClick={onBack}>Back</Button> : <span />}
+      <Button type="submit" disabled={nextDisabled} loading={loading}>{nextLabel}</Button>
+    </div>
+  );
+}
+
+export function CompanyStepForm({ value, onNext }: { value: CompanyStep | null; onNext: (value: CompanyStep) => void }) {
+  const { platform } = useServices();
+  const companies = useQuery({ queryKey: ["platform", "companies", "all"], queryFn: () => loadAllCompanies(platform) });
+  const form = useZodForm(companySchema, { defaultValues: value ?? { name: "", code: "", department: "General" }, mode: "onChange" });
+  const [edited, setEdited] = useState(Boolean(value?.code));
+  const { errors } = form.formState;
+  const code = form.watch("code");
+  const taken = (companies.data ?? []).some((company) => company.slug === code);
+  const valid = isCompanyCode(code);
+  const name = form.register("name");
+  return (
+    <form noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit((values) => { if (!taken) onNext(values); })}>
+      <Field label="Company name" error={errors.name?.message}>
+        {(control) => (
+          <Input
+            {...control}
+            {...name}
+            autoComplete="off"
+            autoFocus
+            onChange={(event) => {
+              void name.onChange(event);
+              if (!edited) form.setValue("code", slugFromName(event.target.value), { shouldValidate: true });
+            }}
+          />
+        )}
+      </Field>
+      <Field
+        label="Company code"
+        hint="Employees type it in the app. 3 to 32 lowercase letters, digits or hyphens; it cannot change later."
+        error={errors.code?.message ?? (taken ? "Code is taken" : undefined)}
+      >
+        {(control) => <Input {...control} {...form.register("code", { onChange: () => setEdited(true) })} autoComplete="off" spellCheck={false} className="font-mono" />}
+      </Field>
+      {valid && !taken && companies.isSuccess && <p className="-mt-2 text-caption text-on-ok-soft">Code is available</p>}
+      <Field label="First department" hint="Where the first administrator is placed; more departments can be added later." error={errors.department?.message}>
+        {(control) => <Input {...control} {...form.register("department")} autoComplete="off" />}
+      </Field>
+      <Nav nextDisabled={taken || !form.formState.isValid} />
+    </form>
+  );
+}
+
+export function BrandingStepForm({ value, onNext, onBack }: { value: Draft | null; onNext: (value: Draft | null) => void; onBack: () => void }) {
+  const [custom, setCustom] = useState(value !== null);
+  const [draft, setDraft] = useState<Draft>(value ?? defaultDraft());
+  return (
+    <form noValidate className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); onNext(custom ? draft : null); }}>
+      <Checkbox label="Customize branding" checked={custom} onCheckedChange={(checked) => setCustom(checked === true)} />
+      {!custom && <p className="text-body text-muted">The company starts with the default Prometheon look. Its administrators can change it later.</p>}
+      {custom && <BrandDraftEditor draft={draft} saved={DEFAULT_BRANDING} onChange={(key, next) => setDraft((current) => ({ ...current, [key]: next }))} />}
+      <Nav onBack={onBack} nextDisabled={custom && hasIssues(draft)} />
+    </form>
+  );
+}
+
+export function AdminStepForm({ value, onNext, onBack }: { value: AdminStep | null; onNext: (value: AdminStep) => void; onBack: () => void }) {
+  const form = useZodForm(adminSchema, { defaultValues: value ?? { email: "", name: "" } });
+  const { errors } = form.formState;
+  return (
+    <form noValidate className="flex flex-col gap-4" onSubmit={form.handleSubmit(onNext)}>
+      <p className="text-body text-muted">This person receives the invitation email and becomes the company's administrator.</p>
+      <Field label="Administrator email" error={errors.email?.message}>
+        {(control) => <Input {...control} type="email" autoComplete="off" autoFocus {...form.register("email")} />}
+      </Field>
+      <Field label="Administrator name" error={errors.name?.message}>
+        {(control) => <Input {...control} autoComplete="off" {...form.register("name")} />}
+      </Field>
+      <Nav onBack={onBack} />
+    </form>
+  );
+}
+
+export function KeysModelsStepForm({ keys, models, onNext, onBack }: { keys: string[]; models: string[]; onNext: (keys: string[], models: string[]) => void; onBack: () => void }) {
+  const { platform } = useServices();
+  const pool = useQuery({ queryKey: ["platform", "keys"], queryFn: () => platform.keys() });
+  const prices = useQuery({ queryKey: ["platform", "prices"], queryFn: () => platform.prices() });
+  const [chosen, setChosen] = useState<string[]>(keys);
+  const [allowed, setAllowed] = useState<string[]>(models);
+  const [draft, setDraft] = useState("");
+  const usable = (pool.data?.keys ?? []).filter((key) => key.status === "active" && key.has_key);
+  const known = useMemo(() => [...new Set((prices.data?.prices ?? []).map((price) => price.upstream_id))].filter((id) => !allowed.includes(id)), [prices.data, allowed]);
+  useEffect(() => setDraft((current) => current), []);
+
+  const add = (id: string) => {
+    const clean = id.trim();
+    if (clean && clean.length <= 255 && !allowed.includes(clean)) setAllowed([...allowed, clean]);
+    setDraft("");
+  };
+  return (
+    <form noValidate className="flex flex-col gap-6" onSubmit={(event) => { event.preventDefault(); if (chosen.length > 0 && allowed.length > 0) onNext(chosen, allowed); }}>
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 text-body font-medium text-fg">Gateway keys</legend>
+        <p className="text-body text-muted">The company uses these platform keys, in this order; the first is tried first.</p>
+        {pool.isPending && <p role="status" className="text-muted">Loading keys…</p>}
+        {pool.isError && <Alert tone="destructive">{errorMessage(pool.error)}</Alert>}
+        {pool.isSuccess && usable.length === 0 && <Alert tone="warning">There is no usable key in the pool. Add one under Gateway keys first.</Alert>}
+        {usable.map((key) => (
+          <Checkbox
+            key={key.id}
+            label={`${key.label} · ${new URL(key.origin).host} · ••••${key.hint ?? ""}`}
+            checked={chosen.includes(key.id)}
+            onCheckedChange={(checked) => setChosen((current) => (checked === true ? [...current, key.id] : current.filter((id) => id !== key.id)))}
+          />
+        ))}
+      </fieldset>
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 text-body font-medium text-fg">Allowed models</legend>
+        <p className="text-body text-muted">The ceiling for what this company's administrators can publish to its members.</p>
+        <div className="flex gap-2">
+          <Field label="Add a model" className="flex-1">
+            {(control) => <Input {...control} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); add(draft); } }} autoComplete="off" spellCheck={false} placeholder="e.g. gpt-4o" />}
+          </Field>
+          <Button variant="outline" className="self-end" onClick={() => add(draft)} aria-label="Add model" disabled={!draft.trim()}><Plus aria-hidden="true" className="size-4" />Add</Button>
+        </div>
+        {known.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 text-caption text-muted">
+            Priced models:
+            {known.map((id) => <Button key={id} size="sm" variant="secondary" onClick={() => add(id)}>{id}</Button>)}
+          </div>
+        )}
+        {allowed.length > 0 && (
+          <ul aria-label="Allowed models" className="flex flex-wrap gap-2">
+            {allowed.map((id) => (
+              <li key={id} className="inline-flex items-center gap-1 rounded-full bg-action-soft py-1 pl-3 pr-1 text-body text-on-action-soft">
+                {id}
+                <button type="button" aria-label={`Remove ${id}`} onClick={() => setAllowed(allowed.filter((item) => item !== id))} className="inline-flex size-6 items-center justify-center rounded-full outline-focus hover:bg-surface focus-visible:outline-2"><X aria-hidden="true" className="size-3.5" /></button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </fieldset>
+      <Nav onBack={onBack} nextDisabled={chosen.length === 0 || allowed.length === 0} />
+    </form>
+  );
+}

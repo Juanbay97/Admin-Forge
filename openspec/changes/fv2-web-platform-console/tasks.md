@@ -58,11 +58,11 @@ Chain strategy: stacked-to-main
 - [x] 4.3 Suspend (typed code) / reactivate; UI + e2e (suspend then member login denied is asserted in release-e2e, not here)
 
 ## Phase 5 — Create wizard (PR 5)
-- [ ] 5.1 RED unit: slug rules, per-step schemas, `saga.ts` (success, fail at each of 4 steps, retry idempotent)
-- [ ] 5.2 Steps 1–3 (company + availability, branding via ThemeEditor, first admin)
-- [ ] 5.3 Step 4 (key picker last-4, model allow-list/ceiling), Step 5 review + progress view + success
-- [ ] 5.4 UI: happy path, code taken, partial failure + "Finish setup"; keyboard-only run; axe
-- [ ] 5.5 e2e: create company on real stack, invitation `.eml` recorded (path from stack)
+- [x] 5.1 RED unit: slug rules, per-step schemas, `saga.ts` (success, fail at each of 4 steps, retry idempotent)
+- [x] 5.2 Steps 1–3 (company + availability, branding via ThemeEditor, first admin)
+- [x] 5.3 Step 4 (key picker last-4, model allow-list/ceiling), Step 5 review + progress view + success
+- [x] 5.4 UI: happy path, code taken, partial failure + "Finish setup"; keyboard-only run; axe
+- [x] 5.5 e2e: create company on real stack, invitation `.eml` recorded (path from stack)
 
 ## Phase 6 — Detail tabs I (PR 6)
 - [ ] 6.1 Branding tab (ThemeEditor + publish), isolation test

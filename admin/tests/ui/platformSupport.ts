@@ -24,6 +24,8 @@ export interface World {
   branding: Record<string, Json>;
   /** Fail these `METHOD /path-suffix` requests once with the given status/code. */
   failOnce: Record<string, { status: number; code: string; times?: number }>;
+  /** The delivery state the create-company reply reports for the first-admin invitation. */
+  delivery?: string;
   /** Usage windows by route. */
   usage: { totals: Json; companies: Json; models: Json };
 }
@@ -120,7 +122,7 @@ async function handlers(key: string, _url: URL, body: Json | undefined, world: W
     if (world.companies.some((company) => company.slug === input.slug)) return reply(route, 409, envelope("COMPANY_CONFLICT"));
     const created = { id: `99999999-9999-4999-8999-${String(world.companies.length + 1).padStart(12, "0")}`, slug: input.slug, display_name: input.display_name, active: true };
     world.companies.push(created);
-    return reply(route, 201, { ...created, invitation: { id: "44444444-4444-4444-8444-444444444444", expires_at: "2026-10-20T12:00:00+00:00", delivery_state: "delivered", delivery_channel: "local_mailbox" } });
+    return reply(route, 201, { ...created, invitation: { id: "44444444-4444-4444-8444-444444444444", expires_at: "2026-10-20T12:00:00+00:00", delivery_state: world.delivery ?? "delivered", delivery_channel: "local_mailbox" } });
   }
   if ((match = key.match(/^(GET|PUT|POST) \/companies\/([^/]+)\/(branding|gateway-keys|model-access|branding\/reset)$/))) {
     const [, method, id, what] = match as unknown as [string, string, string, string];
