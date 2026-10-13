@@ -9,7 +9,7 @@ async function open(page: Page, adminUrl: string, link: string, world: PortalWor
   await page.goto(adminUrl + link);
   return backend;
 }
-async function fill(page: Page, { email = MEMBER.email, password = PASSWORD, confirm = password } = {}) {
+async function fill(page: Page, { email = MEMBER.email, password = PASSWORD, confirm = password }: { email?: string; password?: string; confirm?: string } = {}) {
   await page.getByLabel("Your email").fill(email);
   await page.getByLabel("New password", { exact: true }).fill(password);
   await page.getByLabel("Confirm password").fill(confirm);

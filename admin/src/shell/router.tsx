@@ -9,6 +9,8 @@ import { JoinRoute, ResetPasswordRoute } from "./publicRoutes";
 
 type PlatformRoutes = typeof import("../areas/platform/routes");
 const platform = (name: keyof PlatformRoutes) => async () => ({ Component: (await import("../areas/platform/routes"))[name] });
+type PortalRoutes = typeof import("../areas/portal/routes");
+const portal = (name: keyof PortalRoutes) => async () => ({ Component: (await import("../areas/portal/routes"))[name] });
 type CompanyRoutes = typeof import("../areas/company/routes");
 const company = (name: keyof CompanyRoutes) => async () => ({ Component: (await import("../areas/company/routes"))[name] });
 
@@ -63,7 +65,20 @@ export const routes: RouteObject[] = [
           },
         ],
       },
-      { path: "portal/*", element: <AreaGate area={AREAS.portal} /> },
+      {
+        path: "portal",
+        element: <AreaGate area={AREAS.portal} />,
+        children: [
+          {
+            lazy: async () => ({ Component: (await import("../areas/portal/PortalLayout")).PortalLayout }),
+            children: [
+              { index: true, lazy: portal("PortalIndexRoute") },
+              { path: "download", lazy: portal("DownloadRoute") },
+              { path: "*", element: <NotFound /> },
+            ],
+          },
+        ],
+      },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

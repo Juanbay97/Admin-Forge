@@ -3,6 +3,7 @@ import { createAccountApi } from "./account";
 import { createBrandingApi } from "./branding";
 import { createCatalogApi } from "./catalog";
 import { createApiClient } from "./client";
+import { createDownloadsApi } from "./downloads";
 import { createGatewayApi } from "./gateway";
 import { createInvitationsApi } from "./invitations";
 import { createMembersApi } from "./members";
@@ -18,4 +19,5 @@ export const services: Services = {
   branding: createBrandingApi(client),
   platform: createPlatformApi(client),
   invitations: createInvitationsApi(client),
+  downloads: createDownloadsApi(),
 };

@@ -43,9 +43,9 @@ Chain strategy: stacked-to-main
 - [x] 2.5 Route `/admin/join` public (outside `RequireSession`), shell registration
 
 ## Phase 3 — Download page (PR 3)
-- [ ] 3.1 RED unit: manifest schema (same-origin url, sha256 format), platform picker, size/date formatters
-- [ ] 3.2 `Download` page (steps, code + copy, installer, sha256, deep link, OS note, SmartScreen note, not-published state)
-- [ ] 3.3 UI spec (available / 404 / empty / non-Windows / deep link attempt), axe/CSP
+- [x] 3.1 RED unit: manifest schema (same-origin url, sha256 format), platform picker, size/date formatters
+- [x] 3.2 `Download` page (steps, code + copy, installer, sha256, deep link, OS note, SmartScreen note, not-published state)
+- [x] 3.3 UI spec (available / 404 / empty / non-Windows / deep link attempt), axe/CSP
 
 ## Phase 4 — Portal home & my usage (PR 4)
 - [ ] 4.1 RED→GREEN unit: usage schemas vs fixtures, delta/share math

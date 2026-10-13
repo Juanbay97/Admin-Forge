@@ -4,9 +4,8 @@ import { AREAS, areaOfPath, navFor } from "../../src/shell/areas";
 const admin = { account: { id: "a", email: "a@example.com", display_name: "A" }, platform: null, orgs: [{ id: "o", display_name: "O", status: "active" as const, roles: ["organization_admin"], departments: [] }] };
 
 test.describe("area registry", () => {
-  test("platform and company are open; the portal opens with its own change", () => {
-    expect(Object.values(AREAS).filter((area) => area.enabled).map((area) => area.id)).toEqual(["platform", "company"]);
-    expect(AREAS.portal.enabled).toBe(false);
+  test("all three areas are open", () => {
+    expect(Object.values(AREAS).filter((area) => area.enabled).map((area) => area.id)).toEqual(["platform", "company", "portal"]);
   });
   test("platform navigation lists the five console pages", () => {
     const owner = { ...admin, orgs: [], platform: { role: "platform_owner" as const, mfa: { state: "active" as const, verified: true, fresh: true } } };

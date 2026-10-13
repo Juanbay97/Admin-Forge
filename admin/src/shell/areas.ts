@@ -1,9 +1,9 @@
 // The area registry: which role areas exist, what each one's navigation is and who may enter it. Eager and tiny; the area
-// code itself is lazy (see router.tsx). The portal is a registered stub until its own change enables it.
+// code itself is lazy (see router.tsx). Platform, company and portal are all open.
 import type { Identity } from "./identity";
 
 export type AreaId = "platform" | "company" | "portal";
-export type IconName = "gauge" | "users" | "plug" | "layers" | "palette" | "shield" | "building";
+export type IconName = "gauge" | "users" | "plug" | "layers" | "palette" | "shield" | "building" | "download" | "chart" | "home";
 
 export interface NavEntry {
   label: string;
@@ -57,9 +57,9 @@ export const AREAS: Record<AreaId, AreaManifest> = {
     id: "portal",
     basePath: "/portal",
     label: "Portal",
-    enabled: false,
+    enabled: true,
     requires: (identity) => identity.orgs.length > 0,
-    nav: [],
+    nav: [{ label: "Get the app", to: "/portal/download", icon: "download" }],
   },
 };
 
