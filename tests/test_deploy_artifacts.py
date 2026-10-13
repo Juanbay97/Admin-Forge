@@ -614,7 +614,8 @@ class RunbookDocument(unittest.TestCase):
         self.assertTrue(self.doc.startswith('# '))
         self.assertLess(self.doc.index('## Quick path'), self.doc.index('## Prerequisites'))
         for heading in ('## Prerequisites', '## DNS and firewall', '## Configuration and secrets',
-                        '## Choose the TLS mode', '## Email delivery (SMTP)', '## First platform owner', '## Provision the first company',
+                        '## Choose the TLS mode', '## Email delivery (SMTP)', '## First platform owner', '## Platform sign-in and companies',
+                        '## Provision the first company',
                         '## Publish installers', '## Backup and restore', '## Upgrade and roll back', '## Logs',
                         '## Troubleshooting', '## Why one worker'):
             with self.subTest(heading=heading):
@@ -627,6 +628,17 @@ class RunbookDocument(unittest.TestCase):
                        '--mailbox-dir', '"exists"'):
             with self.subTest(needle=needle):
                 self.assertIn(needle, section)
+
+    def test_the_platform_section_documents_the_mandatory_second_factor_company_creation_suspension_and_audit(self):
+        section = self.doc[self.doc.index('## Platform sign-in and companies'):self.doc.index('## Provision the first company')]
+        for needle in ('/forge/v1/platform/', 'MFA_REQUIRED', '/forge/v1/platform/mfa/enroll', '/forge/v1/platform/login/mfa', 'recovery codes',
+                       'MFA_LOCKED', '/forge/v1/platform/companies', 'COMPANY_CONFLICT', '/suspend', '/reactivate', '/branding',
+                       '/forge/v1/platform/audit', 'append-only', 'absent from the published API contract'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, section)
+        self.assertNotRegex(section, r'(?i)password\s*[:=]\s*\S{8,}')
+        owner = self.doc[self.doc.index('## First platform owner'):self.doc.index('## Platform sign-in and companies')]
+        self.assertIn('(#platform-sign-in-and-companies)', owner)
 
     def test_it_warns_that_losing_the_fernet_keys_is_unrecoverable_and_defines_the_offline_secrets_backup(self):
         section = self.doc[self.doc.index('## Backup and restore'):]
@@ -659,6 +671,44 @@ class SmokeInvitationPhase(unittest.TestCase):
                        'invitation email captured by Mailpit', 'the emailed link activates the account'):
             with self.subTest(needle=needle):
                 self.assertIn(needle, script)
+
+
+class SmokePlatformPhase(unittest.TestCase):
+    def test_the_smoke_bootstraps_the_owner_enrols_totp_creates_a_company_and_proves_suspension_and_audit(self):
+        script = text('scripts/deploy-smoke.ps1')
+        for needle in ("'platform', 'bootstrap-owner'", "'--smtp'", 'Reset your Forge password', '/forge/v1/accounts/password-reset/consume',
+                       '/forge/v1/platform/mfa/enroll', '/forge/v1/platform/login/mfa', '/forge/v1/platform/companies',
+                       '/suspend', '/reactivate', '/forge/v1/platform/audit', 'Get-Totp', 'HMACSHA1',
+                       'the owner link is single-use', 'a TOTP step was accepted twice', 'a taken company code was not a conflict',
+                       'platform owner bootstrapped', 'company created by the owner', 'suspension denies the company and reactivation restores it'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, script)
+        # The platform phase comes after the invitation proof and before the backups.
+        order = [script.index(piece) for piece in ('the emailed link activates the account', 'platform owner bootstrapped', 'backup dump is valid')]
+        self.assertEqual(order, sorted(order))
+
+
+class SmokeTotpHelper(unittest.TestCase):
+    def test_the_powershell_totp_helper_reproduces_the_rfc_6238_vectors(self):
+        # A [byte] shifts as a byte in Windows PowerShell (255 -shl 8 is 0): this pins the widened arithmetic.
+        import json
+        import shutil
+        import subprocess
+        if not shutil.which('powershell.exe'):
+            self.skipTest('needs Windows PowerShell')
+        probe = (
+            "$ast = [Management.Automation.Language.Parser]::ParseFile('" + str(ROOT/'scripts'/'deploy-smoke.ps1') + "', [ref]$null, [ref]$null);"
+            "$ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-Totp' }, $true)"
+            " | ForEach-Object { . ([scriptblock]::Create($_.Extent.Text)) };"
+            "$secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';"
+            "ConvertTo-Json -Compress @{ a = (Get-Totp $secret 0 59); b = (Get-Totp $secret 0 1111111109); c = (Get-Totp $secret 0 1234567890);"
+            " d = (Get-Totp $secret 1 59); e = (Get-Totp $secret) }")
+        done = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', probe], capture_output=True, text=True, timeout=60)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        values = json.loads(done.stdout)
+        self.assertEqual((values['a'], values['b'], values['c']), ('287082', '081804', '005924'))
+        self.assertNotEqual(values['d'], values['a'])  # a one-step offset moves the code
+        self.assertRegex(values['e'], r'^[0-9]{6}$')
 
 
 class SmokeBackupPhase(unittest.TestCase):

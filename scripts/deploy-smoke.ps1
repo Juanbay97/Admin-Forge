@@ -221,6 +221,92 @@ try {
     $newLogin = Invoke-Json '/forge/v1/accounts/login' @{ email = 'newhire@smoke.example.test'; password = 'a-long-new-hire-passphrase-1' }
     Assert-True ($newLogin.Status -eq 200) 'the invited person could not sign in after following the link'
     Write-Pass 'the emailed link activates the account and the invited person signs in'
+
+    # Platform owner: bootstrap from the tools profile (the one-time link is mailed through Mailpit and also written to
+    # a private file), set the password from the link once, enrol TOTP, create a company, follow the emailed first-admin
+    # invitation, and prove suspension denies the company and reactivation restores it.
+    function Get-Totp([string]$Secret, [int]$Offset = 0, [int64]$AtSeconds = 0) {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+        $bits = -join ($Secret.ToUpperInvariant().TrimEnd('=').ToCharArray() | ForEach-Object { [Convert]::ToString($alphabet.IndexOf($_), 2).PadLeft(5, '0') })
+        $key = [byte[]]@(for ($index = 0; $index + 8 -le $bits.Length; $index += 8) { [Convert]::ToByte($bits.Substring($index, 8), 2) })
+        if ($AtSeconds -eq 0) { $AtSeconds = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
+        $counter = [int64]([Math]::Floor($AtSeconds / 30)) + $Offset
+        $message = [BitConverter]::GetBytes($counter)
+        [Array]::Reverse($message)
+        $hash = [Security.Cryptography.HMACSHA1]::new($key).ComputeHash($message)
+        $start = $hash[$hash.Length - 1] -band 0x0F
+        # [byte] -shl stays a byte (255 -shl 8 is 0), so every term is widened to [int] first.
+        $value = (([int]$hash[$start] -band 0x7F) -shl 24) -bor ([int]$hash[$start + 1] -shl 16) -bor ([int]$hash[$start + 2] -shl 8) -bor [int]$hash[$start + 3]
+        return ($value % 1000000).ToString('000000')
+    }
+    function Get-Mail([string]$Address, [string]$Subject) {
+        $listed = @((Invoke-RestMethod -Uri "$mailpit/api/v1/messages" -TimeoutSec 20).messages | Where-Object {
+                @($_.To | ForEach-Object { $_.Address }) -contains $Address -and $_.Subject -eq $Subject })
+        Assert-True ($listed.Count -eq 1) "Mailpit did not capture exactly one '$Subject' message for $Address"
+        return Invoke-RestMethod -Uri "$mailpit/api/v1/message/$($listed[0].ID)" -TimeoutSec 20
+    }
+    function Invoke-Authenticated([string]$Path, [string]$Token) {
+        return Invoke-Curl $Path -Arguments @('-H', "Authorization: Bearer $Token", '-H', "Origin: $origin")
+    }
+    $ownerAddress = 'owner@smoke.example.test'
+    $bootstrap = (Invoke-Compose @('run', '--rm', '-T', 'platform', 'bootstrap-owner', '--email', $ownerAddress, '--name', 'Smoke Owner',
+            '--link-file', '/credentials/owner-link.txt', '--smtp') -Global @('--profile', 'tools')).Output
+    Assert-True ($bootstrap -match '"status": "created"' -and $bootstrap -match '"delivery": "delivered"') "the owner was not bootstrapped and mailed: $bootstrap"
+    $linkFile = Join-Path (Join-Path $work 'credentials') 'owner-link.txt'
+    Assert-True (Test-Path -LiteralPath $linkFile) 'the one-time link file was not written'
+    $resetMail = Get-Mail $ownerAddress 'Reset your Forge password'
+    Assert-True ($resetMail.Text -match '(https://localhost:\d+)/reset-password#capability=([A-Za-z0-9_-]{43})') 'the owner message holds no set-password link'
+    Assert-True ($Matches[1] -eq $origin -and (Get-Content -LiteralPath $linkFile -Raw).Trim() -eq $Matches[0]) 'the mailed link differs from the private file or the public origin'
+    $ownerCapability = $Matches[2]
+    $ownerAgain = (Invoke-Compose @('run', '--rm', '-T', 'platform', 'bootstrap-owner', '--email', 'someone@smoke.example.test', '--name', 'Other',
+            '--link-file', '/credentials/second-link.txt') -Global @('--profile', 'tools')).Output
+    Assert-True ($ownerAgain -match '"status": "exists"' -and -not (Test-Path -LiteralPath (Join-Path (Join-Path $work 'credentials') 'second-link.txt'))) 'a rerun of the bootstrap was not a no-op'
+    $ownerPassword = 'a-long-platform-owner-passphrase-1'
+    Assert-True ((Invoke-Json '/forge/v1/accounts/password-reset/consume' @{ capability = $ownerCapability; password = $ownerPassword }).Status -eq 204) 'the set-password link did not work'
+    Assert-True ((Invoke-Json '/forge/v1/accounts/password-reset/consume' @{ capability = $ownerCapability; password = 'another-platform-owner-passphrase-2' }).Status -eq 404) 'the owner link is single-use'
+    $ownerLogin = Invoke-Json '/forge/v1/accounts/login' @{ email = $ownerAddress; password = $ownerPassword }
+    Assert-True ($ownerLogin.Status -eq 200) 'the owner could not sign in after setting the password'
+    $ownerToken = ($ownerLogin.Body | ConvertFrom-Json).access_token
+    Assert-True ((Invoke-Authenticated '/forge/v1/platform/companies' $ownerToken).Status -eq 403) 'a password-only owner session reached the platform'
+    $enrolment = (Invoke-Json '/forge/v1/platform/mfa/enroll' @{} $ownerToken)
+    Assert-True ($enrolment.Status -eq 201) "TOTP enrolment failed ($($enrolment.Status))"
+    $enrolled = $enrolment.Body | ConvertFrom-Json
+    Assert-True (@($enrolled.recovery_codes).Count -eq 10) 'enrolment did not return ten recovery codes'
+    $verified = Invoke-Json '/forge/v1/platform/login/mfa' @{ code = (Get-Totp $enrolled.secret) } $ownerToken
+    Assert-True ($verified.Status -eq 200) "the TOTP code was not accepted ($($verified.Status) $($verified.Body))"
+    Assert-True ((Invoke-Json '/forge/v1/platform/login/mfa' @{ code = (Get-Totp $enrolled.secret) } $ownerToken).Status -eq 403) 'a TOTP step was accepted twice'
+    Write-Pass 'platform owner bootstrapped (link mailed, written once, rerun is a no-op), password set once, TOTP enrolled and verified'
+
+    $created = Invoke-Json '/forge/v1/platform/companies' @{ slug = 'platform-co'; display_name = 'Platform Company'; department = 'Operations'
+        admin_email = 'first.admin@smoke.example.test'; admin_name = 'First Admin' } $ownerToken
+    $newCompany = $created.Body | ConvertFrom-Json
+    Assert-True ($created.Status -eq 201 -and $newCompany.invitation.delivery_state -eq 'delivered' -and $newCompany.invitation.delivery_channel -eq 'smtp') "the company was not created with an emailed invitation ($($created.Status) $($created.Body))"
+    Assert-True ((Invoke-Json '/forge/v1/platform/companies' @{ slug = 'platform-co'; display_name = 'Again'; department = 'Ops'
+        admin_email = 'x@smoke.example.test'; admin_name = 'X' } $ownerToken).Status -eq 409) 'a taken company code was not a conflict'
+    $adminMail = Get-Mail 'first.admin@smoke.example.test' 'Your Forge invitation'
+    Assert-True ($adminMail.Text -match '(https://localhost:\d+)/onboarding\?c=platform-co#invitation_id=([0-9a-f-]{36})&capability=([A-Za-z0-9_-]{43})') 'the first-admin message holds no onboarding link with the company code'
+    $firstInvitation = $Matches[2]
+    $firstCapability = $Matches[3]
+    Assert-True ($firstInvitation -eq $newCompany.invitation.id) 'the link does not carry the issued invitation'
+    $firstPassword = 'a-long-first-admin-passphrase-1'
+    Assert-True ((Invoke-Json '/forge/v1/accounts/invitations/accept' @{ invitation_id = $firstInvitation; capability = $firstCapability; password = $firstPassword }).Status -eq 201) 'the first admin could not accept the invitation'
+    $adminLogin = Invoke-Json '/forge/v1/accounts/login' @{ email = 'first.admin@smoke.example.test'; password = $firstPassword }
+    Assert-True ($adminLogin.Status -eq 200) 'the first admin could not sign in'
+    $adminToken = ($adminLogin.Body | ConvertFrom-Json).access_token
+    $membersPath = "/forge/v1/orgs/$($newCompany.id)/members"
+    $members = Invoke-Authenticated $membersPath $adminToken
+    Assert-True ($members.Status -eq 200 -and ($members.Body | ConvertFrom-Json).members[0].roles -contains 'organization_admin') 'the first admin does not see itself as organization_admin'
+    Write-Pass 'company created by the owner; the emailed first-admin invitation was accepted and the admin runs the company'
+
+    $suspend = Invoke-Json "/forge/v1/platform/companies/$($newCompany.id)/suspend" @{} $ownerToken
+    Assert-True ($suspend.Status -eq 200 -and -not ($suspend.Body | ConvertFrom-Json).active) 'the company was not suspended'
+    Assert-True (@(401, 403, 404) -contains (Invoke-Authenticated $membersPath $adminToken).Status) 'a suspended company still serves its administrator'
+    $reactivate = Invoke-Json "/forge/v1/platform/companies/$($newCompany.id)/reactivate" @{} $ownerToken
+    Assert-True ($reactivate.Status -eq 200 -and ($reactivate.Body | ConvertFrom-Json).active) 'the company was not reactivated'
+    Assert-True ((Invoke-Authenticated $membersPath $adminToken).Status -eq 200) 'reactivation did not restore the administrator'
+    $auditTrail = (Invoke-Authenticated '/forge/v1/platform/audit' $ownerToken).Body | ConvertFrom-Json
+    Assert-True ((@($auditTrail.entries | ForEach-Object { $_.action }) -join ',') -eq 'company.reactivated,company.suspended,company.created,owner.mfa_enrolled') 'the audit log does not show the platform actions newest first'
+    Write-Pass 'suspension denies the company and reactivation restores it; every platform action is audited'
     # Backups: a verified dump, retention, restore refusing a used database, and a round trip into a fresh volume.
     $backups = Join-Path $work 'backups'
     $backupScript = @('exec', '-T', 'backup', '/bin/sh', '/opt/forge/backup.sh')

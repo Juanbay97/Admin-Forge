@@ -174,10 +174,63 @@ Expected: `{"status": "created", "link_file": "/credentials/owner-link.txt", "de
 3. Running the command again is a no-op (`{"status": "exists"}`): once an owner exists nothing is created and no file
    is written. If the link was lost or expired before use, use the owner's normal forgot-password flow on the sign-in page.
 4. For local testing without a relay, `--mailbox-dir <private folder>` writes the message as an `.eml` file instead.
+5. Next: sign in, enrol the mandatory second factor and create companies ([Platform sign-in and companies](#platform-sign-in-and-companies)).
+
+## Platform sign-in and companies
+
+The platform API lives under `/forge/v1/platform/` and is deliberately absent from the published API contract. It
+authenticates with the owner's normal Forge session (`POST /forge/v1/accounts/login`) and then REQUIRES a second factor
+for that very session: until the TOTP step below passes, every call except `GET me`, `POST mfa/enroll` and
+`POST login/mfa` answers `MFA_REQUIRED`. Changes (creating, suspending or editing a company) additionally need a TOTP
+check from the last 30 minutes. Replace `forge.example.test` and `$TOKEN` (the `access_token` of the login reply).
+
+```bash
+curl -fsS https://forge.example.test/forge/v1/accounts/login -H 'Content-Type: application/json' \
+  -d '{"email":"owner@example.test","password":"<the password you set>"}'
+
+# Once: enrol an authenticator app. The reply holds the secret, an otpauth:// URI and ten single-use recovery codes.
+curl -fsS -X POST https://forge.example.test/forge/v1/platform/mfa/enroll -H "Authorization: Bearer $TOKEN"
+curl -fsS https://forge.example.test/forge/v1/platform/login/mfa -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"code":"123456"}'
+```
+
+* Store the recovery codes offline: they are shown once and kept only as hashes. A new sign-in (a new session) must pass
+  the factor again, with `{"code":"123456"}` or `{"recovery_code":"ABCD-EFGH-IJKL-MNOP"}` (each recovery code works once).
+* A TOTP step is accepted once; five wrong attempts lock the factor for 15 minutes (`MFA_LOCKED`, `Retry-After`).
+* The factor cannot be replaced through the API once active. If the authenticator is lost and the recovery codes too,
+  the operator removes it in the database (delete the owner's rows in `forge.platform_totp`, `forge.platform_recovery_codes`
+  and `forge.platform_mfa_sessions`) and the owner enrols again.
+
+Create a company: its code is the slug employees type, and the first administrator receives an invitation email whose
+link also carries the code (the invitation lasts seven days).
+
+```bash
+curl -fsS https://forge.example.test/forge/v1/platform/companies -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"slug":"acme","display_name":"Acme Corporation","department":"Operations","admin_email":"admin@example.test","admin_name":"Acme Admin"}'
+```
+
+Expected: `201` with the company and `"invitation": {"delivery_state": "delivered", "delivery_channel": "smtp", ...}`. A taken
+code is `409 COMPANY_CONFLICT` and creates nothing. If delivery says `failed`, the company exists: fix the relay and see
+[Email delivery](#email-delivery-smtp) (the invitation cannot be re-sent yet).
+
+| Call | What it does |
+|------|--------------|
+| `GET /forge/v1/platform/me` | Your identity and second-factor state |
+| `GET /forge/v1/platform/companies?after=<code>&page=<1-100>` | Page through every company, ordered by code |
+| `GET /forge/v1/platform/companies/<id>` | One company |
+| `POST /forge/v1/platform/companies/<id>/suspend` | Deny the company's members, administrators and inference at once; nothing is deleted |
+| `POST /forge/v1/platform/companies/<id>/reactivate` | Restore access immediately |
+| `GET`/`PUT /forge/v1/platform/companies/<id>/branding`, `POST .../branding/reset` | Read or edit a company's branding (`expectedRevision` as in the company admin API; logos are uploaded by the company) |
+| `GET /forge/v1/platform/audit?before=<id>&page=<1-100>` | The append-only audit log, newest first |
+
+Every change writes one audit row (who, what, which company, when; never an email or a secret). Company administrators
+keep editing their own branding; they are never platform identities (`PLATFORM_DENIED`).
 
 ## Provision the first company
 
-The `provision` service is in the `tools` profile, so `up` never starts it. It reaches the database through
+Companies are normally created through the platform API above; the `provision` tool remains for the very first
+company and for recovery. The `provision` service is in the `tools` profile, so `up` never starts it. It reaches the database through
 the PostgreSQL container's own loopback and writes the new administrator's initial password to a new file in
 `deploy/credentials/` (an existing file is never overwritten; running it again creates nothing).
 

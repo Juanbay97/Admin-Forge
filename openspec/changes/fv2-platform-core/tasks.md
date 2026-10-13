@@ -46,5 +46,30 @@ Strict TDD each task: RED → GREEN → REFACTOR; module-at-a-time unittest + PG
 - [x] 3.3 RED/GREEN suspend/reactivate across member/admin/inference paths
 - [x] 3.4 RED/GREEN 0030 platform branding edit + other-company-unchanged (F30)
 ## Phase 4: Verify (S8)
-- [ ] 4.1 audit read API + append-only denial tests
-- [ ] 4.2 extend `scripts/mvp-smoke.ps1`: owner→company→invite→admin; docs
+- [x] 4.1 audit read API + append-only denial tests
+- [x] 4.2 extend `scripts/mvp-smoke.ps1`: owner→company→invite→admin; docs
+
+## Apply notes (2026-10-12/13)
+
+Strict TDD per slice; migration gates fresh == upgrade-from-previous for every migration; PG modules run one at a time.
+Final numbers after the renumber: 0028 platform scope (F28), 0029 platform MFA (F29), 0030 company lifecycle (F30), 0031
+platform company operations (F31). Stacked local branches (no push): `feat/fv2-platform-core-s0-smoke-fix` ->
+`s1-scope` -> `s2-session-service` -> `s3-bootstrap-cli` -> `s4a-totp-key` -> `s4b-mfa-migration` -> `s5-http-api` ->
+`s6a-company-service` -> `s6b-company-migration` -> `s7a-operations-service` -> `s7b-operations-migration` -> `s8-audit-smoke-docs`.
+
+Deviations from the design:
+- Suspend/reactivate moved from the lifecycle migration to 0031 (with the branding edit) so each slice stays one work unit.
+- A dedicated `platform_key` Fernet secret seals the TOTP secret (design: separate key): new `FORGE_PLATFORM_KEY[_FILE]`,
+  `platform_key` Docker secret, `deploy-secrets` file and `secrets.json` key (a local stack regenerates it on `up`).
+- An active factor is never replaced through the API (a stolen password session cannot swap it); the operator resets it
+  in the database (docs/deploy.md). Re-enrolment is allowed only while the factor is still pending.
+- Bootstrap CLI runs from the environment (`FORGE_DB_*`, admin password file, `FORGE_PUBLIC_ORIGIN`, `FORGE_SMTP_*`) like
+  `forge.migrate`; the compose `platform` tools service sits on both `data` and `edge` so it reaches PostgreSQL and the
+  mail relay. The link file is written (mode 0600, exclusive create) before the transaction commits.
+- Platform branding edit covers text, colours, fonts, existing asset references and reset; logo upload stays with the
+  company admin. A failed first-admin invitation delivery has no re-send yet; an existing-account email fails at accept.
+- Task 4.2 "extend mvp-smoke": the owner -> company -> invite -> admin proof lives in `scripts/deploy-smoke.ps1` (real
+  stack, real SMTP through Mailpit, PowerShell RFC 6238) and the PG HTTP tests; `mvp-smoke.ps1` has no operator access to
+  its throwaway database, and only received the PowerShell 5.1 tree-state fix.
+- Slice sizes (additions + deletions, incl. pin-ripple tests): s1 603, s2 422, s3 612, s4a 303, s4b 821 (>800 by ~20
+  lines of pin ripple, not compressible), s5 576, s6a 280, s6b 696, s7a 303, s7b 581, s8 252.

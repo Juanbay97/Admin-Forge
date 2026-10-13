@@ -1,5 +1,6 @@
 """Owned PostgreSQL: suspending a company through the platform API denies its members and administrators at once, leaves the
 other company and the sessions alone, and reactivation restores everything (the matrix over every member/admin path)."""
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -80,6 +81,35 @@ class PostgresPlatformSuspensionTests(unittest.TestCase):
             client.post(BASE + '/companies/%s/reactivate' % org, headers=owner)
             self.assertIsNotNone(resolve(member_id))
             self.assertEqual(client.post('/forge/v1/accounts/invitations', headers=admin, json={**invite, 'email': 'third.person@a.test'}).status_code, 201)
+
+    def test_the_audit_api_pages_newest_first_with_a_bounded_cursor_and_exposes_only_the_five_fixed_fields(self):
+        with stack() as (db, client, results, root, secrets):
+            owner = self.verified_owner(db, client)
+            org = results[0].organization_id
+            for _ in range(2):
+                client.post(BASE + '/companies/%s/suspend' % org, headers=owner)
+                client.post(BASE + '/companies/%s/reactivate' % org, headers=owner)
+            everything = client.get(BASE + '/audit', headers=owner).json()
+            self.assertEqual([e['action'] for e in everything['entries']],
+                             ['company.reactivated', 'company.suspended', 'company.reactivated', 'company.suspended', 'owner.mfa_enrolled'])
+            self.assertIsNone(everything['next_before'], 'five rows on a page of fifty: nothing more')
+            ids = [e['id'] for e in everything['entries']]
+            self.assertEqual(ids, sorted(ids, reverse=True))
+            self.assertEqual({tuple(sorted(e)) for e in everything['entries']},
+                             {('action', 'actor_id', 'id', 'organization_id', 'recorded_at')})
+            seen, cursor = [], None
+            for _ in range(4):
+                page = client.get(BASE + '/audit', headers=owner, params={'page': 2, **({'before': cursor} if cursor else {})}).json()
+                seen += [e['id'] for e in page['entries']]
+                cursor = page['next_before']
+                if cursor is None:
+                    break
+            self.assertEqual(seen, ids, 'pages of two walk the whole log exactly once, newest first')
+            for params in ({'page': 101}, {'page': 0}, {'before': 0}, {'before': 'x'}):
+                self.assertEqual(client.get(BASE + '/audit', headers=owner, params=params).status_code, 422)
+            serialized = json.dumps(everything)
+            for secret in (OWNER_EMAIL, PASSWORD, 'capability'):
+                self.assertNotIn(secret, serialized)
 
     def test_a_company_admin_cannot_suspend_anything_and_an_unknown_company_is_404(self):
         with stack() as (db, client, results, root, secrets):
