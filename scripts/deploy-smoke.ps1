@@ -522,7 +522,7 @@ try {
     Assert-True ($echo.Status -eq 200 -and $echo.Body -match 'PRIVATE-SMOKE-TEXT') "the broker did not relay a tool call ($($echo.Status) $($echo.Body))"
     $echoHeaders = Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 3; method = 'tools/call'; params = @{ name = 'headers'; arguments = @{} } } $memberToken
     Assert-True ($echoHeaders.Status -eq 200 -and $echoHeaders.Body.Contains('[redacted]') -and $echoHeaders.Body -notmatch 'at-[A-Za-z0-9_-]{20,}') 'a connector that echoes request headers handed the upstream credential back'
-    Assert-True ($echoHeaders.Body -notmatch 'Bearer ') 'the echoed Authorization header was not scrubbed'
+    Assert-True ($echoHeaders.Body -match 'Bearer \[redacted\]') 'the echoed Authorization header was not scrubbed to the redaction marker'
     foreach ($reply in $initialize, $echo, $echoHeaders, $connectorStart, $connected, $credential) { Assert-True (-not $reply.Body.Contains($clientSecret)) 'the OAuth client secret appeared in a response' }
     $blocked = Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 4; method = 'sampling/createMessage'; params = @{} } $memberToken
     Assert-True ($blocked.Status -eq 403 -and $blocked.Body -match 'METHOD_NOT_ALLOWED') 'a server-to-client method was relayed'
