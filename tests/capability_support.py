@@ -18,16 +18,16 @@ ROLE = 'forge_capability_service'
 class CapabilityRole:
     """Raw statements on the dedicated capability role, exactly as the application connects (no table privilege at all)."""
 
-    def __init__(self, db):
+    def __init__(self, db, role=ROLE):
         self.db = db
-        if ROLE in db.passwords:
-            self.pool = db.pool(ROLE)
+        if role in db.passwords:
+            self.pool = db.pool(role)
             self.settings = None
         else:
             password = secrets.token_urlsafe(24)
-            db.admin.execute(sql.SQL('ALTER ROLE {} LOGIN PASSWORD {}').format(sql.Identifier(ROLE), sql.Literal(password)))
+            db.admin.execute(sql.SQL('ALTER ROLE {} LOGIN PASSWORD {}').format(sql.Identifier(role), sql.Literal(password)))
             self.pool = None
-            self.settings = db.connection_settings(user=ROLE, password=password)
+            self.settings = db.connection_settings(user=role, password=password)
 
     def call(self, text, params=()):
         if self.pool is not None:
@@ -60,6 +60,7 @@ class GovernanceWorld:
     def build(self, db):
         self.db = db
         self.role = CapabilityRole(db)
+        self.broker = CapabilityRole(db, 'forge_broker_service')
         results = provision(db.admin, SEED, lambda created: None)
         self.org_a, self.org_b = results[0].organization_id, results[1].organization_id
         self.admin_a, self.member_a = results[0].accounts[0], results[0].accounts[1]

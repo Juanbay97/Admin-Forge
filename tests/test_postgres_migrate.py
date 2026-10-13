@@ -33,7 +33,7 @@ def fresh_database():
     finally:
         with connect() as cleanup:
             for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service',
-                         'forge_platform_authority', 'forge_platform_service', 'forge_capability_authority', 'forge_capability_service'):
+                         'forge_platform_authority', 'forge_platform_service', 'forge_capability_authority', 'forge_capability_service', 'forge_broker_authority', 'forge_broker_service'):
                 cleanup.execute('DROP ROLE IF EXISTS ' + role)
 
 

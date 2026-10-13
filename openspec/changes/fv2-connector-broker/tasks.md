@@ -34,9 +34,9 @@ Chain strategy: stacked-to-main
 - [x] 1.2 RED `tests/test_egress_guard.py` (private IP, redirect, rebind, allow-list); GREEN `egress_guard.py`
 
 ## B2 Schema/store
-- [ ] 2.1 Migration credentials/grants/oauth_states, broker role pair, RLS + DEFINER fns
-- [ ] 2.2 `connector_store.py` port + PG adapter; ripple ROLES, F fingerprint, readiness
-- [ ] 2.3 PG tests: cross-org, revision `CONFLICT`, advisory lock
+- [x] 2.1 Migration credentials/grants/oauth_states, broker role pair, RLS + DEFINER fns
+- [x] 2.2 `connector_store.py` port + PG adapter; ripple ROLES, F fingerprint, readiness
+- [x] 2.3 PG tests: cross-org, revision `CONFLICT`, advisory lock
 
 ## B3 OAuth
 - [ ] 3.1 `tests/fixtures/fake_oauth_provider.py` (loopback authorize/token/refresh)

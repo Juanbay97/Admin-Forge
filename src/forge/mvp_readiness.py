@@ -1,4 +1,4 @@
-"""Static MVP readiness: attests exactly the reviewed 0001-0005+0010-0040 profile (F40).
+"""Static MVP readiness: attests exactly the reviewed 0001-0005+0010-0041 profile (F41).
 
 Same shape as the retained 0018 profile checks, pinned to the latest MVP checkpoint
 from ``forge.mvp_profile``; nothing is learned at runtime and any drift is not ready.
@@ -9,12 +9,12 @@ from psycopg.rows import tuple_row
 from forge.account_readiness import catalog_fingerprint, _SERVICE_PRIVILEGES
 from forge.account_store import EnrollmentConnection
 from forge.gateway_configuration_store import GatewayConnection
-from forge.mvp_profile import F40
+from forge.mvp_profile import F41
 from forge.postgres import _ROLE_CHECK
 
-_AUTHORITIES = ("SELECT count(*)=6 AND bool_and(NOT rolcanlogin) FROM pg_roles WHERE rolname IN "
+_AUTHORITIES = ("SELECT count(*)=7 AND bool_and(NOT rolcanlogin) FROM pg_roles WHERE rolname IN "
                 "('forge_gateway_authority','forge_catalog_authority','forge_directory_authority','forge_branding_authority',"
-                "'forge_platform_authority','forge_capability_authority')")
+                "'forge_platform_authority','forge_capability_authority','forge_broker_authority')")
 
 
 class MvpReadiness:
@@ -30,7 +30,7 @@ class MvpReadiness:
                 with connection.cursor() as cursor:
                     cursor.execute(_SERVICE_PRIVILEGES + " AND current_setting('server_version_num')::integer "
                                    "BETWEEN 170000 AND 179999 AND (" + _AUTHORITIES + ")")
-                    if cursor.fetchone() != (True,) or catalog_fingerprint(cursor) != F40:
+                    if cursor.fetchone() != (True,) or catalog_fingerprint(cursor) != F41:
                         return False
             with self._bootstrap.connection(timeout=self._timeout) as connection:
                 if not connection.autocommit or connection.info.transaction_status is not TransactionStatus.IDLE:

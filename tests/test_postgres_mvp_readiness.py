@@ -1,11 +1,11 @@
-"""Owned PostgreSQL: MvpReadiness attests exactly the reviewed 0001-0040 profile (F40) and nothing else."""
+"""Owned PostgreSQL: MvpReadiness attests exactly the reviewed 0001-0041 profile (F41) and nothing else."""
 from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 from forge.account_readiness import catalog_fingerprint
 from forge.dev_accounts import MIGRATIONS
-from forge.mvp_profile import F40, MVP_ADDITIONS
+from forge.mvp_profile import F41, MVP_ADDITIONS
 from forge.mvp_readiness import MvpReadiness
 from mvp_support import at, mvp_database
 
@@ -18,7 +18,7 @@ class PostgresMvpReadinessTests(unittest.TestCase):
     def test_the_complete_profile_is_attested_and_its_fingerprint_is_the_pinned_f31(self):
         with mvp_database() as db:
             with db.admin.cursor() as cursor:
-                self.assertEqual(catalog_fingerprint(cursor), F40)
+                self.assertEqual(catalog_fingerprint(cursor), F41)
             self.assertIs(readiness(db).check(), True)
 
     def test_a_previous_profile_missing_0031_0030_0029_0028_0027_0026_or_0025_is_refused(self):
@@ -26,7 +26,7 @@ class PostgresMvpReadinessTests(unittest.TestCase):
             name = MVP_ADDITIONS[-dropped][:4]
             with self.subTest(missing=name), mvp_database(migrations=(*MIGRATIONS, *MVP_ADDITIONS[:-dropped])) as db:
                 with db.admin.cursor() as cursor:
-                    self.assertNotEqual(catalog_fingerprint(cursor), F40)
+                    self.assertNotEqual(catalog_fingerprint(cursor), F41)
                 self.assertIs(readiness(db).check(), False)
 
     def test_schema_drift_is_refused(self):
@@ -37,7 +37,7 @@ class PostgresMvpReadinessTests(unittest.TestCase):
 
     def test_an_authority_that_can_log_in_is_refused(self):
         for authority in ('forge_directory_authority', 'forge_branding_authority', 'forge_platform_authority',
-                          'forge_capability_authority'):
+                          'forge_capability_authority', 'forge_broker_authority'):
             with self.subTest(authority=authority), mvp_database() as db:
                 self.assertIs(readiness(db).check(), True)
                 db.admin.execute('ALTER ROLE %s LOGIN' % authority)

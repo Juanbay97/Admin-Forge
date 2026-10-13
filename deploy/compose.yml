@@ -95,6 +95,7 @@ services:
       - forge_branding_service
       - forge_platform_service
       - forge_capability_service
+      - forge_broker_service
       - delivery_key
       - gateway_key
       - platform_key
@@ -132,6 +133,7 @@ services:
       - forge_branding_service
       - forge_platform_service
       - forge_capability_service
+      - forge_broker_service
       - delivery_key
       - gateway_key
       - platform_key
@@ -340,6 +342,8 @@ secrets:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_forge_platform_service
   forge_capability_service:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_forge_capability_service
+  forge_broker_service:
+    file: ${FORGE_SECRETS_DIR:-./secrets}/role_forge_broker_service
   backup_reader:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_backup
   delivery_key:

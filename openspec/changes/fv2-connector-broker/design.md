@@ -60,3 +60,17 @@ Additive; numbering after governance (indicative 0037–0038; renumber at rebase
 - [ ] Platform-registered vs org-owned OAuth apps default (assumed platform default, org override).
 - [ ] Which of the 46 connectors are remote-OAuth vs API-key (seed attributes from governance S6).
 - [ ] Rate-limit store: process-local acceptable (single worker).
+
+## Decisions at apply (2026-10-12)
+
+| Topic | Decision | Why |
+|---|---|---|
+| Migration | one migration `0041_connector_secrets.sql` (F41), after governance `0038-0040` | the chain ended at `0037`; all broker storage is one reviewable unit |
+| Refresh single-flight | the broker's own in-process lock per grant plus a compare-and-swap on the grant revision (`BROKER_CONFLICT`), not `pg_advisory_xact_lock` | an advisory transaction lock cannot span the provider round trip under the 5 s statement timeout; a second refresher that read the old revision loses and re-reads the winner's token. Single worker is already a deployment rule |
+| Platform default OAuth app | credential rows with a NULL organization, written by the platform owner (`PUT /forge/v1/platform/connectors/{id}/credential`); a company credential overrides it | resolves the open question (platform default, org override) |
+| OAuth callback | two functions without a session, `broker_oauth_take` (consumes the state, returns the sealed PKCE verifier) then `broker_oauth_complete` (stores the grant only for a taken, uncompleted state); the unguessable hashed state is the capability | replay and expiry are the same refusal; a failed exchange burns the state |
+| Revoke hook | an `AFTER UPDATE OF status ON memberships` trigger deletes the member's grants and pending states; disconnect deletes the grant and revokes at the provider when the connector declares a revocation endpoint | removal is immediate and independent of any application path |
+| Audit | the governance `capability_change_audit` action list is widened (`connector.credential_set/cleared`, `connector.connected/disconnected`); calls are metadata rows in `tool_invocation_log` with `source='broker'` (`method`, `tool_name`, status, bytes) | one audit surface; no secret or body is ever written |
+| Fixtures | `src/forge/fake_connectors.py` (a loopback OAuth provider and MCP server, stdlib only) with thin `tests/fixtures/` entry points; the egress guard reaches them only through explicit `Fixture` hosts a test or the dev overlay injects (`FORGE_CONNECTOR_TEST_FIXTURES_FILE`, never set in production) | they must run inside the smoke's compose network as well as in unit tests |
+| MCP methods | `initialize`, `ping`, `tools/*`, `resources/*`, `prompts/*` plus the client notifications `notifications/initialized` and `notifications/cancelled`; JSON-RPC batches are refused | the protocol handshake needs the initialized notification; batches are not needed in v1 |
+| Echoed credentials | the response body is scrubbed of the injected credential (raw and JSON-escaped) across chunk boundaries, besides dropping `Set-Cookie`/auth headers | a connector that echoes request headers must not hand the credential to the member |
