@@ -59,7 +59,11 @@ export const AREAS: Record<AreaId, AreaManifest> = {
     label: "Portal",
     enabled: true,
     requires: (identity) => identity.orgs.length > 0,
-    nav: [{ label: "Get the app", to: "/portal/download", icon: "download" }],
+    nav: [
+      { label: "Home", to: "/portal", icon: "home" },
+      { label: "Get the app", to: "/portal/download", icon: "download" },
+      { label: "My usage", to: "/portal/usage", icon: "chart" },
+    ],
   },
 };
 

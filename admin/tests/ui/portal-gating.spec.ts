@@ -15,7 +15,7 @@ test.describe("portal gating", () => {
     await joinAndLand(page, adminUrl);
     await go(page, "/");
     await expect(page).toHaveURL(/\/admin\/portal/);
-    await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button")).toHaveText(["Get the app"]);
+    await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button")).toHaveText(["Home", "Get the app", "My usage"]);
   });
 
   test("the company and platform areas are closed to a member, and no company data is requested", async ({ page, adminUrl }) => {

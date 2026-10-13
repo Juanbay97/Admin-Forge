@@ -48,10 +48,10 @@ Chain strategy: stacked-to-main
 - [x] 3.3 UI spec (available / 404 / empty / non-Windows / deep link attempt), axe/CSP
 
 ## Phase 4 — Portal home & my usage (PR 4)
-- [ ] 4.1 RED→GREEN unit: usage schemas vs fixtures, delta/share math
-- [ ] 4.2 Portal manifest (Home, Download, My usage), home welcome + sparkline, role redirect for members, company-area denial for members
-- [ ] 4.3 `Usage` page (range URL-synced, AreaChart, model share, empty/error); org picker for multi-org members
-- [ ] 4.4 UI specs: gating redirects, own-data-only, axe/CSP
+- [x] 4.1 RED→GREEN unit: usage schemas vs fixtures, delta/share math
+- [x] 4.2 Portal manifest (Home, Download, My usage), home welcome + sparkline, role redirect for members, company-area denial for members
+- [x] 4.3 `Usage` page (range URL-synced, AreaChart, model share, empty/error); org picker for multi-org members
+- [x] 4.4 UI specs: gating redirects, own-data-only, axe/CSP
 
 ## Phase 5 — Company dashboard (PR 5)
 - [ ] 5.1 Dashboard (KPIs, daily chart, model share, `PersonTable` sortable/filterable, top-5 bar); URL-synced range/sort

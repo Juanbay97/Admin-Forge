@@ -1,5 +1,7 @@
-import { Navigate } from "react-router";
 import { Download } from "./Download";
+import { Home } from "./Home";
+import { Usage } from "./Usage";
 
-export const PortalIndexRoute = () => <Navigate to="/portal/download" replace />;
+export const PortalIndexRoute = () => <Home />;
 export const DownloadRoute = () => <Download />;
+export const UsageRoute = () => <Usage />;

@@ -74,6 +74,7 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, lazy: portal("PortalIndexRoute") },
               { path: "download", lazy: portal("DownloadRoute") },
+              { path: "usage", lazy: portal("UsageRoute") },
               { path: "*", element: <NotFound /> },
             ],
           },

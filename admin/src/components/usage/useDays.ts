@@ -1,4 +1,4 @@
-﻿import { useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { parseDays, type Days } from "../../platform/range";
 
 /** The usage range lives in the URL (`?days=`), so reload, share and the back button all keep it. */

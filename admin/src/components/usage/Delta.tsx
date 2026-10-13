@@ -1,4 +1,4 @@
-﻿import { ArrowDownRight, ArrowRight, ArrowUpRight, Sparkles } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Sparkles } from "lucide-react";
 import type { Change } from "../../platform/range";
 import { Badge } from "../../ui/Badge";
 

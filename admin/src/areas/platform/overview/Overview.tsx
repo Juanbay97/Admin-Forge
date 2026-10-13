@@ -17,9 +17,9 @@ import { PageHeader } from "../../../ui/PageHeader";
 import { Skeleton } from "../../../ui/Skeleton";
 import { Stat } from "../../../ui/Stat";
 import { loadAllCompanies } from "../companies/data";
-import { Delta } from "../Delta";
-import { RangePicker } from "../RangePicker";
-import { useDays } from "../useDays";
+import { Delta } from "../../../components/usage/Delta";
+import { RangePicker } from "../../../components/usage/RangePicker";
+import { useDays } from "../../../components/usage/useDays";
 
 export function Overview() {
   const { platform } = useServices();

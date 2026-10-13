@@ -1,4 +1,4 @@
-﻿import { RANGES, type Days } from "../../platform/range";
+import { RANGES, type Days } from "../../platform/range";
 import { Button } from "../../ui/Button";
 
 /** 7 / 30 / 90 days as a toggle group. */

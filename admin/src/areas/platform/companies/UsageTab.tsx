@@ -12,9 +12,9 @@ import { Button } from "../../../ui/Button";
 import { EmptyState } from "../../../ui/EmptyState";
 import { Skeleton } from "../../../ui/Skeleton";
 import { Stat } from "../../../ui/Stat";
-import { Delta } from "../Delta";
-import { RangePicker } from "../RangePicker";
-import { useDays } from "../useDays";
+import { Delta } from "../../../components/usage/Delta";
+import { RangePicker } from "../../../components/usage/RangePicker";
+import { useDays } from "../../../components/usage/useDays";
 
 /** The platform reports usage per company per window (no per-day series, per-model or per-person view for a platform owner). */
 export function UsageTab({ company }: { company: Company }) {
