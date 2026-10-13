@@ -1,4 +1,4 @@
-"""Reviewed MVP schema profile layered on the retained 0018 gateway profile.
+﻿"""Reviewed MVP schema profile layered on the retained 0018 gateway profile.
 
 The retained demo lists in ``dev_accounts_gateway`` (ADDITIONS, CHECKPOINTS,
 PROFILE) are deliberately never mutated: existing demos keep working at 0018.
@@ -22,12 +22,13 @@ PLATFORM_MFA_MIGRATION = '0029_platform_mfa.sql'
 COMPANY_LIFECYCLE_MIGRATION = '0030_company_lifecycle.sql'
 PLATFORM_OPERATIONS_MIGRATION = '0031_platform_company_operations.sql'
 GATEWAY_KEY_POOL_MIGRATION = '0032_gateway_key_pool.sql'
+GATEWAY_KEY_ROUTING_MIGRATION = '0033_gateway_key_routing.sql'
 MVP_ADDITIONS = (*ADDITIONS, ORIGIN_MIGRATION, DIRECTORY_MIGRATION, DEPARTMENT_MIGRATION,
                  MEMBER_DIRECTORY_MIGRATION, MEMBER_LIFECYCLE_MIGRATION, SCOPED_REVOCATION_MIGRATION,
                  ORG_BRANDING_MIGRATION, ORG_BRANDING_CODE_MIGRATION, GATEWAY_ORIGIN_CONFIG_MIGRATION,
                  PLATFORM_SCOPE_MIGRATION, PLATFORM_MFA_MIGRATION, COMPANY_LIFECYCLE_MIGRATION,
-                 PLATFORM_OPERATIONS_MIGRATION, GATEWAY_KEY_POOL_MIGRATION)
-MVP_PROFILE = '0001-0005+0010-0032/PG17'
+                 PLATFORM_OPERATIONS_MIGRATION, GATEWAY_KEY_POOL_MIGRATION, GATEWAY_KEY_ROUTING_MIGRATION)
+MVP_PROFILE = '0001-0005+0010-0033/PG17'
 
 # Schema fingerprint after 0019 (F19): fresh apply of 0001-0005+0010-0019 and upgrade
 # from the 0018 profile were proven identical on the owned PG17 harness.
@@ -85,4 +86,8 @@ F31 = 'a2514ac85bcc0fe78cab7f506d35bc68037356fd0d4e638698e39304645617b9'
 # from the 0031 profile were proven identical on the owned PG17 harness.
 F32 = 'a92e1a907d3f61a1b24d2bd7c8b77947bb3b365d6da3d70a1dd7d1aa58af8824'
 
-MVP_CHECKPOINTS = (*CHECKPOINTS, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32)
+# Schema fingerprint after 0033 (F33): fresh apply of 0001-0005+0010-0033 and upgrade
+# from the 0032 profile were proven identical on the owned PG17 harness.
+F33 = 'a8a8ba3bf638b13bd263a6ac42b15e62f946cb93dbcabaff4ac1d15e518ab496'
+
+MVP_CHECKPOINTS = (*CHECKPOINTS, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33)

@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 import httpx
 from cryptography.fernet import Fernet
+from pool_support import assign_key
 from forge.fake_gateway import REPLY, FakeGatewayConfiguration, serve as serve_gateway
 from forge.mvp_local import serve
 from forge.mvp_profile import MVP_PROFILE
@@ -89,9 +90,9 @@ class Stack:
     def configure(self, index, aliases):
         """What the admin does: save the key, discover the models, publish aliases."""
         token = self.login(index, 0)
-        saved = self.call('PUT', self.org(index) + '/gateway', token, json={
-            'expected_revision': 0, 'api_key': self.keys[self.results[index].slug], 'endpoint': self.gateway})
-        assert saved.status_code == 200, saved.text
+        # A company's key is the platform's: created, assigned and bounded by the owner, never saved by the admin.
+        assign_key(self.db, self.secrets['gateway_cipher_key'], self.gateway, self.results[index].organization_id,
+                   self.keys[self.results[index].slug], ('fake-fast', 'fake-slow'))
         assert self.call('POST', self.org(index) + '/gateway/catalogue/refresh', token).status_code == 200
         published = self.call('POST', self.org(index) + '/models/publish', token, json={
             'operation_id': str(uuid4()), 'expected_catalogue_revision': 0, 'expected_gateway_revision': 1,
@@ -242,7 +243,6 @@ class ApiIsolationTests(unittest.TestCase):
             for method, path in (('GET', '/members'), ('GET', '/gateway'), ('POST', '/gateway/catalogue/refresh')):
                 self.assertEqual(s.call(method, s.org(0) + path, members[0]).status_code, 404, path)
             # Nothing of organization B changed, and its administrator still sees exactly their own data.
-            self.assertEqual(s.call('GET', s.org(1) + '/gateway', tokens[1]).json()['revision'], 1)
             self.assertEqual(sorted(m['status'] for m in s.call('GET', s.org(1) + '/members', tokens[1]).json()['members']),
                              ['active', 'active'])
             self.assertEqual([d['name'] for d in s.call('GET', s.org(1) + '/departments', tokens[1]).json()['departments']],
@@ -266,8 +266,8 @@ class ApiIsolationTests(unittest.TestCase):
             for index, token in ((0, admin_a), (1, admin_b)):
                 status = s.call('GET', s.org(index) + '/gateway', token).json()
                 self.assertEqual(set(status), {'status', 'revision', 'endpoint', 'allowed_endpoints'})
-            stored = ' '.join(row[0] for row in s.db.admin.execute('SELECT row_to_json(g)::text FROM forge.organization_gateways g'))
-            self.assertEqual(s.db.admin.execute('SELECT count(*) FROM forge.organization_gateways').fetchone(), (2,))
+            stored = ' '.join(row[0] for row in s.db.admin.execute('SELECT row_to_json(g)::text FROM forge.gateway_keys g'))
+            self.assertEqual(s.db.admin.execute('SELECT count(*) FROM forge.gateway_keys').fetchone(), (2,))
             s.assert_no_secret(stored, reply_a.text, reply_b.text)
             self.assertEqual(len(set(s.keys.values())), 2)
 

@@ -76,12 +76,11 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.directory_store import PostgresDirectoryStore
     from forge.gateway_catalog import GatewayCatalog
     from forge.gateway_catalog_adapter import HttpxModelsAdapter
-    from forge.gateway_catalog_store import PostgresGatewayCatalogStore
     from forge.gateway_configuration import GatewayCipher, GatewayConfiguration
     from forge.gateway_configuration_store import PostgresGatewayStore
     from forge.gateway_inference import GatewayInference
     from forge.gateway_inference_adapter import HttpxTextAdapter
-    from forge.gateway_inference_store import PostgresGatewayInferenceStore
+    from forge.gateway_pool_store import PostgresPoolCatalogStore, PostgresPoolInferenceStore
     from forge.gateway_keys import GatewayKeys
     from forge.gateway_keys_store import PostgresGatewayKeyStore
     from forge.invitation_delivery import DeliveryCoordinator, PostgresDeliveryStore
@@ -103,8 +102,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         delivery=delivery,
         bootstrap_reader=PostgresBootstrapReader(bootstrap), authorization_reader=PostgresAuthorizationReader(bootstrap),
         readiness=readiness, gateway_configuration=GatewayConfiguration(PostgresGatewayStore(gateway), cipher),
-        gateway_catalog=GatewayCatalog(PostgresGatewayCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy)),
-        gateway_inference=GatewayInference(PostgresGatewayInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy)),
+        gateway_catalog=GatewayCatalog(PostgresPoolCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy)),
+        gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy)),
         directory=DirectoryService(PostgresDirectoryStore(gateway)))
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
     mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),
