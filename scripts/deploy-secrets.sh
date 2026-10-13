@@ -39,6 +39,7 @@ for name in pg_superuser \
 done
 create delivery_key fernet
 create gateway_key fernet
+create platform_key fernet
 
 # The mail relay password is yours (a Resend or SES credential): only the empty placeholder a Docker file secret needs
 # is created here. An empty file is refused at start-up, so forgetting to fill it in is loud, never silent.
@@ -51,4 +52,4 @@ else
 fi
 
 echo "secrets directory: $dir"
-echo "Back it up OFFLINE: losing delivery_key/gateway_key makes stored gateway keys and queued messages unrecoverable."
+echo "Back it up OFFLINE: losing delivery_key/gateway_key/platform_key makes stored gateway keys, queued messages and the platform owner TOTP unrecoverable."

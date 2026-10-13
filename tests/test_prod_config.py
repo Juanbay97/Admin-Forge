@@ -22,13 +22,16 @@ class Fixture:
         for role in ROLES:
             (self.root/'roles'/role).write_text('password-for-%s\n' % role, 'utf-8')
         self.delivery, self.gateway = Fernet.generate_key().decode(), Fernet.generate_key().decode()
+        self.platform = Fernet.generate_key().decode()
         (self.root/'delivery.key').write_text(self.delivery + '\n', 'utf-8')
         (self.root/'gateway.key').write_text(self.gateway, 'utf-8')
+        (self.root/'platform.key').write_text(self.platform, 'utf-8')
         self.env = {
             'FORGE_PUBLIC_ORIGIN': ORIGIN, 'FORGE_DB_HOST': 'postgres', 'FORGE_DB_NAME': 'forge',
             'FORGE_ROLE_PASSWORDS_DIR': str(self.root/'roles'),
             'FORGE_DELIVERY_KEY_FILE': str(self.root/'delivery.key'),
-            'FORGE_GATEWAY_KEY_FILE': str(self.root/'gateway.key')}
+            'FORGE_GATEWAY_KEY_FILE': str(self.root/'gateway.key'),
+            'FORGE_PLATFORM_KEY_FILE': str(self.root/'platform.key')}
         return self
 
     def __exit__(self, *exc):
@@ -70,7 +73,8 @@ class LoadTests(unittest.TestCase):
             self.assertEqual((config.db.host, config.db.port, config.db.dbname), ('postgres', 5432, 'forge'))
             self.assertEqual((config.port, config.bind_host), (3410, '0.0.0.0'))
             self.assertEqual(config.roles, {role: 'password-for-%s' % role for role in ROLES})
-            self.assertEqual((config.delivery_key, config.gateway_key), (f.delivery.encode(), f.gateway.encode()))
+            self.assertEqual((config.delivery_key, config.gateway_key, config.platform_key),
+                             (f.delivery.encode(), f.gateway.encode(), f.platform.encode()))
             self.assertEqual(config.gateway_policy.allowed, frozenset({DEFAULT_ENDPOINT}))
             self.assertIsNone(config.db.admin_password)
 
@@ -88,6 +92,10 @@ class LoadTests(unittest.TestCase):
             (f.root/'bad.key').write_text('not-a-fernet-key', 'utf-8')
             f.refused(self, 'FORGE_GATEWAY_KEY', FORGE_GATEWAY_KEY_FILE=str(f.root/'bad.key'))
             f.refused(self, 'FORGE_GATEWAY_KEY', FORGE_GATEWAY_KEY_FILE=str(f.root/'delivery.key'))  # keys must differ
+            f.refused(self, 'FORGE_PLATFORM_KEY', FORGE_PLATFORM_KEY_FILE=None)
+            f.refused(self, 'FORGE_PLATFORM_KEY', FORGE_PLATFORM_KEY_FILE=str(f.root/'bad.key'))
+            f.refused(self, 'FORGE_PLATFORM_KEY', FORGE_PLATFORM_KEY_FILE=str(f.root/'delivery.key'))  # separate from delivery
+            f.refused(self, 'FORGE_PLATFORM_KEY', FORGE_PLATFORM_KEY_FILE=str(f.root/'gateway.key'))  # and from the gateway key
             (f.root/'roles'/ROLES[2]).write_text('\n', 'utf-8')
             f.refused(self, 'FORGE_ROLE_PASSWORDS_DIR')
             (f.root/'roles'/ROLES[2]).unlink()

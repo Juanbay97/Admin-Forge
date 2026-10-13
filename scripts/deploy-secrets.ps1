@@ -51,6 +51,7 @@ foreach ($name in 'pg_superuser', 'role_forge_account_service', 'role_forge_enro
 }
 Save-Secret 'delivery_key' { New-FernetKey }
 Save-Secret 'gateway_key' { New-FernetKey }
+Save-Secret 'platform_key' { New-FernetKey }
 
 # The mail relay password is yours (a Resend or SES credential): only the empty placeholder a Docker file secret needs
 # is created here. An empty file is refused at start-up, so forgetting to fill it in is loud, never silent.
@@ -63,4 +64,4 @@ if (Test-Path -LiteralPath $smtp) {
 }
 
 Write-Host "secrets directory: $Directory"
-Write-Host 'Back it up OFFLINE: losing delivery_key/gateway_key makes stored gateway keys and queued messages unrecoverable.'
+Write-Host 'Back it up OFFLINE: losing delivery_key/gateway_key/platform_key makes stored gateway keys, queued messages and the platform owner TOTP unrecoverable.'

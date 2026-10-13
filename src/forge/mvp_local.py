@@ -126,6 +126,7 @@ class MvpSecrets:
     roles: dict = field(repr=False)
     delivery_key: bytes = field(repr=False)
     gateway_key: bytes = field(repr=False)
+    platform_key: bytes = field(repr=False)
 
 
 def load_secrets(path):
@@ -137,11 +138,11 @@ def load_secrets(path):
         raise ConfigError('SECRETS_INVALID') from None
     try:
         roles = values['roles']
-        if (set(values) != {'roles', 'delivery_key', 'gateway_key'} or set(roles) != set(ROLES)
+        if (set(values) != {'roles', 'delivery_key', 'gateway_key', 'platform_key'} or set(roles) != set(ROLES)
                 or any(type(password) is not str or not password for password in roles.values())
-                or values['delivery_key'] == values['gateway_key']):
+                or len({values['delivery_key'], values['gateway_key'], values['platform_key']}) != 3):
             raise ValueError
-        keys = [values[name].encode('ascii') for name in ('delivery_key', 'gateway_key')]
+        keys = [values[name].encode('ascii') for name in ('delivery_key', 'gateway_key', 'platform_key')]
         for key in keys:
             Fernet(key)
     except (ValueError, TypeError, KeyError, AttributeError):
@@ -179,7 +180,7 @@ def compose(config, secrets, pools):
         raise ConfigError('MAILBOX_MISSING')
     app = composition.build_app(
         owned, readiness=readiness, delivery_adapter=LocalTestMailbox(mailbox, sender='forge@local.test'),
-        onboarding_origin=config.client_origin, delivery_key=secrets.delivery_key, gateway_key=secrets.gateway_key,
+        onboarding_origin=config.client_origin, delivery_key=secrets.delivery_key, gateway_key=secrets.gateway_key, platform_key=secrets.platform_key,
         gateway_policy=config.gateway_policy)
     return assemble(app, config, readiness)
 

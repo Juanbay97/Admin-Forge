@@ -64,7 +64,8 @@ def add_status(app, readiness, admin_dir):
                             status_code=200 if ready else 503, headers={'Cache-Control': 'no-store'})
 
 
-def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery_key, gateway_key, gateway_policy):
+def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery_key, gateway_key, platform_key,
+              gateway_policy):
     from forge.account_api import create_account_app
     from forge.account_sessions import PostgresSessionStore, SessionService
     from forge.account_store import PostgresEnrollmentStore

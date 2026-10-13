@@ -43,7 +43,8 @@ class Workspace:
         (self.root/'admin'/'index.html').write_text('<title>Forge admin</title>', 'utf-8')
         self.secrets_path = write(self.root/'secrets.json', {
             'roles': {role: 'password-for-' + role for role in ROLES},
-            'delivery_key': Fernet.generate_key().decode(), 'gateway_key': Fernet.generate_key().decode()})
+            'delivery_key': Fernet.generate_key().decode(), 'gateway_key': Fernet.generate_key().decode(),
+            'platform_key': Fernet.generate_key().decode()})
         self.port = free_port()
         self.config = {
             'version': 1, 'profile': MVP_PROFILE,
@@ -152,6 +153,8 @@ class SecretsTests(unittest.TestCase):
                      'extra key': {**good, 'postgres_password': 'OPERATOR-SECRET'},
                      'bad fernet': {**good, 'gateway_key': 'not-a-fernet-key-SECRET'},
                      'shared key': {**good, 'delivery_key': same, 'gateway_key': same},
+                     'shared platform key': {**good, 'platform_key': good['gateway_key']},
+                     'missing platform key': {key: value for key, value in good.items() if key != 'platform_key'},
                      'empty password': {**good, 'roles': {**good['roles'], 'forge_runtime': ''}}}
             for name, document in cases.items():
                 with self.subTest(name), self.assertRaises(ConfigError) as caught:

@@ -162,7 +162,7 @@ def stack(slow_delay=1.0):
             (root/'mailbox').mkdir()
             (root/'admin').mkdir()
             secrets = {'roles': dict(db.passwords), 'delivery_key': Fernet.generate_key().decode(),
-                       'gateway_key': Fernet.generate_key().decode()}
+                       'gateway_key': Fernet.generate_key().decode(), 'platform_key': Fernet.generate_key().decode()}
             (root/'secrets.json').write_text(json.dumps(secrets), 'utf-8')
             values = db.connection_settings()
             gateway_origin = 'http://127.0.0.1:%d' % gateway_port

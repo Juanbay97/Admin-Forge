@@ -34,7 +34,7 @@ def stack(environment=None):
         (root/'admin').mkdir()
         (root/'admin'/'index.html').write_text('<title>Forge admin</title>', 'utf-8')
         secrets = {'roles': dict(db.passwords), 'delivery_key': Fernet.generate_key().decode(),
-                   'gateway_key': Fernet.generate_key().decode()}
+                   'gateway_key': Fernet.generate_key().decode(), 'platform_key': Fernet.generate_key().decode()}
         (root/'secrets.json').write_text(json.dumps(secrets), 'utf-8')
         values = db.connection_settings()
         config_path = root/'config.json'

@@ -19,7 +19,8 @@ from cryptography.fernet import Fernet
 def files(directory, **change):
     values = dict(database={'host': '127.0.0.1', 'port': 55432, 'dbname': 'forge_dev'},
                   passwords={role: 'pw-' + role for role in ROLES}, delivery_key=Fernet.generate_key().decode(),
-                  gateway_key=Fernet.generate_key().decode(), admin_dir=str(Path(directory)/'admin'),
+                  gateway_key=Fernet.generate_key().decode(), platform_key=Fernet.generate_key().decode(),
+                  admin_dir=str(Path(directory)/'admin'),
                   require_admin_build=False)
     values.update(change)
     (Path(directory)/'mailbox').mkdir(exist_ok=True)
@@ -44,7 +45,8 @@ class RuntimeFilesTests(unittest.TestCase):
             self.assertEqual((config.database, config.require_admin_build, config.mailbox_dir),
                              (values['database'], False, str(Path(directory)/'mailbox')))
             secrets = load_secrets(config.secrets_file)
-            self.assertEqual((secrets.roles, secrets.gateway_key.decode()), (values['passwords'], values['gateway_key']))
+            self.assertEqual((secrets.roles, secrets.gateway_key.decode(), secrets.platform_key.decode()),
+                             (values['passwords'], values['gateway_key'], values['platform_key']))
             self.assertNotIn('pw-', Path(config_path).read_text('utf-8'))
 
     def test_the_admin_build_requirement_is_carried_into_the_config(self):

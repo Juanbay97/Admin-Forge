@@ -95,7 +95,7 @@ class Channel:
 class BuildAppTests(unittest.TestCase):
     def build(self, **change):
         arguments = dict(readiness=Ready(True), delivery_adapter=Channel(), onboarding_origin=ORIGIN,
-                         delivery_key=Fernet.generate_key(), gateway_key=Fernet.generate_key(),
+                         delivery_key=Fernet.generate_key(), gateway_key=Fernet.generate_key(), platform_key=Fernet.generate_key(),
                          gateway_policy=OriginPolicy(frozenset({'https://ia.example.test'})))
         arguments.update(change)
         return build_app(RolePools(*[object() for _ in ROLES]), **arguments)

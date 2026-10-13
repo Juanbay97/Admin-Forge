@@ -69,9 +69,9 @@ only Caddy. PostgreSQL and the control plane have no published port and live on 
 | `FORGE_BACKUP_CRON`, `FORGE_BACKUP_KEEP` | Backup schedule (UTC, 5 fields) and how many dumps to keep (default 14) |
 | `FORGE_UID`, `FORGE_GID` | Your user, so `backups/` and `credentials/` stay readable by you |
 
-`scripts/deploy-secrets.sh` writes ten files: the PostgreSQL administrator password, one password per service role
-(five), the backup role password, two Fernet keys (`delivery_key` for queued messages, `gateway_key` for stored
-gateway keys) and an empty `smtp_password` for you to fill in. It never overwrites an existing file, prints names only, and makes the directory owner-only (0700).
+`scripts/deploy-secrets.sh` writes twelve files: the PostgreSQL administrator password, one password per service role
+(six), the backup role password, three Fernet keys (`delivery_key` for queued messages, `gateway_key` for stored
+gateway keys, `platform_key` for the platform owner's authenticator secret) and an empty `smtp_password` for you to fill in. It never overwrites an existing file, prints names only, and makes the directory owner-only (0700).
 The files themselves are world-readable inside that directory because the unprivileged containers read them as
 Docker secrets.
 
@@ -211,7 +211,8 @@ The `backup` service writes a verified dump on `FORGE_BACKUP_CRON` (default `30 
 the read-only `backup_reader` role). Dumps never contain `deploy/secrets/` or `.env`.
 
 > **Warning: losing `delivery_key` and `gateway_key` makes every stored gateway key and every queued message unrecoverable.**
-> The database dump alone cannot be read without them. They are not in the dumps, by design.
+> The database dump alone cannot be read without them. They are not in the dumps, by design. Losing `platform_key`
+> only makes the platform owner's authenticator unreadable: sign in with a recovery code and enrol TOTP again.
 
 Keep an offline copy of `deploy/secrets/` separate from the dumps (encrypted USB, password manager vault or an offline
 archive), refreshed whenever you regenerate a file, and test that you can read it. Anyone holding the keys and a dump

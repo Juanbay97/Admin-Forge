@@ -23,7 +23,7 @@ DEFAULT_BIND_HOST = '0.0.0.0'
 DEFAULT_ADMIN_DIR = str(Path(__file__).resolve().parent/'web'/'admin')
 SSL_MODES = ('disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full')
 LOG_LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
-_SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_DB_ADMIN_PASSWORD')
+_SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_PLATFORM_KEY', 'FORGE_DB_ADMIN_PASSWORD')
 _PLAIN = ('FORGE_PUBLIC_ORIGIN', 'FORGE_DB_HOST', 'FORGE_DB_PORT', 'FORGE_DB_NAME', 'FORGE_DB_SSLMODE',
           'FORGE_DB_ADMIN_USER', 'FORGE_ROLE_PASSWORDS_DIR', 'FORGE_ADMIN_DIR', 'FORGE_PORT', 'FORGE_BIND_HOST',
           'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE)
@@ -50,6 +50,7 @@ class ProdConfig:
     roles: dict = field(repr=False)
     delivery_key: bytes = field(repr=False)
     gateway_key: bytes = field(repr=False)
+    platform_key: bytes = field(repr=False)  # seals the platform owner's TOTP secret; a key of its own
     gateway_policy: object
     admin_dir: str
     port: int = DEFAULT_PORT
@@ -181,6 +182,9 @@ def load_prod_config(environ):
     delivery, gateway = _fernet(env, 'FORGE_DELIVERY_KEY'), _fernet(env, 'FORGE_GATEWAY_KEY')
     if delivery == gateway:
         _fail('FORGE_GATEWAY_KEY')
+    platform = _fernet(env, 'FORGE_PLATFORM_KEY')
+    if platform in (delivery, gateway):
+        _fail('FORGE_PLATFORM_KEY')
     try:
         policy = policy_from_env(env)
     except ValueError:
@@ -198,4 +202,4 @@ def load_prod_config(environ):
     if level not in LOG_LEVELS:
         _fail('FORGE_LOG_LEVEL')
     smtp = load_smtp_settings(env) if any(name.startswith('FORGE_SMTP_') for name in env) else None
-    return ProdConfig(public, db, roles, delivery, gateway, policy, admin_dir, port, bind, level, smtp)
+    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp)

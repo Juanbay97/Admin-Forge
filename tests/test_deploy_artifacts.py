@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DIGEST = re.compile(r'@sha256:[0-9a-f]{64}\b')
 SECRET_NAME = re.compile(r'(SECRET|PASSWORD|PASSWD|TOKEN|KEY|CREDENTIAL)', re.I)
 SECRET_FILES = ('pg_superuser', *('role_' + role for role in ROLES), 'role_backup', 'delivery_key', 'gateway_key',
-                'smtp_password')
+                'platform_key', 'smtp_password')
 # The SMTP relay password is chosen by the operator (a Resend/SES credential): the generator only creates the empty
 # placeholder a Docker file secret needs, and an empty file is refused loudly if the operator forgot to fill it in.
 OPERATOR_SECRETS = ('smtp_password',)
@@ -141,10 +141,10 @@ class SecretsGeneratorContract:
         values = {name: (Path(self.directory)/name).read_text('ascii').strip() for name in SECRET_FILES}
         generated = [name for name in SECRET_FILES if name not in OPERATOR_SECRETS]
         self.assertEqual(len({values[name] for name in generated}), len(generated), 'every secret must be distinct')
-        for name in ('delivery_key', 'gateway_key'):
+        for name in ('delivery_key', 'gateway_key', 'platform_key'):
             Fernet(values[name].encode('ascii'))  # raises when the key is not a valid Fernet key
         for name in generated:
-            if name not in ('delivery_key', 'gateway_key'):
+            if name not in ('delivery_key', 'gateway_key', 'platform_key'):
                 self.assertRegex(values[name], r'[A-Za-z0-9]{32,}')
         for name in OPERATOR_SECRETS:
             self.assertEqual((Path(self.directory)/name).read_bytes(), b'')  # a placeholder the operator fills in
