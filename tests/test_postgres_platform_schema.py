@@ -27,11 +27,14 @@ SERVICE_FUNCTIONS = ('forge.platform_me(text)', 'forge.platform_company_list(tex
                      'forge.platform_company_gateway_set(text,uuid,jsonb)', 'forge.platform_company_model_access_get(text,uuid)',
                      'forge.platform_company_model_access_set(text,uuid,text[])',
                      # 0036: versioned model prices
-                     'forge.platform_price_set(text,text,bigint,bigint,timestamptz)', 'forge.platform_price_list(text,text)')
+                     'forge.platform_price_set(text,text,bigint,bigint,timestamptz)', 'forge.platform_price_list(text,text)',
+                     # 0037: platform usage reports
+                     'forge.platform_usage_by_company(text,date,date,uuid,integer)', 'forge.platform_usage_by_model(text,date,date,text,integer)',
+                     'forge.platform_usage_totals(text,date,date)')
 INTERNAL_FUNCTIONS = ('forge.platform_lock_owner(text,boolean)', 'forge.platform_audit_write(uuid,text,uuid)',
-                      'forge.platform_audit_write(uuid,text,uuid,uuid)', 'forge.platform_gateway_key_meta(uuid)',
+                      'forge.platform_audit_write(uuid,text,uuid,uuid)', 'forge.platform_usage_range(date,date,integer)', 'forge.platform_gateway_key_meta(uuid)',
                       'forge.platform_owner_exists(uuid)')
-AUTHORITY_GRANTS = {('model_prices', 'SELECT'), ('model_prices', 'INSERT'),  # 0036: versioned prices
+AUTHORITY_GRANTS = {('usage_daily', 'SELECT'), ('model_prices', 'SELECT'), ('model_prices', 'INSERT'),  # 0036: versioned prices
                     ('gateway_keys', 'SELECT'), ('gateway_keys', 'INSERT'), ('gateway_keys', 'UPDATE'),
                     ('organization_gateway_profiles', 'SELECT'), ('organization_gateway_profiles', 'INSERT'),
                     ('organization_gateway_profiles', 'UPDATE'), ('organization_gateway_keys', 'SELECT'),

@@ -1,4 +1,4 @@
-"""Owned PostgreSQL: the supervisor's schema installer yields the pinned F36 profile and working roles."""
+"""Owned PostgreSQL: the supervisor's schema installer yields the pinned F37 profile and working roles."""
 from pathlib import Path
 import sys
 import unittest
@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT/'src'))
 from psycopg_pool import ConnectionPool
 from forge.account_readiness import catalog_fingerprint
 from forge.mvp_local import ConfigError, ROLES
-from forge.mvp_profile import F36
+from forge.mvp_profile import F37
 from forge.mvp_readiness import MvpReadiness
 from forge.mvp_up import install_schema
 from postgres_support import connect, settings
@@ -22,7 +22,7 @@ class PostgresMvpUpTests(unittest.TestCase):
                 self.assertEqual(set(passwords), set(ROLES))
                 self.assertEqual(len(set(passwords.values())), 6)
                 with conn.cursor() as cursor:
-                    self.assertEqual(catalog_fingerprint(cursor), F36)
+                    self.assertEqual(catalog_fingerprint(cursor), F37)
                 pools = [ConnectionPool('', kwargs={**settings(), 'dbname': conn.info.dbname, 'user': role,
                                                     'password': passwords[role]}, min_size=1, max_size=2, open=False)
                          for role in ('forge_account_service', 'forge_runtime', 'forge_gateway_service')]

@@ -56,7 +56,7 @@ class UsageFingerprintGateTests(unittest.TestCase):
 class UsageWorld(unittest.TestCase):
     def build(self, db):
         self.db = db
-        results = provision(db.admin, SEED, lambda created: None)
+        results = self.results = provision(db.admin, SEED, lambda created: None)
         self.org_a, self.org_b = results[0].organization_id, results[1].organization_id
         ids = {row[1]: row[0] for row in db.admin.execute('SELECT id,organization_id FROM forge.memberships ORDER BY id')}
         self.members = {org: [row[0] for row in db.admin.execute('SELECT id FROM forge.memberships WHERE organization_id=%s ORDER BY id', (org,))]

@@ -1,6 +1,6 @@
 """Platform usage service and routes over fakes: price edits are validated integers, hidden from the contract, bearer-authenticated,
 bounded and finite."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import secrets
@@ -15,12 +15,14 @@ from forge.account_api import create_account_app
 from forge.foundation import AuthenticatedIdentity
 from forge.platform import MfaRequired, PlatformDenied, PlatformInvalid
 from forge.platform_api import mount_platform
-from forge.usage_platform import ModelPrice, PlatformUsage
+from forge.usage_platform import Counters, ModelPrice, ModelUsage, CompanyUsageRow, PlatformUsage, UsageTotals
 
 TOKEN = secrets.token_urlsafe(32)
 HEADERS = {'Authorization': 'Bearer ' + TOKEN}
 BASE = '/forge/v1/platform'
 WHEN = datetime(2026, 10, 12, 9, 0, tzinfo=timezone.utc)
+ORG = uuid4()
+COUNTERS = Counters(7, 7010, 3510, 1, 0, 14000, 2)
 PRICE = ModelPrice(7, 'up/model-a', 2, 3_000_000, 9_000_000, 'USD', WHEN, uuid4())
 
 
@@ -39,6 +41,20 @@ class Store:
         if self.fail:
             raise self.fail
         return [PRICE]
+
+    def by_company(self, digest, first, last, after, page):
+        self.calls.append(('by_company', digest, first, last, after, page))
+        if self.fail:
+            raise self.fail
+        return [CompanyUsageRow(ORG, 'org-a', 'Organization A', COUNTERS)]
+
+    def by_model(self, digest, first, last, after, page):
+        self.calls.append(('by_model', digest, first, last, after, page))
+        return [ModelUsage('up/model-a', COUNTERS)]
+
+    def totals(self, digest, first, last):
+        self.calls.append(('totals', digest, first, last))
+        return UsageTotals(2, COUNTERS)
 
 
 class ServiceTests(unittest.TestCase):
@@ -71,6 +87,37 @@ class ServiceTests(unittest.TestCase):
             self.service.prices(TOKEN, 'bad id')
 
 
+class ReportServiceTests(unittest.TestCase):
+    def test_reports_pass_a_bounded_range_and_page_to_the_store(self):
+        store = Store()
+        service = PlatformUsage(store)
+        first, last = date(2026, 10, 1), date(2026, 10, 12)
+        self.assertEqual(service.by_company(TOKEN, first, last)[0].counters, COUNTERS)
+        self.assertEqual(store.calls[-1][2:], (first, last, None, 50))
+        service.by_company(TOKEN, first, last, after=ORG, page=100)
+        self.assertEqual(store.calls[-1][2:], (first, last, ORG, 100))
+        service.by_model(TOKEN, first, last, after='up/a', page=1)
+        self.assertEqual(store.calls[-1][2:], (first, last, 'up/a', 1))
+        self.assertEqual(service.totals(TOKEN, first, last), UsageTotals(2, COUNTERS))
+
+    def test_invalid_ranges_pages_and_cursors_never_reach_the_store(self):
+        store = Store()
+        service = PlatformUsage(store)
+        ok = (date(2026, 10, 1), date(2026, 10, 12))
+        for arguments in (((ok[1], ok[0]),), ((date(2025, 1, 1), ok[1]),), ((None, ok[1]),), (('2026-10-01', ok[1]),), ((datetime(2026, 10, 1), ok[1]),)):
+            with self.subTest(arguments=repr(arguments)[:40]), self.assertRaises(PlatformInvalid):
+                service.totals(TOKEN, *arguments[0])
+        for page in (0, 101, True, '5'):
+            with self.subTest(page=page), self.assertRaises(PlatformInvalid):
+                service.by_company(TOKEN, *ok, page=page)
+        for after in ('x', 5):
+            with self.subTest(after=after), self.assertRaises(PlatformInvalid):
+                service.by_company(TOKEN, *ok, after=after)
+        with self.assertRaises(PlatformInvalid):
+            service.by_model(TOKEN, *ok, after='bad id')
+        self.assertEqual(store.calls, [])
+
+
 class Ready:
     def check(self):
         return True
@@ -86,6 +133,33 @@ def client(store=None):
     app = create_account_app(sessions=None)
     mount_platform(app, service=object(), sessions=Sessions(), readiness=Ready(), usage=PlatformUsage(store))
     return TestClient(app, raise_server_exceptions=False), app, store
+
+
+class ReportRouteTests(unittest.TestCase):
+    RANGE = {'from': '2026-10-01', 'to': '2026-10-12'}
+
+    def test_reports_are_hidden_and_shaped_as_counters_and_integer_micro_usd(self):
+        http, app, store = client()
+        self.assertFalse([path for path in app.openapi()['paths'] if 'usage' in path])
+        companies = http.get(BASE + '/usage/companies', headers=HEADERS, params=self.RANGE).json()
+        self.assertEqual(companies, {'companies': [{'organization_id': str(ORG), 'slug': 'org-a', 'display_name': 'Organization A', 'requests': 7,
+                                                    'prompt_tokens': 7010, 'completion_tokens': 3510, 'estimated_requests': 1, 'error_requests': 0,
+                                                    'cost_micros': 14000, 'unpriced_requests': 2}], 'next_after': None})
+        self.assertEqual(store.calls[-1][2:], (date(2026, 10, 1), date(2026, 10, 12), None, 50))
+        models = http.get(BASE + '/usage/models', headers=HEADERS, params={**self.RANGE, 'page': '1'}).json()
+        self.assertEqual((models['models'][0]['upstream_id'], models['models'][0]['cost_micros'], models['next_after']), ('up/model-a', 14000, 'up/model-a'))
+        totals = http.get(BASE + '/usage/totals', headers=HEADERS, params=self.RANGE).json()
+        self.assertEqual((totals['companies'], totals['requests'], totals['cost_micros']), (2, 7, 14000))
+
+    def test_bad_queries_are_refused_before_the_service_and_the_routes_need_a_bearer(self):
+        http, _, store = client()
+        for params in ({}, {'from': '2026-10-01'}, {'from': 'yesterday', 'to': '2026-10-12'}, {**self.RANGE, 'page': '0'}, {**self.RANGE, 'page': 'x'},
+                       {**self.RANGE, 'extra': '1'}, {'from': '2026-10-12', 'to': '2026-10-01'}, {**self.RANGE, 'after': 'not-a-uuid'}):
+            with self.subTest(params=str(params)):
+                self.assertEqual(http.get(BASE + '/usage/companies', headers=HEADERS, params=params).status_code, 422)
+        self.assertEqual(http.get(BASE + '/usage/totals', headers=HEADERS, params={**self.RANGE, 'page': '1'}).status_code, 422)
+        self.assertEqual(store.calls, [])
+        self.assertEqual(http.get(BASE + '/usage/totals', params=self.RANGE).status_code, 401)
 
 
 class RouteTests(unittest.TestCase):
