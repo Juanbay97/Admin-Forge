@@ -27,7 +27,8 @@ test.describe("no persisted credentials", () => {
       expect(snapshot.html).not.toContain(secret);
       expect(page.url()).not.toContain(secret);
     }
-    expect(page.url()).toBe(adminUrl);
+    // The shell redirects the root to the role home; the URL still carries no query, hash or credential.
+    expect(page.url()).toBe(`${adminUrl}company`);
   });
 
   test("a reload requires signing in again", async ({ page, adminUrl }) => {

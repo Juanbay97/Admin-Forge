@@ -56,12 +56,12 @@ Chain strategy: stacked-to-main
 - [x] 4.4 `ui/charts.spec.ts`: aria summary, keyboard, resize 1280→375, CSP, axe
 
 ## Phase 5 — Router & shell (PR 5)
-- [ ] 5.1 RED→GREEN unit: `homeFor(identity)`, error-code map, `useIdentity` tolerance of 403/404 platform/me
-- [ ] 5.2 Providers (Query + Services + Toasts), `RequireSession`, `AreaGate`, 401 handler
-- [ ] 5.3 AppShell, Sidebar (collapse/drawer), Topbar, Breadcrumbs, UserMenu, CommandPalette, skip-link
-- [ ] 5.4 Area manifests (platform/portal stubs → NotFound-in-shell "coming soon" hidden from nav), company area mounting legacy pages unchanged
-- [ ] 5.5 `ui/shell.spec.ts`: deep link after login, 401 expiry, forbidden area, Ctrl+K, responsive nav, axe
-- [ ] 5.6 e2e `shell.spec.ts` + adapt `admin-flow.spec.ts` URLs (real stack)
+- [x] 5.1 RED→GREEN unit: `homeFor(identity)`, error-code map, `useIdentity` tolerance of 403/404 platform/me
+- [x] 5.2 Providers (Query + Services + Toasts), `RequireSession`, `AreaGate`, 401 handler
+- [x] 5.3 AppShell, Sidebar (collapse/drawer), Topbar, Breadcrumbs, UserMenu, CommandPalette, skip-link
+- [x] 5.4 Area manifests (platform/portal stubs → NotFound-in-shell "coming soon" hidden from nav), company area mounting legacy pages unchanged
+- [x] 5.5 `ui/shell.spec.ts`: deep link after login, 401 expiry, forbidden area, Ctrl+K, responsive nav, axe
+- [x] 5.6 e2e `shell.spec.ts` + adapt `admin-flow.spec.ts` URLs (real stack)
 
 ## Phase 6 — Port I (PR 6)
 - [ ] 6.1 Login (branded, RHF+zod) — existing `login.spec.ts` untouched + new states

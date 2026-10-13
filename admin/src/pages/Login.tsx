@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import type { AccountApi } from "../api/account";
 import { ApiError } from "../api/client";
 import { defaultTheme } from "../brand/theme";
+import { Alert } from "../ui/Alert";
 
 const MESSAGES: Record<number, string> = {
   401: "Email or password is incorrect.",
@@ -11,9 +12,11 @@ const MESSAGES: Record<number, string> = {
 interface LoginProps {
   api: AccountApi;
   onSignedIn: (token: string) => void;
+  /** Why the user is signing in again (an expired session), shown above the form. */
+  notice?: string;
 }
 
-export function Login({ api, onSignedIn }: LoginProps) {
+export function Login({ api, onSignedIn, notice }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +46,7 @@ export function Login({ api, onSignedIn }: LoginProps) {
           <p className="text-sm">Administration</p>
         </div>
       </header>
+      {notice && <Alert tone="info">{notice}</Alert>}
       <form onSubmit={submit} className="flex flex-col gap-4 rounded-lg bg-white p-6 shadow">
         <label className="flex flex-col gap-1 text-sm font-medium">
           Email

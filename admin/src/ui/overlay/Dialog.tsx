@@ -10,8 +10,12 @@ interface DialogProps {
   description?: string;
   children?: ReactNode;
   role?: "dialog" | "alertdialog";
-  /** `right` makes a full-height Sheet. */
-  side?: "center" | "right";
+  /** `right` and `left` make a full-height Sheet. */
+  side?: "center" | "right" | "left";
+  /** Keep the title for assistive technology but do not show it (command palette, navigation drawer). */
+  hideTitle?: boolean;
+  /** No padding or gap: the content lays itself out (navigation drawer). */
+  bare?: boolean;
   /** A confirmation must be answered, so a click outside does not dismiss it. */
   dismissOnBackdrop?: boolean;
   className?: string;
@@ -23,7 +27,7 @@ const FIRST_FIELD = "[data-autofocus], input:not([type=hidden]), select, textare
  * Native `<dialog>` opened with showModal(): the browser provides the focus trap, the inert background, Escape and the
  * return of focus to the trigger, with no injected styles. Content is mounted only while open, so forms start fresh.
  */
-export function Dialog({ open, onOpenChange, title, description, children, role = "dialog", side = "center", dismissOnBackdrop = true, className }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, role = "dialog", side = "center", hideTitle = false, bare = false, dismissOnBackdrop = true, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -49,15 +53,15 @@ export function Dialog({ open, onOpenChange, title, description, children, role 
       }}
       className={cn(
         "bg-surface p-0 text-fg shadow-overlay backdrop:bg-nav/60",
-        side === "right"
-          ? "m-0 ml-auto h-dvh max-h-none w-full max-w-md rounded-none border-l border-line"
-          : "m-auto w-[calc(100%-2rem)] max-w-md rounded-card border border-line",
+        side === "right" && "m-0 ml-auto h-dvh max-h-none w-full max-w-md rounded-none border-l border-line",
+        side === "left" && "m-0 mr-auto h-dvh max-h-none w-72 max-w-[85vw] rounded-none border-r border-line",
+        side === "center" && "m-auto w-[calc(100%-2rem)] max-w-md rounded-card border border-line",
         className,
       )}
     >
       {open && (
-        <div className={cn("flex flex-col gap-4 p-6", side === "right" && "h-full overflow-y-auto")}>
-          <header className="flex items-start justify-between gap-4">
+        <div className={cn("flex flex-col", bare ? "h-full" : "gap-4 p-6", side !== "center" && "h-full overflow-y-auto")}>
+          <header className={cn("flex items-start justify-between gap-4", hideTitle && "sr-only")}>
             <div className="flex flex-col gap-1">
               <h2 id={titleId} className="font-title text-section font-semibold">{title}</h2>
               {description && <p id={descriptionId} className="text-body text-muted">{description}</p>}
@@ -75,8 +79,8 @@ export function Dialog({ open, onOpenChange, title, description, children, role 
   );
 }
 
-export function Sheet(props: Omit<DialogProps, "side" | "role">) {
-  return <Dialog {...props} side="right" />;
+export function Sheet({ side = "right", ...props }: Omit<DialogProps, "side" | "role"> & { side?: "right" | "left" }) {
+  return <Dialog {...props} side={side} />;
 }
 
 interface AlertDialogProps {

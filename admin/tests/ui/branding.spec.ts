@@ -251,7 +251,8 @@ test.describe("branding page", () => {
       ["Product name", "}</style><script>alert(1)</script>", "The product name must be 1 to 40 plain characters."],
     ];
     for (const [label, value, message] of refusals) {
-      await page.reload();
+      // Back to the root, as the old single-view shell did on reload: the deep link would otherwise reopen Branding.
+      await page.goto(adminUrl);
       await page.getByLabel("Email").fill("admin@example.com");
       await page.getByLabel("Password").fill("correct-horse-battery");
       await page.getByRole("button", { name: "Sign in" }).click();

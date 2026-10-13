@@ -160,7 +160,8 @@ test("an admin brands org-a with colors, name and a logo; org-b is unaffected; r
   });
 
   await test.step("a reload (a new sign-in) shows the saved branding, fonts and logo", async () => {
-    await page.reload();
+    // Back to the root, as the old single-view shell did on reload: the deep link would otherwise reopen Branding.
+    await page.goto("/admin/");
     await page.getByLabel("Email").fill(orgA.admin.email);
     await page.getByLabel("Password").fill(orgA.admin.password);
     await page.getByRole("button", { name: "Sign in" }).click();

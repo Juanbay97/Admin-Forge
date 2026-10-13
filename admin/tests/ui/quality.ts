@@ -39,9 +39,10 @@ export function expectNoCspViolations(watch: CspWatch): void {
 }
 
 /** axe with WCAG 2.0/2.1 A and AA rules; only serious and critical findings fail, minor ones stay visible in the message. */
-export async function expectAccessible(page: Page, scope?: string): Promise<void> {
+export async function expectAccessible(page: Page, options: { scope?: string; exclude?: string[] } = {}): Promise<void> {
   let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]);
-  if (scope) builder = builder.include(scope);
+  if (options.scope) builder = builder.include(options.scope);
+  for (const selector of options.exclude ?? []) builder = builder.exclude(selector);
   const { violations } = await builder.analyze();
   const blocking = violations
     .filter((violation) => violation.impact === "serious" || violation.impact === "critical")

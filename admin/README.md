@@ -80,3 +80,16 @@ Tokens: components style only through the semantic `--ui-*` layer in `src/brand/
 `--brand-*` variables; dark mode (`data-mode="dark"`, platform area only) overrides `--ui-*` and nothing else.
 
 `tokens.css` writes the fixed status colours and white as `rgb()`/named colours: `unit/theme.spec.ts` keeps the stylesheet free of `#RRGGBB` literals so brand colours stay single-sourced in `brand/theme.ts`.
+
+### Router and shell
+
+`src/shell` owns routing (`router.tsx`, React Router 7, basename `/admin`), providers (TanStack Query with `staleTime` 30 s and no
+retry on 4xx, services, toasts), the session guard (`RequireSession` renders sign-in in place, so the URL is the return target and
+nothing is stored; a token that disappears without a sign-out shows the expiry notice), the identity (`accounts/me` plus an
+optional `platform/me` probe, where 403/404 mean "not a platform account") and the chrome (`AppShell`: skip link, sidebar that
+collapses to icons from 1024 px and becomes a drawer below, topbar with breadcrumbs, `Ctrl/Cmd+K` command palette, user menu).
+
+Areas are registered in `src/shell/areas.ts` (`company` is open; `platform` and `portal` are stubs whose paths are "not found" for
+everyone until their changes enable them, and `platform/me` is not requested while the platform area is disabled). Area code is a
+lazy chunk. Navigation entries are buttons that navigate (`aria-current="page"` marks the page): that is the accessible contract the
+pages and their tests already had.

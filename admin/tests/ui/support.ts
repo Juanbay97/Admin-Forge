@@ -115,6 +115,7 @@ export async function installBackend(page: Page, source: Backend) {
   const invitations: unknown[] = [];
   const brandings = backend.brandings ?? (backend.brandings = {});
   const uploads = new Map<string, Buffer>();
+  let expired = false;
   const held = new Map<string, Promise<void>>();
   const release = new Map<string, () => void>();
 
@@ -149,7 +150,7 @@ export async function installBackend(page: Page, source: Backend) {
       if (!referenced || !bytes) return route.fulfill({ status: 404, body: "" });
       return route.fulfill({ status: 200, contentType: "image/png", body: bytes });
     }
-    if (!account) return reply(route, 401, envelope("UNAUTHENTICATED", "Authentication is required."));
+    if (!account || expired) return reply(route, 401, envelope("UNAUTHENTICATED", "Authentication is required."));
     if (path === "/forge/v1/accounts/logout") return reply(route, 204);
     const brandingMatch = path.match(/^\/forge\/v1\/orgs\/([^/]+)\/branding(\/reset|\/assets)?$/);
     if (brandingMatch) {
@@ -329,6 +330,13 @@ export async function installBackend(page: Page, source: Backend) {
   return {
     requests,
     invitations,
+    /** Every authenticated call answers 401 from now on, as after a token expiry or revocation. */
+    expire() {
+      expired = true;
+    },
+    renew() {
+      expired = false;
+    },
     /** What the double stored for an organisation, key included (it is never sent back). */
     stored: (orgId: string) => backend.gateways?.[orgId],
     catalog: (orgId: string) => backend.catalogs?.[orgId],
