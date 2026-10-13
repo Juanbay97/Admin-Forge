@@ -393,6 +393,10 @@ docker compose up -d --build --wait                            # migrate runs fi
 
 Migrations only move forward, and applied files must never be edited (`MIGRATION_CHECKSUM_MISMATCH` otherwise).
 
+After the migrations the same job seeds the capability catalog (114 entries on a fresh install) with an idempotent sync: it creates
+only what is missing and never overwrites what a platform owner changed, so every deploy is safe to repeat (`--no-seed` skips it, a
+failure is `SEED_FAILED`). Before any catalog exists the effective policy is a signed, empty one rather than a 503.
+
 | Situation | Action |
 |-----------|--------|
 | Code problem, schema unchanged | `FORGE_IMAGE=forge-control-plane:previous docker compose up -d --wait` |

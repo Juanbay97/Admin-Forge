@@ -47,8 +47,12 @@ class PostgresServeProdTests(unittest.TestCase):
             self.assertEqual(first['status'], 'ok')
             self.assertGreater(len(first['applied']), 20)
             self.assertNotIn('password-for', text)
+            self.assertEqual(first['catalog'], {'created': 114}, 'a fresh install carries the whole capability seed')
+            self.assertEqual(admin.execute('SELECT count(*) FROM forge.capability_catalog').fetchone(), (114,))
             code, text = run_main(['migrate'], s.env)
-            self.assertEqual((code, json.loads(text)), (0, {'status': 'ok', 'applied': []}))
+            self.assertEqual((code, json.loads(text)), (0, {'status': 'ok', 'applied': [], 'catalog': {'created': 0}}))
+            self.assertEqual(admin.execute("SELECT count(*) FROM forge.capability_change_audit WHERE action='catalog.created'").fetchone(),
+                             (114,), 'the second run changed nothing')
 
     def test_the_composed_app_is_ready_on_the_migrated_schema_and_refuses_a_foreign_host(self):
         with deployment() as (admin, s):

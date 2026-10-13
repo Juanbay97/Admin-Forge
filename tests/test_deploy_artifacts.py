@@ -770,11 +770,11 @@ class SmokeGovernancePhase(unittest.TestCase):
         script = text('scripts/deploy-smoke.ps1')
         for needle in ("'forge.capability_seed', 'sync'", "'--entrypoint', 'python'", '/forge/v1/capabilities/effective', '/forge/v1/capabilities/keys',
                        '/forge/v1/capabilities/audit', 'forge.capability_signing', 'verify_document', 'blocked_attestation', 'forced_off', 'LOCKED',
-                       '/capability-audit', 'a second seed run changes nothing', 'the signed policy verifies',
-                       'a force-off lock beats the company administrator', 'governance: the catalog is seeded'):
+                       '/capability-audit', 'the migrate job did not seed the catalog on a fresh install', 'the signed policy verifies',
+                       'a force-off lock beats the company administrator', 'governance: the migrate job seeds the catalog'):
             with self.subTest(needle=needle):
                 self.assertIn(needle, script)
-        order = [script.index(piece) for piece in ('usage is visible per company, model and total', 'governance: the catalog is seeded', 'backup dump is valid')]
+        order = [script.index(piece) for piece in ('usage is visible per company, model and total', 'governance: the migrate job seeds the catalog', 'backup dump is valid')]
         self.assertEqual(order, sorted(order))
 
 

@@ -85,8 +85,9 @@ class Runner:
 
 
 class CliTests(unittest.TestCase):
-    def run_cli(self, argv, env, runner, connections=None):
+    def run_cli(self, argv, env, runner, connections=None, seed=None):
         connections = [] if connections is None else connections
+        seed = (lambda connection: None) if seed is None else seed
 
         class Connection:
             def close(self):
@@ -97,7 +98,7 @@ class CliTests(unittest.TestCase):
             return Connection()
         output = io.StringIO()
         with redirect_stdout(output):
-            code = main(argv, environ=env, connect=connect, run=runner)
+            code = main(argv, environ=env, connect=connect, run=runner, seed=seed)
         return code, output.getvalue(), connections
 
     def environment(self, f, password='admin-secret'):
@@ -162,6 +163,34 @@ class CliTests(unittest.TestCase):
             with redirect_stdout(output):
                 code = main([], environ=self.environment(f), connect=refuse, run=Runner([]))
             self.assertEqual((code, json.loads(output.getvalue())), (1, {'status': 'failed', 'code': 'DB_UNAVAILABLE'}))
+
+    def test_the_capability_catalog_is_seeded_once_after_the_migrations_on_the_same_admin_connection(self):
+        from forge.capability_seed import SyncResult
+        with Fixture() as f:
+            calls = []
+            code, text, connections = self.run_cli([], self.environment(f), Runner(['0001_bootstrap.sql']),
+                                                   seed=lambda connection: calls.append(connection) or SyncResult(114, 0, 0))
+            self.assertEqual((code, json.loads(text)), (0, {'status': 'ok', 'applied': ['0001_bootstrap.sql'], 'catalog': {'created': 114}}))
+            self.assertEqual((len(calls), len(connections)), (1, 1), 'one admin connection runs the migrations and the seed')
+
+    def test_a_failed_migration_never_seeds_and_a_failed_seed_is_a_finite_code(self):
+        from forge.migrate import MigrationError
+        with Fixture() as f:
+            calls = []
+            code, _, _ = self.run_cli([], self.environment(f), Runner(error=MigrationError('MIGRATION_CHECKSUM_MISMATCH')),
+                                      seed=lambda connection: calls.append(connection))
+            self.assertEqual((code, calls), (1, []))
+
+            def broken(connection):
+                raise RuntimeError('boom admin-secret')
+            code, text, _ = self.run_cli([], self.environment(f), Runner([]), seed=broken)
+            self.assertEqual((code, json.loads(text)), (1, {'status': 'failed', 'code': 'SEED_FAILED'}))
+
+    def test_no_seed_skips_the_catalog(self):
+        with Fixture() as f:
+            calls = []
+            code, text, _ = self.run_cli(['--no-seed'], self.environment(f), Runner([]), seed=lambda connection: calls.append(connection))
+            self.assertEqual((code, json.loads(text), calls), (0, {'status': 'ok', 'applied': []}, []))
 
     def test_usage_errors_exit_two(self):
         with Fixture() as f:

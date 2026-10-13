@@ -74,7 +74,9 @@ def _layer(state, lock):
 
 def _snapshot(rows):
     if not rows:
-        raise CapabilityUnavailable()
+        # The function proved the session and the membership before it read any row, so no row means an empty catalog: a defined state
+        # (nothing governed yet), at the default epochs because no catalog write has bumped either one.
+        return Snapshot(1, 1, (), {}, {}, {})
     entries, platform, company, org = [], {}, {}, {}
     for row in rows:
         entry = _entry(row)

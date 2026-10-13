@@ -438,12 +438,11 @@ try {
         return $items
     }
     $seedArguments = @('run', '--rm', '-T', '--entrypoint', 'python', 'platform', '-m', 'forge.capability_seed', 'sync')
+    # The migrate job seeds the catalog by itself: a fresh install already holds the whole inventory before any operator command.
+    Assert-True ([int](Get-Rows 'SELECT count(*) FROM forge.capability_catalog') -ge 100) 'the migrate job did not seed the catalog on a fresh install'
     $seeded = (Invoke-Compose $seedArguments -Global @('--profile', 'tools')).Output
-    Assert-True ($seeded -match '"status": "synced"' -and $seeded -match '"created": (\d+)' -and [int]$Matches[1] -ge 100) "the catalog seed did not create the inventory ($seeded)"
-    $seededAgain = (Invoke-Compose $seedArguments -Global @('--profile', 'tools')).Output
-    Assert-True ($seededAgain -match '"created": 0' -and $seededAgain -match '"updated": 0') "a second seed run changes nothing, but it reported changes ($seededAgain)"
-    Assert-True ([int](Get-Rows 'SELECT count(*) FROM forge.capability_catalog') -ge 100) 'the catalog holds fewer entries than the seed'
-    Write-Pass 'governance: the catalog is seeded from the tools profile; a second seed run changes nothing'
+    Assert-True ($seeded -match '"status": "synced"' -and $seeded -match '"created": 0' -and $seeded -match '"updated": 0') "the operator seed command found something to create after the migrate job ($seeded)"
+    Write-Pass 'governance: the migrate job seeds the catalog on a fresh install; the operator seed command changes nothing afterwards'
 
     $keySet = Invoke-Curl '/forge/v1/capabilities/keys' -Arguments @('-H', "Origin: $origin")
     Assert-True ($keySet.Status -eq 200 -and $keySet.Body -match '"alg":"Ed25519"') "the public key set is not served ($($keySet.Status))"

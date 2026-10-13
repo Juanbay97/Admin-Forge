@@ -195,7 +195,17 @@ def admin_settings(db):
                 sslmode=db.sslmode, autocommit=True, connect_timeout=5, application_name='forge-migrate')
 
 
-def run_migrations(config, directory, *, connect=psycopg.connect, run=migrate):
+def seed_catalog(connection):
+    """The capability catalog seed, idempotent: it creates only what is missing and never touches what an owner changed."""
+    from forge.capability_seed import load_seed, sync
+    return sync(connection, load_seed())
+
+
+def run_migrations(config, directory, *, connect=psycopg.connect, run=migrate, seed=None, seeded=None):
+    """Apply the migrations and, when ``seed`` is given, then seed the catalog on the same administrator connection.
+
+    ``seeded`` (a list) receives the seed result so a caller can report it; a seed failure is the finite ``SEED_FAILED``.
+    """
     if config.db.admin_password is None:
         raise ConfigError('CONFIG_INVALID:FORGE_DB_ADMIN_PASSWORD')
     try:
@@ -203,7 +213,15 @@ def run_migrations(config, directory, *, connect=psycopg.connect, run=migrate):
     except psycopg.Error:
         raise MigrationError('DB_UNAVAILABLE') from None
     try:
-        return run(connection, directory, config.roles)
+        applied = run(connection, directory, config.roles)
+        if seed is not None:
+            try:
+                result = seed(connection)
+            except Exception:
+                raise MigrationError('SEED_FAILED') from None
+            if seeded is not None:
+                seeded.append(result)
+        return applied
     finally:
         connection.close()
 
@@ -217,11 +235,12 @@ class _Parser(argparse.ArgumentParser):
         raise _Usage()
 
 
-def main(argv=None, *, environ=None, connect=psycopg.connect, run=migrate):
+def main(argv=None, *, environ=None, connect=psycopg.connect, run=migrate, seed=seed_catalog):
     emit = lambda document: print(json.dumps(document), flush=True)
     try:
-        parser = _Parser(prog='forge.migrate', description='Apply the reviewed Forge schema migrations.')
+        parser = _Parser(prog='forge.migrate', description='Apply the reviewed Forge schema migrations and seed the capability catalog.')
         parser.add_argument('--migrations-dir', default=str(ROOT/'migrations'))
+        parser.add_argument('--no-seed', action='store_true')
         arguments = parser.parse_args(sys.argv[1:] if argv is None else argv)
     except _Usage:
         emit({'status': 'failed', 'code': 'INVALID_ARGUMENTS'})
@@ -230,7 +249,9 @@ def main(argv=None, *, environ=None, connect=psycopg.connect, run=migrate):
         strip_libpq_environment(os.environ)
         environ = os.environ
     try:
-        applied = run_migrations(load_prod_config(environ), arguments.migrations_dir, connect=connect, run=run)
+        seeded = []
+        applied = run_migrations(load_prod_config(environ), arguments.migrations_dir, connect=connect, run=run,
+                                 seed=None if arguments.no_seed else seed, seeded=seeded)
     except MigrationError as error:
         emit({'status': 'failed', 'code': error.code, **({'migration': error.migration} if error.migration else {})})
         return 1
@@ -240,7 +261,8 @@ def main(argv=None, *, environ=None, connect=psycopg.connect, run=migrate):
     except Exception:
         emit({'status': 'failed', 'code': 'MIGRATE_UNAVAILABLE'})
         return 1
-    emit({'status': 'ok', 'applied': applied})
+    result = seeded[0] if seeded else None
+    emit({'status': 'ok', 'applied': applied, **({} if result is None else {'catalog': {'created': result.created}})})
     return 0
 
 

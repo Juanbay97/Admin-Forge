@@ -87,6 +87,11 @@ client is still an open decision.
 
 ### Seeding the catalog
 
+The one-shot `migrate` job (`python -m forge.migrate`) seeds the catalog itself, with the same idempotent sync, right after the
+migrations and on the same administrator connection, so a fresh install holds the whole inventory (114 entries) before the first
+request; `--no-seed` skips it and a seed failure is the finite code `SEED_FAILED`. Until a catalog exists the effective policy is
+a signed, empty one (no capabilities, epochs 1) instead of a 503. The operator command below stays for `--update` and for repair:
+
 ```
 docker compose --profile tools run --rm --entrypoint python platform -m forge.capability_seed sync
 ```
