@@ -148,7 +148,7 @@ def _company(company):
     return {'id': str(company.organization_id), 'slug': company.slug, 'display_name': company.display_name, 'active': company.active}
 
 
-def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None, usage=None, capabilities=None, connectors=None):
+def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None, usage=None, capabilities=None, connectors=None, reads=None):
     """Add the platform routes (all ``include_in_schema=False``, so the contract pin is unchanged)."""
     def blocking(function, *arguments, **keywords):
         return run_sync(lambda: function(*arguments, **keywords), abandon_on_cancel=False)
@@ -305,3 +305,6 @@ def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None
     if connectors is not None:
         from forge.connector_api import mount_platform_connectors
         mount_platform_connectors(app, service=connectors, guarded=guarded, blocking=blocking)
+    if reads is not None:
+        from forge.platform_reads_api import mount_reads
+        mount_reads(app, reads=reads, guarded=guarded, blocking=blocking)
