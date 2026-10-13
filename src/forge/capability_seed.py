@@ -118,7 +118,7 @@ def main(argv=None, *, environ=None, out=None, connect=None):
             import psycopg
             connect = psycopg.connect
         try:
-            with connect(**{**admin_settings(db), 'application_name': 'forge-capability-seed'}, autocommit=True) as connection:
+            with connect(**{**admin_settings(db), 'application_name': 'forge-capability-seed'}) as connection:  # an autocommit administrator connection
                 result = sync(connection, entries, update=arguments.update)
         except Exception:
             raise _Refusal('SYNC_FAILED') from None

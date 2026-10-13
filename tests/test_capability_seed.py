@@ -6,7 +6,7 @@ import sys
 import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
-from forge.capability_seed import SEED_PATH, load_seed, main
+from forge.capability_seed import SEED_PATH, SyncResult, load_seed, main
 from forge.capability_service import entry_document
 
 EXEC = {'tool:code_execute': 3, 'tool:bash': 4, 'tool:powershell': 4}
@@ -85,6 +85,27 @@ class CliTests(unittest.TestCase):
         code, lines = self.run_cli(['sync'], environ={'FORGE_DB_HOST': 'postgres', 'FORGE_DB_NAME': 'forge'}, connect=lambda **kwargs: self.fail('no connection'))
         self.assertEqual(code, 1)
         self.assertEqual(lines[0]['status'], 'failed')
+
+    def test_sync_connects_once_with_the_administrator_settings_and_reports_the_counts(self):
+        from unittest.mock import patch
+        calls = []
+
+        class Connection:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def connect(**keywords):
+            calls.append(keywords)  # a duplicated keyword (admin_settings already sets autocommit) would raise right here
+            return Connection()
+        environ = {'FORGE_DB_HOST': 'postgres', 'FORGE_DB_NAME': 'forge', 'FORGE_DB_ADMIN_PASSWORD': 'admin-pass'}
+        with patch('forge.capability_seed.sync', return_value=SyncResult(3, 0, 111)) as sync_mock:
+            code, lines = self.run_cli(['sync', '--update'], environ=environ, connect=connect)
+        self.assertEqual((code, lines), (0, [{'status': 'synced', 'created': 3, 'updated': 0, 'unchanged': 111}]))
+        self.assertEqual((len(calls), calls[0]['host'], calls[0]['autocommit'], calls[0]['application_name']), (1, 'postgres', True, 'forge-capability-seed'))
+        self.assertTrue(sync_mock.call_args.kwargs['update'])
 
     def test_libpq_environment_variables_are_refused(self):
         code, lines = self.run_cli(['sync'], environ={'PGHOST': 'elsewhere'})
