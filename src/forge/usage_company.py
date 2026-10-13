@@ -23,6 +23,7 @@ class MemberUsage:
 
 class CompanyUsageStore(Protocol):
     def members(self, digest, organization_id, first_day, last_day, after, page) -> list: ...
+    def mine(self, digest, organization_id, first_day, last_day) -> Counters: ...
 
 
 class CompanyUsage:
@@ -39,3 +40,13 @@ class CompanyUsage:
         except Exception:
             raise ValueError('Invalid usage request.') from None
         return self._store.members(capability_digest(token), organization_id, first_day, last_day, after, page)
+
+    def mine(self, token, organization_id, first_day: date, last_day: date) -> Counters:
+        """The caller's own counters over the range: the database derives the member from the live session, never from an argument."""
+        if type(organization_id) is not UUID:
+            raise ValueError('Invalid usage request.')
+        try:
+            _range(first_day, last_day)
+        except Exception:
+            raise ValueError('Invalid usage request.') from None
+        return self._store.mine(capability_digest(token), organization_id, first_day, last_day)

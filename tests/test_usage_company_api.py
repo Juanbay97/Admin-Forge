@@ -40,6 +40,12 @@ class Store:
             raise self.fail
         return [MemberUsage(MEMBER, 'pat@example.com', 'Pat Member', 'suspended', COUNTERS)]
 
+    def mine(self, digest, org, first, last):
+        self.calls.append((digest, org, first, last))
+        if self.fail:
+            raise self.fail
+        return COUNTERS
+
 
 def client(*, roles=('organization_admin',), store=None, snapshot_org=ORG, valid=True):
     identity = AuthenticatedIdentity('forge', ACCOUNT_ISSUER, str(uuid4()))
@@ -99,6 +105,55 @@ class CompanyUsageRouteTests(unittest.TestCase):
         self.assertEqual(body['next_after'], str(MEMBER))
         again = http.get(PATH, headers=HEADERS, params={**RANGE, 'page': '1', 'after': str(MEMBER)})
         self.assertEqual((again.status_code, store.calls[-1][4]), (200, MEMBER))
+
+
+ME = '/forge/v1/orgs/%s/usage/me' % ORG
+
+
+class MyUsageRouteTests(unittest.TestCase):
+    def test_hidden_from_the_contract_and_one_flat_counters_object(self):
+        http, app, store, _ = client(roles=('member',))
+        self.assertEqual(contract.canonical_sha256(contract.build(app)),
+                         contract.canonical_sha256(json.loads(contract.COMMITTED_PATH.read_text('utf-8'))))
+        self.assertIn(ME, {route.path.replace('{organization_id}', str(ORG)) for route in app.routes})
+        response = http.get(ME, headers=HEADERS, params=RANGE)
+        self.assertEqual((response.status_code, response.json()), (200, {'requests': 6, 'prompt_tokens': 5010, 'completion_tokens': 2510,
+                                                                       'estimated_requests': 1, 'error_requests': 0, 'cost_micros': 10000,
+                                                                       'unpriced_requests': 1}))
+        self.assertEqual(store.calls[0][1:], (ORG, date(2026, 10, 1), date(2026, 10, 12)))
+        self.assertNotEqual(store.calls[0][0], TOKEN, 'the store gets the digest, never the capability')
+
+    def test_any_active_member_reads_own_usage_and_an_administrator_too(self):
+        for roles in (('member',), ('organization_admin',), ('member', 'organization_admin')):
+            http, _, store, _ = client(roles=roles)
+            self.assertEqual(http.get(ME, headers=HEADERS, params=RANGE).status_code, 200, roles)
+
+    def test_other_companies_inactive_and_suspended_memberships_are_not_found_and_never_reach_the_store(self):
+        http, _, store, _ = client(snapshot_org=uuid4())
+        self.assertEqual(http.get(ME, headers=HEADERS, params=RANGE).status_code, 404)
+        http, _, store, authorization = client(roles=('member',))
+        for change in ({'membership_status': MembershipStatus.SUSPENDED}, {'organization_active': False}):
+            authorization.read.return_value = replace(authorization.read.return_value, **change)
+            self.assertEqual(http.get(ME, headers=HEADERS, params=RANGE).status_code, 404, change)
+        self.assertEqual(store.calls, [])
+
+    def test_the_database_denial_is_the_same_not_found_and_other_failures_are_finite(self):
+        for failure, status, code in ((DirectoryDenied(), 404, 'NOT_FOUND'), (DirectoryUnavailable(), 503, 'SERVICE_UNAVAILABLE'),
+                                      (RuntimeError('boom'), 503, 'SERVICE_UNAVAILABLE'), (ValueError('x'), 422, 'INVALID_REQUEST')):
+            http, _, _, _ = client(store=Store(failure))
+            response = http.get(ME, headers=HEADERS, params=RANGE)
+            self.assertEqual((response.status_code, response.json()['error']['code']), (status, code))
+
+    def test_only_from_and_to_are_accepted_and_credentials_come_first(self):
+        http, _, store, _ = client()
+        for params in ({}, {'from': '2026-10-01'}, {**RANGE, 'page': '1'}, {**RANGE, 'after': str(MEMBER)}, {**RANGE, 'extra': '1'},
+                       {'from': '2026-10-12', 'to': '2026-10-01'}, {'from': '2020-01-01', 'to': '2026-10-01'}):
+            with self.subTest(params=str(params)):
+                self.assertEqual(http.get(ME, headers=HEADERS, params=params).status_code, 422)
+        self.assertEqual(store.calls, [])
+        self.assertEqual(http.get(ME, params=RANGE).status_code, 401)
+        self.assertEqual(http.get(ME, headers={'Authorization': 'Bearer ' + secrets.token_urlsafe(32)}, params=RANGE).status_code, 401)
+        self.assertEqual(http.get('/forge/v1/orgs/not-a-uuid/usage/me', headers=HEADERS, params=RANGE).status_code, 422)
 
 
 if __name__ == '__main__':
