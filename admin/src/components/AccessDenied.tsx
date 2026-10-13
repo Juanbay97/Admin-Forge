@@ -1,3 +1,6 @@
+import { ShieldAlert } from "lucide-react";
+import { Button } from "../ui/Button";
+
 interface AccessDeniedProps {
   title?: string;
   message?: string;
@@ -11,15 +14,14 @@ export function AccessDenied({
 }: AccessDeniedProps) {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 p-6">
-      <h1 className="font-title text-2xl font-bold text-primary">{title}</h1>
-      <p>{message}</p>
-      <button
-        type="button"
-        onClick={onSignOut}
-        className="self-start rounded bg-teal px-4 py-2 font-medium text-white transition-colors hover:bg-primary"
-      >
+      <span className="flex size-12 items-center justify-center rounded-full bg-danger-soft text-on-danger-soft">
+        <ShieldAlert aria-hidden="true" className="size-6" />
+      </span>
+      <h1 className="font-title text-page font-bold text-fg">{title}</h1>
+      <p className="text-body text-muted">{message}</p>
+      <Button className="self-start" onClick={onSignOut}>
         Sign out
-      </button>
+      </Button>
     </main>
   );
 }

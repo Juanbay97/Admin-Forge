@@ -93,3 +93,23 @@ Areas are registered in `src/shell/areas.ts` (`company` is open; `platform` and 
 everyone until their changes enable them, and `platform/me` is not requested while the platform area is disabled). Area code is a
 lazy chunk. Navigation entries are buttons that navigate (`aria-current="page"` marks the page): that is the accessible contract the
 pages and their tests already had.
+
+### Adding a component under the CSP
+
+1. Style with class names that read semantic tokens (`bg-surface`, `text-fg`, `border-line`, `bg-action`, ... defined in `tokens.css`),
+   never `--brand-*` or hex colours; add a CVA variant rather than a one-off class when a look repeats.
+2. Prefer a native element (`<dialog>`, `<select>`, `<details>`) or an allow-listed primitive. A new third-party primitive must
+   first pass `tests/ui/primitives-csp.spec.ts`; if it injects a `<style>`, it is implemented by hand instead.
+3. Put it in the test gallery (`src/ui/gallery`, opened with `/admin/?kit=<name>` in the UI-test build) and drive every variant and
+   state; the automatic CSP watch fails the spec on any violation and `expectAccessible` (axe) on any serious finding.
+4. Check 375, 768 and 1280 px (`viewports`, `expectNoHorizontalScroll`). Interactive targets are at least 40 px (44 on touch widths);
+   a visible 2 px focus ring comes from `--ui-ring`.
+5. Absolute children (`sr-only`) inside a scroll container need `relative` on the container, or they leak page-level overflow.
+
+### Visual QA checklist
+
+Sign in as an administrator of one and of several organizations and look at every page in the shell at 375, 768 and 1280 px:
+spacing on the 4 px grid; Montserrat titles and Inter body; one primary action per view; skeletons sized like the content they
+replace (no layout shift); an empty state with a next step instead of an empty table; failures as an alert with a retry; status
+always an icon plus text; keyboard path through the sidebar, palette (`Ctrl+K`), dialogs and tables; `prefers-reduced-motion`.
+`npm run test:unit` plus `scripts\admin-e2e.ps1` cover the automatable half of this list.

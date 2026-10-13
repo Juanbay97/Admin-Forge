@@ -151,12 +151,12 @@ test.describe("members", () => {
   test("the list can be searched and sorted", async ({ page, adminUrl }) => {
     await open(page, adminUrl);
     const names = () => page.getByRole("table").locator("tbody tr td:first-child .font-medium").allInnerTexts();
-    expect(await names()).toEqual(["Alex Admin", "Pat Member"]);
+    await expect.poll(names).toEqual(["Alex Admin", "Pat Member"]);
     await page.getByRole("table").getByRole("button", { name: "Name" }).click();
     await page.getByRole("table").getByRole("button", { name: "Name" }).click();
-    expect(await names()).toEqual(["Pat Member", "Alex Admin"]);
+    await expect.poll(names).toEqual(["Pat Member", "Alex Admin"]);
     await page.getByLabel("Search members").fill("alex@");
-    expect(await names()).toEqual(["Alex Admin"]);
+    await expect.poll(names).toEqual(["Alex Admin"]);
     await page.getByLabel("Search members").fill("nobody");
     await expect(page.getByRole("heading", { name: "No members match" })).toBeVisible();
   });

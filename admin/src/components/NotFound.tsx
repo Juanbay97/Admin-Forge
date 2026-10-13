@@ -2,8 +2,8 @@
 export function NotFound() {
   return (
     <section className="flex flex-col gap-2">
-      <h1 className="font-title text-2xl font-bold text-primary">Not found</h1>
-      <p>The page you requested could not be found.</p>
+      <h1 className="font-title text-page font-bold text-fg">Not found</h1>
+      <p className="text-body text-muted">The page you requested could not be found.</p>
     </section>
   );
 }

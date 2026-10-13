@@ -69,7 +69,7 @@ Chain strategy: stacked-to-main
 - [x] 6.3 `members.spec.ts`/`hardening.spec.ts` green; axe at 3 viewports
 
 ## Phase 7 — Port II + closeout (PR 7)
-- [ ] 7.1 Gateway (read-only-ready layout; key form kept until `fv2-gateway-keys` changes it), Catalog, Branding (extract `ThemeEditor`/`BrandPreview` for reuse by console wizard)
-- [ ] 7.2 Delete `components/Console.tsx`, dead styles; assert no `<style>` in built `index.html`/assets (unit on dist)
-- [ ] 7.3 Full `npm run test:unit`, `typecheck`, `build`, `scripts\admin-e2e.ps1` (all pre-existing specs unchanged)
-- [ ] 7.4 README: stack, allow-list, how to add a component under CSP, a11y/CSP gates, visual QA checklist; screenshots as PR artifact
+- [x] 7.1 Gateway (read-only-ready layout; key form kept until `fv2-gateway-keys` changes it), Catalog, Branding (extract `ThemeEditor`/`BrandPreview` for reuse by console wizard)
+- [x] 7.2 Delete `components/Console.tsx`, dead styles; assert no `<style>` in built `index.html`/assets (unit on dist)
+- [x] 7.3 Full `npm run test:unit`, `typecheck`, `build`, `scripts\admin-e2e.ps1` (all pre-existing specs unchanged)
+- [x] 7.4 README: stack, allow-list, how to add a component under CSP, a11y/CSP gates, visual QA checklist; screenshots as PR artifact
