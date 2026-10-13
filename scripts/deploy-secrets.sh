@@ -34,7 +34,7 @@ create() {
 
 for name in pg_superuser \
     role_forge_account_service role_forge_enrollment role_forge_runtime role_forge_gateway_service \
-    role_forge_branding_service role_forge_platform_service role_backup; do
+    role_forge_branding_service role_forge_platform_service role_forge_capability_service role_backup; do
     create "$name" password
 done
 create delivery_key fernet

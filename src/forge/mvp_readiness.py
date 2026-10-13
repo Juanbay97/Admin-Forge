@@ -12,9 +12,9 @@ from forge.gateway_configuration_store import GatewayConnection
 from forge.mvp_profile import F39
 from forge.postgres import _ROLE_CHECK
 
-_AUTHORITIES = ("SELECT count(*)=5 AND bool_and(NOT rolcanlogin) FROM pg_roles WHERE rolname IN "
+_AUTHORITIES = ("SELECT count(*)=6 AND bool_and(NOT rolcanlogin) FROM pg_roles WHERE rolname IN "
                 "('forge_gateway_authority','forge_catalog_authority','forge_directory_authority','forge_branding_authority',"
-                "'forge_platform_authority')")
+                "'forge_platform_authority','forge_capability_authority')")
 
 
 class MvpReadiness:

@@ -19,7 +19,7 @@ from forge.mvp_local import (ConfigError, FORBIDDEN_PORTS, MVP_PORTS, assemble, 
 from forge.mvp_profile import MVP_PROFILE
 
 ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service',
-         'forge_branding_service', 'forge_platform_service')
+         'forge_branding_service', 'forge_platform_service', 'forge_capability_service')
 
 
 def write(path, value):

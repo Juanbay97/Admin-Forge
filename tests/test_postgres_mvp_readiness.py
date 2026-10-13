@@ -36,7 +36,8 @@ class PostgresMvpReadinessTests(unittest.TestCase):
             self.assertIs(readiness(db).check(), False)
 
     def test_an_authority_that_can_log_in_is_refused(self):
-        for authority in ('forge_directory_authority', 'forge_branding_authority', 'forge_platform_authority'):
+        for authority in ('forge_directory_authority', 'forge_branding_authority', 'forge_platform_authority',
+                          'forge_capability_authority'):
             with self.subTest(authority=authority), mvp_database() as db:
                 self.assertIs(readiness(db).check(), True)
                 db.admin.execute('ALTER ROLE %s LOGIN' % authority)

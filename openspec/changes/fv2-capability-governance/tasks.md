@@ -37,8 +37,8 @@ Chain strategy: stacked-to-main
 ## S2 Schema/store
 - [x] 2.1 Migration catalog/platform policy/epoch/roles; RLS tests (PG)
 - [x] 2.2 Migration org policy + change audit + DEFINER fns (`cap_set_*`, `cap_read_layers`), lock + epoch++ atomic
-- [ ] 2.3 `capability_store.py` port + PG adapter; ripple `mvp_local.py` ROLES, F27 fingerprint, readiness
-- [ ] 2.4 Tests: cross-org denied, audit immutability, platform-only catalog write
+- [x] 2.3 `capability_store.py` port + PG adapter; ripple `mvp_local.py` ROLES, F27 fingerprint, readiness
+- [x] 2.4 Tests: cross-org denied, audit immutability, platform-only catalog write
 
 ## S3 APIs
 - [ ] 3.1 RED→GREEN `capability_api.py` platform routes via `platform_lock_owner`

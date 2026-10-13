@@ -20,7 +20,7 @@ def at(name):
 
 
 LOGIN_ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service',
-               'forge_branding_service', 'forge_platform_service')
+               'forge_branding_service', 'forge_platform_service', 'forge_capability_service')
 
 
 class MvpDatabase:

@@ -29,7 +29,7 @@ LOOPBACK = '127.0.0.1'
 MVP_PORTS = MappingProxyType({'control_plane': 3410, 'client_ui': 3411, 'client_backend': 3412, 'fake_gateway': 3413})
 FORBIDDEN_PORTS = frozenset({3319, 3320, 3331, 3332})
 ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service',
-         'forge_branding_service', 'forge_platform_service')
+         'forge_branding_service', 'forge_platform_service', 'forge_capability_service')
 KEYS = ('version', 'profile', 'database', 'secrets_file', 'mailbox_dir', 'admin_dir', 'require_admin_build',
         'control_plane_port', 'client_origin', 'cors_origins', 'gateway_allowed_endpoints')
 ORIGIN = re.compile(r'http://127\.0\.0\.1:(\d{1,5})')

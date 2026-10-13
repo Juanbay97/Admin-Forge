@@ -173,7 +173,7 @@ class RunnerUpgradeTests(unittest.TestCase):
                 admin.execute(migration_text(name))
             with admin.cursor() as cursor:
                 self.assertEqual(catalog_fingerprint(cursor), F26)
-            known = {role: password for role, password in passwords().items() if role != 'forge_platform_service'}  # not created before 0028
+            known = {role: password for role, password in passwords().items() if role not in ('forge_platform_service', 'forge_capability_service')}  # not created before 0028 / 0038
             applied = migrate(admin, DIRECTORY, known, order=CANONICAL_ORDER[:CANONICAL_ORDER.index(GATEWAY_ORIGIN_CONFIG_MIGRATION) + 1],
                             checkpoints=MVP_CHECKPOINTS[:at(GATEWAY_ORIGIN_CONFIG_MIGRATION) + 2])
             self.assertEqual(applied, [GATEWAY_ORIGIN_CONFIG_MIGRATION])
