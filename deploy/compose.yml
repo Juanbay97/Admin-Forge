@@ -23,6 +23,7 @@ x-forge-env: &forge-env
   FORGE_DELIVERY_KEY_FILE: /run/secrets/delivery_key
   FORGE_GATEWAY_KEY_FILE: /run/secrets/gateway_key
   FORGE_PLATFORM_KEY_FILE: /run/secrets/platform_key
+  FORGE_POLICY_KEY_FILE: /run/secrets/policy_key
   FORGE_GATEWAY_ORIGINS: ${FORGE_GATEWAY_ORIGINS:-}
   FORGE_LOG_LEVEL: ${FORGE_LOG_LEVEL:-INFO}
 
@@ -97,6 +98,7 @@ services:
       - delivery_key
       - gateway_key
       - platform_key
+      - policy_key
     depends_on:
       postgres:
         condition: service_healthy
@@ -133,6 +135,7 @@ services:
       - delivery_key
       - gateway_key
       - platform_key
+      - policy_key
       - smtp_password
     depends_on:
       postgres:
@@ -345,5 +348,7 @@ secrets:
     file: ${FORGE_SECRETS_DIR:-./secrets}/gateway_key
   platform_key:  # seals the platform owner's TOTP secret
     file: ${FORGE_SECRETS_DIR:-./secrets}/platform_key
+  policy_key:  # Ed25519 seed that signs the effective capability policy
+    file: ${FORGE_SECRETS_DIR:-./secrets}/policy_key
   smtp_password:  # empty unless you use an authenticated relay
     file: ${FORGE_SECRETS_DIR:-./secrets}/smtp_password

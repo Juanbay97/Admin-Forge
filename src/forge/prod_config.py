@@ -6,6 +6,7 @@ raised before any port is bound or any pool opened; a value from the environment
 secret file is never echoed. ``PG*`` libpq variables are ignored here and removed from the
 process by ``strip_libpq_environment`` so they can never steer a connection.
 """
+import base64
 from dataclasses import dataclass, field
 from ipaddress import ip_address
 from pathlib import Path
@@ -23,7 +24,7 @@ DEFAULT_BIND_HOST = '0.0.0.0'
 DEFAULT_ADMIN_DIR = str(Path(__file__).resolve().parent/'web'/'admin')
 SSL_MODES = ('disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full')
 LOG_LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
-_SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_PLATFORM_KEY', 'FORGE_DB_ADMIN_PASSWORD')
+_SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_PLATFORM_KEY', 'FORGE_POLICY_KEY', 'FORGE_DB_ADMIN_PASSWORD')
 _PLAIN = ('FORGE_PUBLIC_ORIGIN', 'FORGE_DB_HOST', 'FORGE_DB_PORT', 'FORGE_DB_NAME', 'FORGE_DB_SSLMODE',
           'FORGE_DB_ADMIN_USER', 'FORGE_ROLE_PASSWORDS_DIR', 'FORGE_ADMIN_DIR', 'FORGE_PORT', 'FORGE_BIND_HOST',
           'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE, 'FORGE_GATEWAY_CA_FILE')
@@ -58,6 +59,7 @@ class ProdConfig:
     log_level: str = 'INFO'
     smtp: object = None  # `SmtpSettings` when any FORGE_SMTP_* key is set; serving requires it, migrating does not
     gateway_ca_file: str | None = None  # an extra CA for private gateways (the allow-list stays https-only); None = system trust
+    policy_key: str | None = field(default=None, repr=False)  # Ed25519 seed (base64url) signing the effective policy; None = those routes answer 503
 
     @property
     def trusted_hosts(self):
@@ -123,6 +125,21 @@ def _fernet(env, key):
     return encoded
 
 
+def _policy_key(env, others):
+    """The optional effective-policy signing seed: base64url of 32 bytes, never the same secret as another key."""
+    value = _secret(env, 'FORGE_POLICY_KEY')
+    if value is None:
+        return None
+    from forge.capability_signing import load_signer, unb64u
+    try:
+        load_signer(value)
+        if unb64u(value) in {base64.urlsafe_b64decode(other) for other in others}:
+            raise ValueError
+    except ValueError:
+        _fail('FORGE_POLICY_KEY')
+    return value
+
+
 def _roles(env):
     directory = env.get('FORGE_ROLE_PASSWORDS_DIR')
     if not directory or not Path(directory).is_absolute() or not Path(directory).is_dir():
@@ -186,6 +203,7 @@ def load_prod_config(environ):
     platform = _fernet(env, 'FORGE_PLATFORM_KEY')
     if platform in (delivery, gateway):
         _fail('FORGE_PLATFORM_KEY')
+    policy_key = _policy_key(env, (delivery, gateway, platform))
     try:
         policy = policy_from_env(env)
     except ValueError:
@@ -206,4 +224,4 @@ def load_prod_config(environ):
     gateway_ca = env.get('FORGE_GATEWAY_CA_FILE')
     if gateway_ca is not None and (not Path(gateway_ca).is_absolute() or not Path(gateway_ca).is_file()):
         _fail('FORGE_GATEWAY_CA_FILE')
-    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca)
+    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key)

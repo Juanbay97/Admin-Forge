@@ -56,4 +56,4 @@ Chain strategy: stacked-to-main
 
 ## S6 Seed/ops
 - [x] 6.1 `capability_seed.py` JSONL (compact) + idempotent sync CLI; count test vs inventory
-- [ ] 6.2 Readiness/profile wiring; `docs/capability-governance.md` (key runbook, attestation levels)
+- [x] 6.2 Readiness/profile wiring; `docs/capability-governance.md` (key runbook, attestation levels)

@@ -407,6 +407,79 @@ try {
     Assert-True ((@($trail) -contains 'gateway_key.created') -and (@($trail) -contains 'company.gateway_assigned') -and (@($trail) -contains 'company.model_access_set') -and (@($trail) -contains 'model_price.set')) 'the key, assignment, ceiling and price changes are not audited'
     Write-Pass 'usage is visible per company, model and total to the owner and per person to the company administrator only; the changes are audited'
 
+    # Governance: the catalog is seeded from the tools profile (the operator path), a member's signed policy verifies against the
+    # published key set inside the control plane image, defaults and the attestation gate hold with zero company rows, the owner's
+    # force-off lock beats the company administrator, every change is audited and the invocation log takes metadata only.
+    function Invoke-ComposeStdin([string]$Stdin, [string[]]$Arguments) {
+        $base = @('compose', '-p', $project, '--env-file', $envFile, '-f', (Join-Path $deploy 'compose.yml'), '-f', (Join-Path $deploy 'compose.dev.yml'))
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try { $output = ($Stdin | & docker @($base + $Arguments) 2>&1 | ForEach-Object { "$_" }) -join "`n" } finally { $ErrorActionPreference = $previous }
+        return [pscustomobject]@{ Code = $LASTEXITCODE; Output = $output }
+    }
+    function Get-PolicyItems($Body) {
+        $items = @{}
+        foreach ($item in ($Body | ConvertFrom-Json).capabilities) { $items["$($item.kind):$($item.id)"] = $item }
+        return $items
+    }
+    $seedArguments = @('run', '--rm', '-T', '--entrypoint', 'python', 'platform', '-m', 'forge.capability_seed', 'sync')
+    $seeded = (Invoke-Compose $seedArguments -Global @('--profile', 'tools')).Output
+    Assert-True ($seeded -match '"status": "synced"' -and $seeded -match '"created": (\d+)' -and [int]$Matches[1] -ge 100) "the catalog seed did not create the inventory ($seeded)"
+    $seededAgain = (Invoke-Compose $seedArguments -Global @('--profile', 'tools')).Output
+    Assert-True ($seededAgain -match '"created": 0' -and $seededAgain -match '"updated": 0') "a second seed run changes nothing, but it reported changes ($seededAgain)"
+    Assert-True ([int](Get-Rows 'SELECT count(*) FROM forge.capability_catalog') -ge 100) 'the catalog holds fewer entries than the seed'
+    Write-Pass 'governance: the catalog is seeded from the tools profile; a second seed run changes nothing'
+
+    $keySet = Invoke-Curl '/forge/v1/capabilities/keys' -Arguments @('-H', "Origin: $origin")
+    Assert-True ($keySet.Status -eq 200 -and $keySet.Body -match '"alg":"Ed25519"') "the public key set is not served ($($keySet.Status))"
+    Assert-True ((Invoke-Curl '/forge/v1/capabilities/effective' -Arguments @('-H', "Origin: $origin")).Status -eq 401) 'the effective policy was served without a session'
+    $verifyScript = "import json,sys,time;from forge.capability_signing import verify_document;d=json.load(sys.stdin);verify_document(d['doc'],d['keys'],now=time.time());print('verified',len(d['doc']['capabilities']))"
+    $verify = { param($Document) Invoke-ComposeStdin ('{"doc":' + $Document + ',"keys":' + $keySet.Body + '}') @('exec', '-T', 'control-plane', 'python', '-c', $verifyScript) }
+    $level2 = Invoke-Authenticated '/forge/v1/capabilities/effective?sandbox_level=2' $memberToken
+    Assert-True ($level2.Status -eq 200) "the member could not read the effective policy ($($level2.Status) $($level2.Body))"
+    $checked = & $verify $level2.Body
+    Assert-True ($checked.Code -eq 0 -and $checked.Output -match 'verified \d+') "the signed policy does not verify against the published keys ($($checked.Output))"
+    $forged = & $verify ($level2.Body -replace '"reported_level":2', '"reported_level":4')
+    Assert-True ($forged.Code -ne 0 -and $forged.Output -match 'bad_signature') "a tampered policy was accepted ($($forged.Output))"
+    $items2 = Get-PolicyItems $level2.Body
+    Assert-True ($items2['skill:pdf'].state -eq 'on' -and $items2['connector:github'].state -eq 'on' -and $items2['plugin:bio-research'].state -eq 'off') 'the base skills and connectors are not on (or a plugin is) for a company with no policy rows'
+    Assert-True ($items2['tool:code_execute'].state -eq 'blocked_attestation' -and $items2['tool:bash'].state -eq 'blocked_attestation' -and $items2['tool:browser'].state -eq 'off') 'the exec tools are not gated at level 2'
+    $items3 = Get-PolicyItems (Invoke-Authenticated '/forge/v1/capabilities/effective?sandbox_level=3' $memberToken).Body
+    Assert-True ($items3['tool:code_execute'].state -eq 'on' -and $items3['tool:bash'].state -eq 'blocked_attestation') 'level 3 does not open code_execute only'
+    $items4 = Get-PolicyItems (Invoke-Authenticated '/forge/v1/capabilities/effective?sandbox_level=4' $memberToken).Body
+    Assert-True ($items4['tool:bash'].state -eq 'on' -and $items4['tool:powershell'].state -eq 'on') 'level 4 does not open the shells'
+    $items0 = Get-PolicyItems (Invoke-Authenticated '/forge/v1/capabilities/effective' $memberToken).Body
+    Assert-True ($items0['tool:code_execute'].state -eq 'blocked_attestation') 'a missing level report was not treated as level 0'
+    Write-Pass 'governance: the signed policy verifies inside the control plane image (a tampered copy fails); defaults and the attestation gate hold with no company rows'
+
+    $epochBefore = ($level2.Body | ConvertFrom-Json).org_epoch
+    $lock = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/capabilities/connector:github" @{ state = $null; lock = 'forced_off' } $ownerToken
+    Assert-True ($lock.Status -eq 200 -and ($lock.Body | ConvertFrom-Json).changed) "the owner could not force-off a connector for the company ($($lock.Status) $($lock.Body))"
+    $locked = Invoke-Send 'PUT' "/forge/v1/orgs/$smokeOrg/capabilities/connector:github" @{ enabled = $true } $smokeAdmin
+    Assert-True ($locked.Status -eq 409 -and $locked.Body -match 'LOCKED') "a force-off lock beats the company administrator, but the enable was not refused ($($locked.Status) $($locked.Body))"
+    $disable = Invoke-Send 'PUT' "/forge/v1/orgs/$smokeOrg/capabilities/skill:pdf" @{ enabled = $false } $smokeAdmin
+    Assert-True ($disable.Status -eq 200 -and ($disable.Body | ConvertFrom-Json).changed) 'the company administrator could not disable a skill'
+    $afterDocument = (Invoke-Authenticated '/forge/v1/capabilities/effective?sandbox_level=2' $memberToken).Body
+    $itemsAfter = Get-PolicyItems $afterDocument
+    Assert-True ($itemsAfter['connector:github'].state -eq 'forced_off' -and $itemsAfter['connector:github'].reason -eq 'forced_off' -and $itemsAfter['skill:pdf'].state -eq 'off') 'the member policy does not show the lock and the administrator disable'
+    Assert-True (($afterDocument | ConvertFrom-Json).org_epoch -eq $epochBefore + 2) 'the company epoch did not rise once per change'
+    Assert-True ((& $verify $afterDocument).Code -eq 0) 'the updated policy does not verify'
+    Assert-True ((Invoke-Authenticated "/forge/v1/orgs/$smokeOrg/capabilities" $adminToken).Status -eq 404 -and (Invoke-Authenticated "/forge/v1/orgs/$smokeOrg/capabilities" $memberToken).Status -eq 404) 'another company administrator or a plain member reached the company capability settings'
+    $companyAudit = (Invoke-Authenticated "/forge/v1/orgs/$smokeOrg/capability-audit" $smokeAdmin).Body | ConvertFrom-Json
+    Assert-True ((@($companyAudit.entries | ForEach-Object { $_.action }) -join ',') -eq 'org.setting_set,company.policy_set') 'the company audit does not show the lock and the disable newest first'
+    Assert-True ((Invoke-Authenticated "/forge/v1/orgs/$smokeOrg/capability-audit" $adminToken).Status -eq 404) 'another company administrator read this company capability audit'
+    Write-Pass 'governance: a force-off lock beats the company administrator, the member policy and epochs follow every change, and the change audit is scoped to the company'
+
+    $eventId = [Guid]::NewGuid().ToString()
+    $batch = @{ events = @(@{ event_id = $eventId; capability_id = 'tool:code_execute'; at = '2026-10-12T12:00:00Z'; outcome = 'ok'; duration_ms = 40; sandbox_level = 3 }) }
+    $reported = Invoke-Send 'POST' '/forge/v1/capabilities/audit' $batch $memberToken
+    Assert-True ($reported.Status -eq 202 -and ($reported.Body | ConvertFrom-Json).stored -eq 1) "the invocation batch was not stored ($($reported.Status) $($reported.Body))"
+    Assert-True (($reported = Invoke-Send 'POST' '/forge/v1/capabilities/audit' $batch $memberToken).Status -eq 202 -and ($reported.Body | ConvertFrom-Json).stored -eq 0) 'a replayed event was stored twice'
+    $content = @{ events = @(@{ event_id = [Guid]::NewGuid().ToString(); capability_id = 'tool:bash'; at = '2026-10-12T12:00:00Z'; outcome = 'ok'; duration_ms = 5; arguments = 'dir C:\' }) }
+    Assert-True ((Invoke-Send 'POST' '/forge/v1/capabilities/audit' $content $memberToken).Status -eq 422) 'an invocation event with content was accepted'
+    Assert-True ((Get-Rows 'SELECT count(*) FROM forge.tool_invocation_log') -eq '1') 'the invocation log does not hold exactly the one metadata row'
+    Write-Pass 'governance: invocation metadata is stored once per event and content fields are refused'
+
     # Backups: a verified dump, retention, restore refusing a used database, and a round trip into a fresh volume.
     $backups = Join-Path $work 'backups'
     $backupScript = @('exec', '-T', 'backup', '/bin/sh', '/opt/forge/backup.sh')

@@ -1,4 +1,5 @@
 """prod_config: environment and *_FILE secret loading for the production profile; no ports, no database."""
+import base64
 from pathlib import Path
 import sys
 import tempfile
@@ -63,6 +64,23 @@ class SmtpLoadTests(unittest.TestCase):
             f.refused(self, 'FORGE_SMTP_PORT', **{**SMTP_ENV, 'FORGE_SMTP_PORT': '0'})
             f.refused(self, 'FORGE_SMTP_HOST', FORGE_SMTP_FROM='forge@example.test')  # a partial configuration is not ignored
             f.refused(self, 'unknown_key', **SMTP_ENV, FORGE_SMTP_RETRIES='3')
+
+
+class PolicyKeyTests(unittest.TestCase):
+    def test_the_signing_key_is_optional_a_base64_seed_and_separate_from_the_other_keys(self):
+        with Fixture() as f:
+            self.assertIsNone(f.load().policy_key)
+            seed = base64.urlsafe_b64encode(bytes(range(32))).decode().rstrip('=')
+            (f.root/'policy.key').write_text(seed + '\n', 'utf-8')
+            self.assertEqual(f.load(FORGE_POLICY_KEY_FILE=str(f.root/'policy.key')).policy_key, seed)
+            self.assertEqual(f.load(FORGE_POLICY_KEY=seed).policy_key, seed)
+            self.assertNotIn(seed, repr(f.load(FORGE_POLICY_KEY=seed)))
+            for name, text in (('bad', 'not a key!'), ('short', 'AAAA'), ('empty', ''), ('gateway', f.gateway), ('platform', f.platform)):
+                (f.root/(name + '.pk')).write_text(text, 'utf-8')
+                with self.subTest(name):
+                    f.refused(self, 'FORGE_POLICY_KEY', FORGE_POLICY_KEY_FILE=str(f.root/(name + '.pk')))
+            f.refused(self, 'FORGE_POLICY_KEY', FORGE_POLICY_KEY=seed, FORGE_POLICY_KEY_FILE=str(f.root/'policy.key'))  # ambiguous
+        self.assertTrue({'FORGE_POLICY_KEY', 'FORGE_POLICY_KEY_FILE'} <= set(KNOWN_KEYS))
 
 
 class LoadTests(unittest.TestCase):

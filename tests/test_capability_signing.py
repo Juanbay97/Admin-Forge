@@ -99,7 +99,8 @@ class SignerTests(unittest.TestCase):
     def test_the_key_comes_from_a_base64_seed_and_a_bad_one_is_refused(self):
         encoded = base64.urlsafe_b64encode(SEED).decode().rstrip('=')
         self.assertEqual(load_signer(encoded).kid, PolicySigner(SEED).kid)
-        for bad in ('', 'AAAA', encoded[:-4], encoded + 'AAAA', None, 5, '!!!'):
+        self.assertEqual(load_signer(base64.urlsafe_b64encode(SEED).decode()).kid, PolicySigner(SEED).kid, 'a padded (Fernet-shaped) secret is the same seed')
+        for bad in ('', 'AAAA', encoded[:-4], encoded + 'AAAA', None, 5, '!!!', '===', encoded + '==='):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 load_signer(bad)
 

@@ -38,8 +38,9 @@ def b64u(raw: bytes) -> str:
 
 
 def unb64u(text: str) -> bytes:
-    if type(text) is not str or not _B64.match(text):
+    if type(text) is not str or not _B64.match(text.rstrip('=')) or len(text) - len(text.rstrip('=')) > 2:
         raise ValueError('not base64url')
+    text = text.rstrip('=')  # padding is optional: a Fernet-shaped secret and an unpadded seed are the same 32 bytes
     return base64.urlsafe_b64decode(text + '=' * (-len(text) % 4))
 
 
