@@ -32,4 +32,4 @@ where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-forge = ["web/status.html", "web/status.css", "web/status.js", "web/admin/**/*"]
+forge = ["web/status.html", "web/status.css", "web/status.js", "web/admin/**/*", "capability_seed.jsonl"]

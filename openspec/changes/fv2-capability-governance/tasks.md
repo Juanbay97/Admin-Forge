@@ -55,5 +55,5 @@ Chain strategy: stacked-to-main
 - [x] 5.2 `POST /capabilities/audit` strict allow-list; 422 on content fields; ≤100 batch
 
 ## S6 Seed/ops
-- [ ] 6.1 `capability_seed.py` JSONL (compact) + idempotent sync CLI; count test vs inventory
+- [x] 6.1 `capability_seed.py` JSONL (compact) + idempotent sync CLI; count test vs inventory
 - [ ] 6.2 Readiness/profile wiring; `docs/capability-governance.md` (key runbook, attestation levels)
