@@ -22,6 +22,10 @@ test("the overview shows real metered usage, the key pool and the audit trail", 
   await expect(page.getByRole("heading", { level: 1, name: "Platform overview" })).toBeVisible();
   const kpis = page.getByRole("region", { name: "Key figures" });
   await expect(kpis.getByText("Companies")).toBeVisible();
+  await expect(kpis.getByText("Active people")).toBeVisible();
+  await expect(kpis).toContainText(/Active people\s*[1-9]/); // the metered chat above came from a real person
+  const perDay = page.getByRole("figure").filter({ hasText: "Tokens per day" });
+  await expect(perDay.getByRole("img")).toBeVisible(); // real per-day data, not "No usage yet"
   await expect(page.getByRole("figure").filter({ hasText: "Top companies by cost" }).getByTestId("bar-label").first()).toBeVisible();
   await expect(page.getByRole("region", { name: "Gateway key pool" }).getByText(/active/)).toBeVisible();
   await expect(page.getByRole("region", { name: "Recent activity" }).getByText("Second factor enrolled")).toBeVisible();

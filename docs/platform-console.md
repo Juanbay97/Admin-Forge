@@ -53,15 +53,18 @@ mocked UI tests serve. A server-side change of shape fails a unit test with the 
 | Models | `GET\|PUT /companies/{id}/model-access` | `{models: [...]}` is the ceiling for what the company can publish. |
 | Prices | `GET\|POST /prices` | Integer micro-USD per million tokens, capped at 1000 USD. |
 | Usage | `GET /usage/totals\|companies\|models?from&to` | Inclusive UTC days, at most 366. |
+| Overview | `GET /overview?from&to` | `{companies:{active,suspended}, active_users, requests, prompt_tokens, completion_tokens, estimated_requests, error_requests, cost_micros, unpriced_requests, previous:{active_users, requests, prompt_tokens, completion_tokens, cost_micros}}`. `previous` is the same number of days immediately before the range, so the console makes one call for the change figures (migration 0044). |
+| Daily series | `GET /usage/days?from&to` | `{days:[{day, <the seven counters>, active_users}]}`: every UTC day of the range in order, zeros included, so the charts need no gap filling. |
 | Audit | `GET /audit?before=&page=` | Entries have the actor, action, company id and time. |
 
 ### Differences from the original plan (PC1 to PC11)
 
 The sibling changes landed with a smaller surface than the plan assumed, so some screens are narrower:
 
-- No `GET /overview`: the dashboard composes `usage/totals` (twice, for the delta), `usage/companies`, `usage/models`, the key list and the
-  audit tail. There is no per-day series, so no area chart; usage is bars by company and by model.
-- Company members (PC10) is now served (`fv2-gap-closure` G2, migration 0043): the Members tab is read-only. There is no active-users figure until the overview endpoint (G3).
+- `GET /overview` and `GET /usage/days` are now served (`fv2-gap-closure` G3, migration 0044): the dashboard makes one overview call (with the
+  previous period and active people), draws tokens and cost per day as area charts, and still composes `usage/companies`, `usage/models`,
+  the key list and the audit tail.
+- Company members (PC10) is now served (`fv2-gap-closure` G2, migration 0043): the Members tab is read-only. The overview shows active people (distinct members with usage in the range).
 - No code-availability endpoint: availability is checked against the loaded company list, and `COMPANY_CONFLICT` covers the race.
 - No audit filters: the server pages by id only, so actor/action/company/date filters apply to the loaded entries.
 - No key "retire", "rename" or `KEY_IN_USE`: a key is disabled (companies fall back to their other keys), and rotated for new text.

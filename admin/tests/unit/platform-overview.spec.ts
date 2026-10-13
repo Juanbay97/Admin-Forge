@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { describeAction, filterEntries, relativeTime } from "../../src/platform/audit";
 import { changeOf, parseDays, previousWindow, windowFor } from "../../src/platform/range";
 import { requestsOf, tokensOf } from "../../src/platform/usage";
+import { dayPoints } from "../../src/platform/usage";
 
 const NOW = new Date("2026-10-12T23:30:00Z");
 
@@ -35,6 +36,21 @@ test.describe("usage counters", () => {
   test("tokens are prompt plus completion", () => {
     expect(tokensOf(counters)).toBe(1250);
     expect(requestsOf(counters)).toBe(5);
+  });
+});
+
+test.describe("daily series", () => {
+  const day = (value: string, prompt: number, completion: number, cost: number) => ({ day: value, requests: prompt + completion > 0 ? 1 : 0, prompt_tokens: prompt, completion_tokens: completion, estimated_requests: 0, error_requests: 0, cost_micros: cost, unpriced_requests: 0, active_users: 1 });
+  test("each UTC day becomes one point at midnight UTC, with tokens as prompt plus completion", () => {
+    const points = dayPoints([day("2026-10-11", 500, 300, 18_000), day("2026-10-12", 700, 500, 24_000)]);
+    expect(points.tokens).toEqual([{ t: Date.UTC(2026, 9, 11), v: 800 }, { t: Date.UTC(2026, 9, 12), v: 1200 }]);
+    expect(points.cost).toEqual([{ t: Date.UTC(2026, 9, 11), v: 18_000 }, { t: Date.UTC(2026, 9, 12), v: 24_000 }]);
+    expect(points.people).toEqual([{ t: Date.UTC(2026, 9, 11), v: 1 }, { t: Date.UTC(2026, 9, 12), v: 1 }]);
+  });
+  test("an empty series has no points and a series of only zero days is reported as empty", () => {
+    expect(dayPoints([]).tokens).toEqual([]);
+    expect(dayPoints([day("2026-10-11", 0, 0, 0)]).hasUsage).toBe(false);
+    expect(dayPoints([day("2026-10-11", 0, 1, 0)]).hasUsage).toBe(true);
   });
 });
 

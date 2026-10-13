@@ -29,8 +29,8 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 - [x] 2.2 RED/GREEN: console Members tab (task 7.2) + docs
 
 ## G3 Platform overview and series (migration 0044)
-- [ ] 3.1 RED/GREEN: `platform_overview` (companies, active users, tokens, cost, previous) and `platform_usage_days` + routes
-- [ ] 3.2 RED/GREEN: console overview charts on real data
+- [x] 3.1 RED/GREEN: `platform_overview` (companies, active users, tokens, cost, previous) and `platform_usage_days` + routes
+- [x] 3.2 RED/GREEN: console overview charts on real data
 
 ## G4 Department assignment (migration 0045)
 - [ ] 4.1 RED/GREEN: `directory_member_department` function + route

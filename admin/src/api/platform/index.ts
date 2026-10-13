@@ -4,7 +4,7 @@ import type { BrandingDocument } from "../branding";
 import { ApiError, type ApiClient } from "../client";
 import * as S from "./schemas";
 
-export type { AuditEntry, AuditPage, Company, CompanyList, CompanyMember, CompanyMemberPage, CompanyUsage, CreatedCompany, Enrollment, GatewayKey, GatewayKeyList, KeyAssignment, ModelUsage, PlatformMe, Price, UsageTotals } from "./schemas";
+export type { AuditEntry, AuditPage, Company, CompanyList, CompanyMember, CompanyMemberPage, CompanyUsage, CreatedCompany, Enrollment, GatewayKey, GatewayKeyList, KeyAssignment, ModelUsage, Overview, PlatformMe, Price, UsageDay, UsageTotals } from "./schemas";
 
 export interface NewCompany {
   slug: string;
@@ -51,6 +51,10 @@ export interface PlatformApi {
   prices(upstreamId?: string): Promise<{ prices: S.Price[] }>;
   setPrice(price: { upstream_id: string; input_micros: number; output_micros: number; effective_from?: string }): Promise<S.Price>;
   usageTotals(window: Window): Promise<S.UsageTotals>;
+  /** Companies, active people, totals and the previous period in one read. */
+  overview(window: Window): Promise<S.Overview>;
+  /** Every UTC day of the window in order (zeros included) with the people active that day. */
+  usageDays(window: Window): Promise<z.infer<typeof S.UsageDays>>;
   usageByCompany(window: Window): Promise<z.infer<typeof S.CompanyUsageList>>;
   usageByModel(window: Window): Promise<z.infer<typeof S.ModelUsageList>>;
 }
@@ -108,6 +112,8 @@ export function createPlatformApi(client: ApiClient): PlatformApi {
     prices: (upstreamId) => get(S.PriceList, `/prices${query({ upstream_id: upstreamId })}`),
     setPrice: (price) => send("POST", S.Price, "/prices", price),
     usageTotals: ({ from, to }) => get(S.UsageTotals, `/usage/totals${query({ from, to })}`),
+    overview: ({ from, to }) => get(S.Overview, `/overview${query({ from, to })}`),
+    usageDays: ({ from, to }) => get(S.UsageDays, `/usage/days${query({ from, to })}`),
     usageByCompany: ({ from, to, after }) => get(S.CompanyUsageList, `/usage/companies${query({ from, to, after })}`),
     usageByModel: ({ from, to, after }) => get(S.ModelUsageList, `/usage/models${query({ from, to, after })}`),
   };

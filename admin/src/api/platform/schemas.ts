@@ -78,6 +78,16 @@ const Counters = {
   unpriced_requests: z.number().int(),
 };
 export const UsageTotals = z.strictObject({ companies: z.number().int(), ...Counters });
+/** `GET /overview`: companies, active people, the range's counters and the previous period's figures in one read. */
+export const Overview = z.strictObject({
+  companies: z.strictObject({ active: z.number().int(), suspended: z.number().int() }),
+  active_users: z.number().int(),
+  ...Counters,
+  previous: z.strictObject({ active_users: z.number().int(), requests: z.number().int(), prompt_tokens: z.number().int(), completion_tokens: z.number().int(), cost_micros: z.number().int() }),
+});
+/** `GET /usage/days`: one row per UTC day of the range, zeros included. */
+export const UsageDay = z.strictObject({ day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), ...Counters, active_users: z.number().int() });
+export const UsageDays = z.strictObject({ days: z.array(UsageDay) });
 export const CompanyUsage = z.strictObject({ organization_id: Uuid, slug: z.string(), display_name: z.string(), ...Counters });
 export const CompanyUsageList = z.strictObject({ companies: z.array(CompanyUsage), next_after: z.string().nullable() });
 export const ModelUsage = z.strictObject({ upstream_id: z.string(), ...Counters });
@@ -97,5 +107,7 @@ export type GatewayKeyList = z.infer<typeof GatewayKeyList>;
 export type KeyAssignment = z.infer<typeof KeyAssignment>;
 export type Price = z.infer<typeof Price>;
 export type UsageTotals = z.infer<typeof UsageTotals>;
+export type Overview = z.infer<typeof Overview>;
+export type UsageDay = z.infer<typeof UsageDay>;
 export type CompanyUsage = z.infer<typeof CompanyUsage>;
 export type ModelUsage = z.infer<typeof ModelUsage>;

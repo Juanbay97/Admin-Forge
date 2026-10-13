@@ -2,10 +2,11 @@ import { Building2, KeyRound, ScrollText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { BarChart } from "../../../charts/BarChart";
+import { AreaChart } from "../../../charts/TimeSeriesChart";
 import { formatCostMicros, formatDateTime, formatTokens } from "../../../lib/format";
 import { describeAction } from "../../../platform/audit";
-import { changeOf, previousWindow, windowFor } from "../../../platform/range";
-import { requestsOf, tokensOf } from "../../../platform/usage";
+import { changeOf, windowFor } from "../../../platform/range";
+import { dayPoints, tokensOf } from "../../../platform/usage";
 import { errorMessage } from "../../../shell/errors";
 import { useServices } from "../../../shell/services";
 import { Alert } from "../../../ui/Alert";
@@ -25,9 +26,8 @@ export function Overview() {
   const { platform } = useServices();
   const [days, setDays] = useDays();
   const current = windowFor(days);
-  const before = previousWindow(days);
-  const totals = useQuery({ queryKey: ["platform", "usage", "totals", current], queryFn: () => platform.usageTotals(current) });
-  const previous = useQuery({ queryKey: ["platform", "usage", "totals", before], queryFn: () => platform.usageTotals(before) });
+  const overview = useQuery({ queryKey: ["platform", "overview", current], queryFn: () => platform.overview(current) });
+  const series = useQuery({ queryKey: ["platform", "usage", "days", current], queryFn: () => platform.usageDays(current) });
   const byCompany = useQuery({ queryKey: ["platform", "usage", "companies", current], queryFn: () => platform.usageByCompany(current) });
   const byModel = useQuery({ queryKey: ["platform", "usage", "models", current], queryFn: () => platform.usageByModel(current) });
   const companies = useQuery({ queryKey: ["platform", "companies", "all"], queryFn: () => loadAllCompanies(platform) });
@@ -35,7 +35,6 @@ export function Overview() {
   const audit = useQuery({ queryKey: ["platform", "audit", "tail"], queryFn: () => platform.audit({ page: 5 }) });
 
   const list = companies.data ?? [];
-  const active = list.filter((company) => company.active).length;
   const empty = companies.isSuccess && list.length === 0;
   if (empty) {
     return (
@@ -51,41 +50,66 @@ export function Overview() {
     );
   }
 
-  const tokens = totals.data ? tokensOf(totals.data) : 0;
-  const previousTokens = previous.data ? tokensOf(previous.data) : 0;
+  const figures = overview.data;
+  const tokens = figures ? tokensOf(figures) : 0;
+  const previousTokens = figures ? tokensOf(figures.previous) : 0;
+  const waiting = overview.isError ? "—" : <Skeleton className="h-6 w-16" />;
   const stats = (
-    <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <Stat label="Companies">
-        {companies.isPending ? <Skeleton className="h-6 w-24" /> : companies.isError ? "—" : <span className="flex flex-wrap items-baseline gap-x-2"><span>{active} active</span><span className="text-body font-normal text-muted">{list.length - active} suspended</span></span>}
+        {figures ? <span className="flex flex-wrap items-baseline gap-x-2"><span>{figures.companies.active} active</span><span className="text-body font-normal text-muted">{figures.companies.suspended} suspended</span></span> : overview.isError ? "—" : <Skeleton className="h-6 w-24" />}
       </Stat>
-      <Stat label="Requests">{totals.data ? requestsOf(totals.data).toLocaleString("en-US") : totals.isError ? "—" : <Skeleton className="h-6 w-16" />}</Stat>
+      <Stat label="Active people">
+        {figures ? <span className="flex flex-wrap items-center gap-2">{figures.active_users.toLocaleString("en-US")}<Delta change={changeOf(figures.active_users, figures.previous.active_users)} /></span> : waiting}
+      </Stat>
+      <Stat label="Requests">{figures ? figures.requests.toLocaleString("en-US") : waiting}</Stat>
       <Stat label="Tokens">
-        {totals.data && previous.data ? (
-          <span className="flex flex-wrap items-center gap-2">{formatTokens(tokens)}<Delta change={changeOf(tokens, previousTokens)} /></span>
-        ) : totals.isError ? "—" : <Skeleton className="h-6 w-16" />}
+        {figures ? <span className="flex flex-wrap items-center gap-2">{formatTokens(tokens)}<Delta change={changeOf(tokens, previousTokens)} /></span> : waiting}
       </Stat>
       <Stat label="Cost">
-        {totals.data && previous.data ? (
-          <span className="flex flex-wrap items-center gap-2">{formatCostMicros(totals.data.cost_micros)}<Delta change={changeOf(totals.data.cost_micros, previous.data.cost_micros)} /></span>
-        ) : totals.isError ? "—" : <Skeleton className="h-6 w-16" />}
+        {figures ? <span className="flex flex-wrap items-center gap-2">{formatCostMicros(figures.cost_micros)}<Delta change={changeOf(figures.cost_micros, figures.previous.cost_micros)} /></span> : waiting}
       </Stat>
     </dl>
   );
+  const points = dayPoints(series.data?.days ?? []);
 
   const keyList = keys.data?.keys ?? [];
   const usable = keyList.filter((key) => key.status === "active" && key.has_key).length;
   return (
     <section className="flex flex-col gap-6">
       <PageHeader title="Platform overview" description="Companies, usage and gateway health across the platform." actions={<RangePicker days={days} onChange={setDays} />} />
-      {totals.isError && (
-        <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => { void totals.refetch(); void previous.refetch(); }}>Try again</Button>}>
-          {errorMessage(totals.error)}
+      {overview.isError && (
+        <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void overview.refetch()}>Try again</Button>}>
+          {errorMessage(overview.error)}
         </Alert>
       )}
-      {totals.data && totals.data.unpriced_requests > 0 && (
-        <Alert tone="warning">{totals.data.unpriced_requests.toLocaleString("en-US")} {totals.data.unpriced_requests === 1 ? "request" : "requests"} in this range had no model price, so the cost shown does not include {totals.data.unpriced_requests === 1 ? "it" : "them"}. Set prices under Prices.</Alert>
+      {figures && figures.unpriced_requests > 0 && (
+        <Alert tone="warning">{figures.unpriced_requests.toLocaleString("en-US")} {figures.unpriced_requests === 1 ? "request" : "requests"} in this range had no model price, so the cost shown does not include {figures.unpriced_requests === 1 ? "it" : "them"}. Set prices under Prices.</Alert>
       )}
       <section aria-label="Key figures">{stats}</section>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AreaChart
+          id="tokens-per-day"
+          title="Tokens per day"
+          loading={series.isPending}
+          error={series.isError ? errorMessage(series.error) : undefined}
+          onRetry={() => void series.refetch()}
+          empty={series.isSuccess && !points.hasUsage}
+          emptyMessage="No usage yet"
+          series={[{ id: "tokens", label: "Tokens", points: points.tokens }]}
+        />
+        <AreaChart
+          id="cost-per-day"
+          title="Cost per day"
+          loading={series.isPending}
+          error={series.isError ? errorMessage(series.error) : undefined}
+          onRetry={() => void series.refetch()}
+          empty={series.isSuccess && !points.hasUsage}
+          emptyMessage="No usage yet"
+          format={formatCostMicros}
+          series={[{ id: "cost", label: "Cost", points: points.cost }]}
+        />
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <BarChart
           id="top-companies"

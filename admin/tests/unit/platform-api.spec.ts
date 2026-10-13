@@ -84,6 +84,18 @@ test.describe("platform contract (fixtures are the real response shapes)", () =>
     await expect(api({ [`GET ${P}/companies/${ORG}/members`]: drifted }).api.companyMembers(ORG, {})).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
   });
 
+  test("the overview and the per-day series parse strictly and send the window", async () => {
+    const { api: platform, calls } = api({ [`GET ${P}/overview`]: fixture("overview"), [`GET ${P}/usage/days`]: fixture("usage-days") });
+    const overview = await platform.overview({ from: "2026-10-06", to: "2026-10-12" });
+    expect([overview.companies, overview.active_users, overview.cost_micros, overview.previous.cost_micros]).toEqual([{ active: 1, suspended: 1 }, 3, 42_000, 30_000]);
+    expect(calls[0]?.path).toBe(`${P}/overview?from=2026-10-06&to=2026-10-12`);
+    const series = await platform.usageDays({ from: "2026-10-10", to: "2026-10-12" });
+    expect(series.days.map((item) => [item.day, item.requests, item.active_users])).toEqual([["2026-10-10", 0, 0], ["2026-10-11", 4, 2], ["2026-10-12", 6, 3]]);
+    expect(calls[1]?.path).toBe(`${P}/usage/days?from=2026-10-10&to=2026-10-12`);
+    const drifted = { ...(fixture("overview") as object), previous: { active_users: 1 } };
+    await expect(api({ [`GET ${P}/overview`]: drifted }).api.overview({ from: "a", to: "b" })).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
   test("every member of a company is loaded by following the cursor, with a safety stop", async () => {
     const one = (index: number) => ({ id: `aaaaaaaa-0000-4000-8000-${String(index).padStart(12, "0")}`, email: `p${index}@acme.test`, display_name: `P ${index}`, status: "active", roles: ["member"], departments: [] });
     const pages: Record<string, unknown> = { "": { members: [one(1), one(2)], next_after: one(2).id }, [one(2).id]: { members: [one(3)], next_after: null } };

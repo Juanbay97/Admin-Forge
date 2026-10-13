@@ -31,7 +31,7 @@ export interface World {
   /** The delivery state the create-company reply reports for the first-admin invitation. */
   delivery?: string;
   /** Usage windows by route. */
-  usage: { totals: Json; companies: Json; models: Json };
+  usage: { totals: Json; companies: Json; models: Json; overview: Json; days: Json };
 }
 
 const DEFAULT_BRANDING: Json = fixture("branding-default");
@@ -48,7 +48,7 @@ export const newWorld = (): World => ({
   branding: {},
   members: { [ACME]: fixture<{ members: Json[] }>("company-members").members },
   failOnce: {},
-  usage: { totals: fixture("usage-totals"), companies: fixture("usage-companies"), models: fixture("usage-models") },
+  usage: { totals: fixture("usage-totals"), companies: fixture("usage-companies"), models: fixture("usage-models"), overview: fixture("overview"), days: fixture("usage-days") },
 });
 
 const envelope = (code: string, message = "Refused.") => ({ error: { code, message, request_id: "00000000-0000-4000-8000-000000000000", retryable: false } });
@@ -155,6 +155,8 @@ async function handlers(key: string, url: URL, body: Json | undefined, world: Wo
     return reply(route, 200, found);
   }
   if (key === "GET /usage/totals") return reply(route, 200, world.usage.totals);
+  if (key === "GET /overview") return reply(route, 200, world.usage.overview);
+  if (key === "GET /usage/days") return reply(route, 200, world.usage.days);
   if (key === "GET /usage/companies") return reply(route, 200, world.usage.companies);
   if (key === "GET /usage/models") return reply(route, 200, world.usage.models);
   if (key === "POST /companies") {
