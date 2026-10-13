@@ -18,14 +18,15 @@ from fastapi.responses import JSONResponse
 
 from forge.api import ErrorDetail, ErrorEnvelope
 from forge.invitations import capability_digest
-from forge.platform import (COMPANY_CODE, MAX_PAGE, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, PlatformDenied,
-                            PlatformInvalid, PlatformNotFound)
+from forge.platform import (COMPANY_CODE, MAX_PAGE, CompanyConflict, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired,
+                            PlatformDenied, PlatformInvalid, PlatformNotFound)
 
 PREFIX = '/forge/v1/platform'
 JSON_LIMIT = 1024
 LOCK_SECONDS = 900
 _UNAVAILABLE = ('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable.')
 _FAILURES = ((PlatformDenied, 403, 'PLATFORM_DENIED', 'Platform access denied.'),
+             (CompanyConflict, 409, 'COMPANY_CONFLICT', 'A company with this code already exists.'),
              (MfaRequired, 403, 'MFA_REQUIRED', 'A verified second factor is required.'),
              (MfaInvalid, 403, 'MFA_INVALID', 'The verification code was not accepted.'),
              (MfaLocked, 429, 'MFA_LOCKED', 'Too many attempts; try again later.'),
@@ -34,6 +35,7 @@ _FAILURES = ((PlatformDenied, 403, 'PLATFORM_DENIED', 'Platform access denied.')
              (PlatformNotFound, 404, 'NOT_FOUND', 'The requested resource is unavailable.'))
 _QUERY_KEYS = {'companies': {'after', 'page'}, 'audit': {'before', 'page'}}
 _DIGITS = re.compile(r'[0-9]{1,18}')
+_COMPANY_KEYS = {'slug', 'display_name', 'department', 'admin_email', 'admin_name'}
 
 
 def _envelope(status, code, message, *, retry=None, headers=None):
@@ -58,8 +60,8 @@ def _unique(pairs):
     return dict(pairs)
 
 
-async def _body(request):
-    """A small JSON object with exactly one of the allowed keys, each a string."""
+async def _object(request):
+    """A small JSON object whose values are all strings (the caller checks the key set)."""
     media = request.headers.get('content-type', '').split(';')[0].strip().lower()
     if media != 'application/json':
         raise _Refusal(_envelope(415, 'UNSUPPORTED_MEDIA_TYPE', 'The request body must be application/json.'))
@@ -77,11 +79,17 @@ async def _body(request):
         document = json.loads(bytes(data).decode('utf-8'), object_pairs_hook=_unique)
     except (ValueError, UnicodeDecodeError):
         raise _invalid() from None
-    if type(document) is not dict or len(document) != 1 or set(document) - {'code', 'recovery_code'}:
+    if type(document) is not dict or any(type(value) is not str for value in document.values()):
+        raise _invalid()
+    return document
+
+
+async def _factor_body(request):
+    """Exactly one of ``code`` (a TOTP code) or ``recovery_code``."""
+    document = await _object(request)
+    if len(document) != 1 or set(document) - {'code', 'recovery_code'}:
         raise _invalid()
     ((key, value),) = document.items()
-    if type(value) is not str:
-        raise _invalid()
     return key, value
 
 
@@ -174,7 +182,7 @@ def mount_platform(app: FastAPI, *, service, sessions, readiness=None):
     @app.post(PREFIX + '/login/mfa', include_in_schema=False)
     async def verify(request: Request):
         async def operation(token):
-            key, value = await _body(request)
+            key, value = await _factor_body(request)
             await blocking(service.verify_mfa if key == 'code' else service.recover_mfa, token, value)
             return JSONResponse({'verified': True})
         return await guarded(request, operation)
@@ -186,6 +194,18 @@ def mount_platform(app: FastAPI, *, service, sessions, readiness=None):
             found = await blocking(service.companies, token, **arguments)
             more = found[-1].slug if len(found) == arguments['page'] else None
             return JSONResponse({'companies': [_company(company) for company in found], 'next_after': more})
+        return await guarded(request, operation)
+
+    @app.post(PREFIX + '/companies', include_in_schema=False)
+    async def create_company(request: Request):
+        async def operation(token):
+            document = await _object(request)
+            if set(document) != _COMPANY_KEYS:
+                raise _invalid()
+            created = await blocking(service.create_company, token, **document)
+            return JSONResponse({**_company(created.company), 'invitation': {
+                'id': str(created.invitation_id), 'expires_at': created.expires_at.isoformat(),
+                'delivery_state': created.delivery_state, 'delivery_channel': created.delivery_channel}}, status_code=201)
         return await guarded(request, operation)
 
     @app.get(PREFIX + '/companies/{organization_id}', include_in_schema=False)

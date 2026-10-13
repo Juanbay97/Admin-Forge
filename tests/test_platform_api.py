@@ -12,14 +12,16 @@ from fastapi.testclient import TestClient
 from forge import contract
 from forge.account_api import create_account_app
 from forge.foundation import AuthenticatedIdentity
-from forge.platform import (AuditEntry, Company, MfaEnrolled, MfaEnrollment, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
-                            PlatformDenied, PlatformIdentity, PlatformInvalid, PlatformNotFound, PlatformUnavailable)
+from forge.platform import (AuditEntry, Company, CompanyConflict, CreatedCompany, MfaEnrolled, MfaEnrollment, MfaInvalid, MfaLocked,
+                            MfaRequired, MfaStatus, PlatformDenied, PlatformIdentity, PlatformInvalid, PlatformNotFound,
+                            PlatformUnavailable)
 from forge.platform_api import mount_platform
 
-ORG, ACCOUNT = uuid4(), uuid4()
+ORG, ACCOUNT, INVITATION = uuid4(), uuid4(), uuid4()
 WHEN = datetime(2026, 10, 12, 8, 30, tzinfo=timezone.utc)
 TOKEN = secrets.token_urlsafe(32)
 HEADERS = {'Authorization': 'Bearer ' + TOKEN}
+BASE = '/forge/v1/platform'
 
 
 class Ready:
@@ -73,6 +75,9 @@ class FakeService:
     def audit(self, token, *, before=None, page=50):
         return self._do('audit', token, before=before, page=page)
 
+    def create_company(self, token, **details):
+        return self._do('create_company', token, **details)
+
     _me = lambda self, token: PlatformIdentity(ACCOUNT, 'platform_owner')
     _mfa_status = lambda self, token: MfaStatus('active', True, False)
     _enroll_mfa = lambda self, token: MfaEnrollment('JBSWY3DPEHPK3PXP', 'otpauth://totp/x?secret=JBSWY3DPEHPK3PXP', ('AAAA-BBBB-CCCC-DDDD',))
@@ -80,6 +85,8 @@ class FakeService:
     _recover_mfa = lambda self, token, code: None
     _companies = lambda self, token, after=None, page=50: [Company(ORG, 'acme', 'Acme', True), Company(uuid4(), 'zeta', 'Zeta', False)]
     _company = lambda self, token, organization_id: Company(organization_id, 'acme', 'Acme', True)
+    _create_company = lambda self, token, **details: CreatedCompany(Company(ORG, details['slug'], details['display_name'], True), INVITATION,
+                                                                    WHEN, 'delivered', 'smtp')
     _audit = lambda self, token, before=None, page=50: [AuditEntry(7, ACCOUNT, 'company.created', ORG, WHEN),
                                                       AuditEntry(5, ACCOUNT, 'company.suspended', None, WHEN)]
 
@@ -214,6 +221,49 @@ class FactorRouteTests(unittest.TestCase):
         big = self.post(http, 'login/mfa', '{"code":"' + '1' * 5000 + '"}')
         self.assertEqual((big.status_code, big.json()['error']['code']), (413, 'PAYLOAD_TOO_LARGE'))
         self.assertEqual(service.calls, [])
+
+
+class CreateCompanyRouteTests(unittest.TestCase):
+    BODY = {'slug': 'acme', 'display_name': 'Acme Corporation', 'department': 'Operations',
+            'admin_email': 'admin@acme.test', 'admin_name': 'Acme Admin'}
+
+    def post(self, http, body, **kw):
+        return http.post(BASE + '/companies', headers={**HEADERS, 'Content-Type': 'application/json'},
+                         content=body if isinstance(body, (bytes, str)) else json.dumps(body), **kw)
+
+    def test_a_valid_body_creates_the_company_and_reports_the_invitation_without_its_capability(self):
+        service = FakeService()
+        http, _ = client(service)
+        response = self.post(http, self.BODY)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json(), {'id': str(ORG), 'slug': 'acme', 'display_name': 'Acme Corporation', 'active': True,
+                                           'invitation': {'id': str(INVITATION), 'expires_at': '2026-10-12T08:30:00+00:00',
+                                                          'delivery_state': 'delivered', 'delivery_channel': 'smtp'}})
+        self.assertEqual(service.calls[-1], ('create_company', (TOKEN,), self.BODY))
+        self.assertNotIn('capability', response.text)
+
+    def test_the_body_must_be_exactly_the_five_string_fields(self):
+        service = FakeService()
+        http, _ = client(service)
+        cases = ({}, {**self.BODY, 'extra': 'x'}, {key: value for key, value in self.BODY.items() if key != 'department'},
+                 {**self.BODY, 'slug': 5}, {**self.BODY, 'admin_email': None}, {**self.BODY, 'admin_name': ['x']}, [], 'null', '{bad')
+        for body in cases:
+            with self.subTest(body=body):
+                response = self.post(http, body)
+                self.assertEqual((response.status_code, response.json()['error']['code']), (422, 'INVALID_REQUEST'))
+        self.assertEqual(service.calls, [])
+        wrong = http.post(BASE + '/companies', headers={**HEADERS, 'Content-Type': 'text/plain'}, content=json.dumps(self.BODY))
+        self.assertEqual(wrong.status_code, 415)
+        big = self.post(http, json.dumps({**self.BODY, 'display_name': 'x' * 5000}))
+        self.assertEqual(big.status_code, 413)
+
+    def test_a_taken_code_is_409_and_every_other_failure_keeps_its_finite_code(self):
+        for failure, status, code in ((CompanyConflict(), 409, 'COMPANY_CONFLICT'), (MfaRequired(), 403, 'MFA_REQUIRED'),
+                                      (PlatformInvalid(), 422, 'INVALID_REQUEST'), (PlatformDenied(), 403, 'PLATFORM_DENIED')):
+            with self.subTest(code=code):
+                http, _ = client(FakeService(fail=failure))
+                response = self.post(http, self.BODY)
+                self.assertEqual((response.status_code, response.json()['error']['code']), (status, code))
 
 
 class ErrorMappingTests(unittest.TestCase):

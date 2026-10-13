@@ -10,11 +10,13 @@ import base64
 from dataclasses import dataclass
 from datetime import datetime
 import re
+import secrets
 import time
 from typing import Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from forge.invitations import capability_digest
+from forge.accounts import canonical_email, display_name as clean_name
+from forge.invitations import InvitationRequest, IssuedInvitation, capability_digest
 from forge.platform_totp import (SecretSealer, SecretUnreadable, generate_recovery_codes, generate_secret, hash_recovery_code,
                                  match_step, otpauth_uri)
 
@@ -50,6 +52,11 @@ class PlatformNotFound(PlatformError):
 
 class PlatformUnavailable(PlatformError):
     code = 'PLATFORM_UNAVAILABLE'
+
+
+class CompanyConflict(PlatformError):
+    code = 'COMPANY_CONFLICT'
+    message = 'A company with this code already exists.'
 
 
 class MfaRequired(PlatformError):
@@ -99,6 +106,16 @@ class AuditEntry:
 
 
 @dataclass(frozen=True)
+class CreatedCompany:
+    """The new company and where its first-admin invitation stands; the capability itself is never part of it."""
+    company: Company
+    invitation_id: UUID
+    expires_at: datetime
+    delivery_state: str
+    delivery_channel: str
+
+
+@dataclass(frozen=True)
 class MfaStatus:
     state: str  # none | pending | active
     verified: bool  # this session has passed the second factor
@@ -125,6 +142,7 @@ class MfaEnrollment:
 
 
 class PlatformStore(Protocol):
+    def create_company(self, digest: str, ids: dict, details: dict, invitation_digest: str, lifetime: int) -> datetime: ...
     def mfa_status(self, digest: str) -> MfaStatus: ...
     def mfa_enroll(self, digest: str, sealed: str, hashes: list[str]) -> None: ...
     def mfa_begin(self, digest: str) -> MfaChallenge: ...
@@ -143,11 +161,12 @@ def _page(value):
 
 
 ACCOUNT_LABEL = 'platform-owner'
+INVITATION_SECONDS = 604800  # the first administrator has a week to accept
 
 
 class PlatformService:
-    def __init__(self, store: PlatformStore, sealer: SecretSealer | None = None, clock=time.time):
-        self.store, self.sealer, self.clock = store, sealer, clock
+    def __init__(self, store: PlatformStore, sealer: SecretSealer | None = None, clock=time.time, delivery=None):
+        self.store, self.sealer, self.clock, self.delivery = store, sealer, clock, delivery
 
     @staticmethod
     def _digest(token):
@@ -210,6 +229,34 @@ class PlatformService:
         if found is None:
             raise PlatformNotFound()
         return found
+
+    def create_company(self, token: str, *, slug: str, display_name: str, department: str, admin_email: str,
+                       admin_name: str) -> CreatedCompany:
+        """Create the company and its first-admin invitation, then deliver the invitation (its failure never undoes the company)."""
+        digest = self._digest(token)
+        try:
+            if type(slug) is not str or not COMPANY_CODE.fullmatch(slug):
+                raise ValueError
+            details = {'slug': slug, 'display_name': clean_name(display_name),
+                       'department': clean_name(department), 'admin_email': canonical_email(admin_email),
+                       'admin_name': clean_name(admin_name)}
+        except (ValueError, TypeError):
+            raise PlatformInvalid() from None
+        if self.delivery is None:
+            raise PlatformUnavailable()
+        ids = {name: uuid4() for name in ('organization', 'department', 'invitation', 'membership')}
+        capability = secrets.token_urlsafe(32)
+        expires = self.store.create_company(digest, ids, details, capability_digest(capability), INVITATION_SECONDS)
+        try:
+            request = InvitationRequest(ids['organization'], ids['membership'], ids['department'], details['admin_email'],
+                                        details['admin_name'])
+            message = self.delivery.queue_invitation(IssuedInvitation(ids['invitation'], capability, expires), request,
+                                                     company_code=slug)
+            state = self.delivery.dispatch(message).value
+        except Exception:
+            state = 'failed'  # the company exists; only a finite state is reported, never the relay's message
+        return CreatedCompany(Company(ids['organization'], slug, details['display_name'], True), ids['invitation'], expires,
+                              state, self.delivery.channel)
 
     def audit(self, token: str, *, before: int | None = None, page: int = DEFAULT_PAGE) -> list[AuditEntry]:
         digest = self._digest(token)

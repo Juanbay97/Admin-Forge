@@ -4,14 +4,16 @@ from pathlib import Path
 import secrets
 import sys
 import unittest
-from uuid import uuid4
+from uuid import UUID, uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from forge.invitations import capability_digest
 from cryptography.fernet import Fernet
-from forge.platform import (AuditEntry, Company, MfaChallenge, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
-                            PlatformDenied, PlatformIdentity, PlatformInvalid, PlatformNotFound, PlatformService,
-                            PlatformUnavailable)
+from forge.invitation_delivery import DeliveryState
+from forge.invitations import InvitationRequest
+from forge.platform import (AuditEntry, Company, CompanyConflict, CreatedCompany, MfaChallenge, MfaEnrolled, MfaInvalid,
+                            MfaLocked, MfaRequired, MfaStatus, PlatformDenied, PlatformIdentity, PlatformInvalid,
+                            PlatformNotFound, PlatformService, PlatformUnavailable)
 from forge.platform_totp import SecretSealer, generate_secret, hash_recovery_code, match_step, totp
 
 ACCOUNT, ORG = uuid4(), uuid4()
@@ -169,6 +171,110 @@ class MfaServiceTests(unittest.TestCase):
                          {'MfaRequired': 'MFA_REQUIRED', 'MfaInvalid': 'MFA_INVALID', 'MfaLocked': 'MFA_LOCKED',
                           'MfaEnrolled': 'MFA_ENROLLED'})
         self.assertEqual(self.service(MfaStore(self.digest)).mfa_status(self.token), MfaStatus('active', True, True))
+
+
+class CompanyStore(FakeStore):
+    def __init__(self, known=None, fail=None):
+        super().__init__(known)
+        self.fail = fail
+
+    def create_company(self, digest, ids, details, invitation_digest, lifetime):
+        self.calls.append(('create_company', digest, ids, details, invitation_digest, lifetime))
+        self._check(digest)
+        if self.fail:
+            raise self.fail
+        return NOW
+
+
+class FakeDelivery:
+    channel = 'smtp'
+
+    def __init__(self, state=DeliveryState.DELIVERED, fail_queue=False):
+        self.state, self.fail_queue, self.queued, self.dispatched = state, fail_queue, [], []
+
+    def queue_invitation(self, issued, request, company_code=None):
+        if self.fail_queue:
+            raise RuntimeError('relay password=hunter2')
+        self.queued.append((issued, request, company_code))
+        return UUID(int=42)
+
+    def dispatch(self, message):
+        self.dispatched.append(message)
+        return self.state
+
+
+class CreateCompanyTests(unittest.TestCase):
+    ARGS = dict(slug='acme', display_name='Acme Corporation', department='Operations', admin_email='Admin@Acme.Test', admin_name='Acme Admin')
+
+    def setUp(self):
+        self.token = secrets.token_urlsafe(32)
+        self.digest = capability_digest(self.token)
+
+    def service(self, store=None, delivery=None):
+        self.store, self.delivery = store or CompanyStore(self.digest), delivery or FakeDelivery()
+        return PlatformService(self.store, delivery=self.delivery)
+
+    def test_one_call_creates_then_queues_the_invitation_with_the_company_code_and_dispatches_it(self):
+        created = self.service().create_company(self.token, **self.ARGS)
+        self.assertIsInstance(created, CreatedCompany)
+        self.assertEqual((created.company.slug, created.company.display_name, created.company.active), ('acme', 'Acme Corporation', True))
+        self.assertEqual((created.delivery_state, created.delivery_channel, created.expires_at), ('delivered', 'smtp', NOW))
+        (call,) = self.store.calls
+        self.assertEqual(call[0], 'create_company')
+        _, session_digest, ids, details, invitation_digest, lifetime = call
+        self.assertEqual(session_digest, self.digest)
+        self.assertEqual(details, {'slug': 'acme', 'display_name': 'Acme Corporation', 'department': 'Operations',
+                                   'admin_email': 'admin@acme.test', 'admin_name': 'Acme Admin'})
+        self.assertEqual((created.company.organization_id, created.invitation_id), (ids['organization'], ids['invitation']))
+        self.assertEqual(len({ids['organization'], ids['department'], ids['invitation'], ids['membership']}), 4)
+        self.assertEqual(lifetime, 604800)
+        ((issued, request, code),) = self.delivery.queued
+        self.assertEqual((code, request.email, request.name, request.organization_id), ('acme', 'admin@acme.test', 'Acme Admin', ids['organization']))
+        self.assertEqual(capability_digest(issued.capability), invitation_digest, 'only the digest reached the store')
+        self.assertNotIn(issued.capability, json_dump(call))
+        self.assertEqual(self.delivery.dispatched, [UUID(int=42)])
+        self.assertIsInstance(request, InvitationRequest)
+
+    def test_the_raw_capability_is_never_in_the_result(self):
+        created = self.service().create_company(self.token, **self.ARGS)
+        self.assertNotIn(self.delivery.queued[0][0].capability, repr(created))
+        self.assertFalse(hasattr(created, 'capability'))
+
+    def test_a_failed_delivery_still_reports_the_created_company_with_the_failed_state(self):
+        created = self.service(delivery=FakeDelivery(state=DeliveryState.FAILED)).create_company(self.token, **self.ARGS)
+        self.assertEqual(created.delivery_state, 'failed')
+        queued_error = self.service(delivery=FakeDelivery(fail_queue=True)).create_company(self.token, **{**self.ARGS, 'slug': 'other'})
+        self.assertEqual(queued_error.delivery_state, 'failed', 'a queue failure is a finite state, never the relay message')
+
+    def test_invalid_input_never_reaches_the_store(self):
+        service = self.service()
+        cases = (dict(slug='ACME'), dict(slug='-acme'), dict(slug=''), dict(slug='a' * 64), dict(slug='a b'), dict(slug=5),
+                 dict(display_name=''), dict(display_name='x' * 121), dict(display_name='bad\nname'), dict(department='   '),
+                 dict(admin_email='not-an-email'), dict(admin_email='a@b'), dict(admin_name=''), dict(admin_name='x' * 121))
+        for change in cases:
+            with self.subTest(change=change), self.assertRaises(PlatformInvalid):
+                service.create_company(self.token, **{**self.ARGS, **change})
+        self.assertEqual(self.store.calls, [])
+        self.assertEqual(self.delivery.queued, [])
+
+    def test_a_duplicate_company_is_a_conflict_and_nothing_is_delivered(self):
+        service = self.service(CompanyStore(self.digest, fail=CompanyConflict()))
+        with self.assertRaises(CompanyConflict) as caught:
+            service.create_company(self.token, **self.ARGS)
+        self.assertEqual((caught.exception.code, self.delivery.queued), ('COMPANY_CONFLICT', []))
+
+    def test_denial_and_missing_delivery_are_finite(self):
+        with self.assertRaises(PlatformDenied):
+            self.service(CompanyStore('0' * 64)).create_company(self.token, **self.ARGS)
+        with self.assertRaises(PlatformDenied):
+            self.service().create_company('short', **self.ARGS)
+        with self.assertRaises(PlatformUnavailable):
+            PlatformService(CompanyStore(self.digest)).create_company(self.token, **self.ARGS)
+
+
+def json_dump(call):
+    import json
+    return json.dumps(call, default=str)
 
 
 class PlatformServiceTests(unittest.TestCase):

@@ -173,9 +173,9 @@ class DeliveryCoordinator:
             raise ValueError('Private delivery payload exceeds its bound.')
         return self._cipher.encrypt(data).decode('ascii')
 
-    def queue_invitation(self,issued: IssuedInvitation,request: InvitationRequest) -> UUID:
+    def queue_invitation(self,issued: IssuedInvitation,request: InvitationRequest,company_code: str | None=None) -> UUID:
         message=uuid4()
-        link=onboarding_link(self.origin,issued.invitation_id,issued.capability)
+        link=onboarding_link(self.origin,issued.invitation_id,issued.capability,company_code)
         payload=self._payload('invitation',request.email,request.name,link)
         if not self.store.queue_invitation(message,issued.invitation_id,capability_digest(issued.capability),payload):
             raise InvitationUnavailable()

@@ -11,12 +11,12 @@ from psycopg.pq import TransactionStatus
 from psycopg.rows import tuple_row
 
 from forge.account_store import _KEYS, _ROLE
-from forge.platform import (AuditEntry, Company, MfaChallenge, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
+from forge.platform import (AuditEntry, Company, CompanyConflict, MfaChallenge, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
                             PlatformDenied, PlatformError, PlatformIdentity, PlatformInvalid, PlatformUnavailable)
 
 ROLE = 'forge_platform_service'
 _MESSAGES = {'PLATFORM_DENIED': PlatformDenied, 'PLATFORM_INVALID': PlatformInvalid, 'MFA_REQUIRED': MfaRequired,
-             'MFA_INVALID': MfaInvalid, 'MFA_LOCKED': MfaLocked, 'MFA_ENROLLED': MfaEnrolled}
+             'MFA_INVALID': MfaInvalid, 'MFA_LOCKED': MfaLocked, 'MFA_ENROLLED': MfaEnrolled, 'COMPANY_CONFLICT': CompanyConflict}
 
 
 class PlatformConnection:
@@ -54,6 +54,17 @@ class PlatformConnection:
 class PostgresPlatformStore:
     def __init__(self, pool, *, acquisition_timeout=1.0):
         self.connection = PlatformConnection(pool, acquisition_timeout=acquisition_timeout)
+
+    def create_company(self, digest, ids, details, invitation_digest, lifetime):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT forge.platform_company_create(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                           (digest, ids['organization'], ids['department'], ids['invitation'], ids['membership'], details['slug'],
+                            details['display_name'], details['department'], details['admin_email'], details['admin_name'],
+                            invitation_digest, lifetime))
+            row = cursor.fetchone()
+            if row is None or row[0] is None:
+                raise PlatformUnavailable()
+            return row[0]
 
     def mfa_status(self, digest):
         with self.connection.cursor() as cursor:
