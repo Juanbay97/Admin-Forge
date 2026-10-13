@@ -28,6 +28,8 @@ export interface PortalWorld {
   memberList: Json[];
   accepted: number;
   failAcceptOffline: boolean;
+  /** The invitation preview: `null` is a server without the route; otherwise who each capability is for (any other capability is the uniform 404). */
+  preview: Record<string, { account_email: string; display_name: string }> | "outage" | null;
 }
 
 export const newPortalWorld = (): PortalWorld => ({
@@ -42,6 +44,7 @@ export const newPortalWorld = (): PortalWorld => ({
   memberList: [],
   accepted: 0,
   failAcceptOffline: false,
+  preview: null,
 });
 
 const envelope = (code: string) => ({ error: { code, message: "Refused.", request_id: "00000000-0000-4000-8000-000000000000", retryable: false } });
@@ -65,6 +68,12 @@ export async function installPortal(page: Page, world: PortalWorld = newPortalWo
     if (path === "/forge/v1/branding") {
       if (world.brandingDelayMs) await new Promise((resolve) => setTimeout(resolve, world.brandingDelayMs));
       const found = world.branding[url.searchParams.get("org") ?? ""];
+      return found ? reply(route, 200, found) : reply(route, 404, envelope("NOT_FOUND"));
+    }
+    if (path === "/forge/v1/accounts/invitations/preview") {
+      if (world.preview === null) return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: "Not Found" }) });
+      if (world.preview === "outage") return reply(route, 503, envelope("SERVICE_UNAVAILABLE"));
+      const found = world.preview[(body as { capability: string }).capability];
       return found ? reply(route, 200, found) : reply(route, 404, envelope("NOT_FOUND"));
     }
     if (path === "/forge/v1/accounts/invitations/accept") {

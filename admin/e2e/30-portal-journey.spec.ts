@@ -14,7 +14,9 @@ async function join(page: Page, link: string, email: string, password: string) {
   await page.goto(link);
   await expect(page.getByRole("heading", { name: "Create your password" })).toBeVisible();
   expect(new URL(page.url()).hash).toBe("");
-  await page.getByLabel("Your email").fill(email);
+  // The server's invitation preview names the invited person, so the page does not ask for the email: it says who is joining.
+  await expect(page.getByText(email)).toBeVisible();
+  await expect(page.getByLabel("Your email")).toHaveCount(0);
   await page.getByLabel("New password", { exact: true }).fill(password);
   await page.getByLabel("Confirm password").fill(password);
 }
@@ -53,10 +55,10 @@ test("the first administrator joins from the mailed link on the branded page and
   expect((await request.get("/downloads/%2e%2e/secret.txt")).status()).toBe(404);
   await page.getByText("Verify the download").click();
   await expect(page.getByTestId("sha256")).toHaveText(manifest.platforms.windows.sha256);
-  // The invitation is single-use: the same link no longer works.
-  await join(page, mail.link, company.adminEmail, ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Create password and continue" }).click();
+  // The invitation is single-use: the same link no longer works, and the page says so before anything is typed (one generic message).
+  await page.goto(mail.link);
   await expect(page.getByRole("heading", { name: "This invitation can no longer be used" })).toBeVisible();
+  await expect(page.getByLabel("New password", { exact: true })).toHaveCount(0);
   await shot(page, "portal", "03-link-used");
 });
 
@@ -78,16 +80,16 @@ test("the administrator invites a person from the Members page and the invitatio
   await page.getByRole("button", { name: "Create department" }).click();
   await expect(page.getByRole("list", { name: "Departments" }).getByText("Support")).toBeVisible();
   await shot(page, "portal", "10-members-departments");
-  // An invitation issued by an administrator carries no company-code hint (only the platform owner's first-admin invitation does), so
-  // the join page for this person is the Prometheon default until they sign in; the download page then shows the company code.
-  expect(mailTo(MEMBER.email).link).toMatch(/\/onboarding#invitation_id=[0-9a-f-]{36}&capability=[A-Za-z0-9_-]{43}$/);
-  void company;
+  // An invitation issued by an administrator carries the company code, like the platform owner's first-admin invitation, so the join page is branded.
+  expect(mailTo(MEMBER.email).link).toMatch(new RegExp(`/onboarding\\?c=${company.slug}#invitation_id=[0-9a-f-]{36}&capability=[A-Za-z0-9_-]{43}$`));
 });
 
 test("the person joins, downloads and finds their own usage page", async ({ page }) => {
   const company = readCompany();
   const mail = mailTo(MEMBER.email);
   await join(page, mail.link, MEMBER.email, MEMBER.password);
+  await expect(page.getByText("Initech Platform").first()).toBeVisible(); // branded for the invited person too: the link carries the company code
+  await shot(page, "portal", "11-member-join-branded");
   await page.getByRole("button", { name: "Create password and continue" }).click();
   await expect(page).toHaveURL(/\/admin\/portal\/download/);
   await expect(page.getByTestId("company-code")).toHaveText(company.slug);

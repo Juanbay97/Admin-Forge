@@ -61,6 +61,49 @@ test.describe("join page", () => {
     expect(login?.body).toEqual({ email: MEMBER.email, password: PASSWORD });
   });
 
+  test("when the server names the invited person the email is not asked for and the sign-in uses it", async ({ page, adminUrl }) => {
+    const world = newPortalWorld();
+    world.preview = { [CAPABILITY]: { account_email: MEMBER.email, display_name: MEMBER.name } };
+    const { requests } = await open(page, adminUrl, LINK(), world);
+    await expect(page.getByRole("heading", { name: "Create your password" })).toBeVisible();
+    await expect(page.getByText(MEMBER.email)).toBeVisible();
+    await expect(page.getByLabel("Your email")).toHaveCount(0);
+    await page.getByLabel("New password", { exact: true }).fill(PASSWORD);
+    await page.getByLabel("Confirm password").fill(PASSWORD);
+    await submit(page).click();
+    await expect(page).toHaveURL(/\/admin\/portal\/download/);
+    expect(requests.find((request) => request.path.endsWith("/accounts/login"))?.body).toEqual({ email: MEMBER.email, password: PASSWORD });
+    expect(requests.find((request) => request.path.endsWith("/invitations/accept"))?.body).toEqual({ invitation_id: INVITATION, capability: CAPABILITY, password: PASSWORD });
+    expect(requests.filter((request) => request.authorization !== null)).toEqual([]);
+  });
+
+  test("an unusable invitation is explained before anything is typed, in words that do not say which case it is", async ({ page, adminUrl }) => {
+    const world = newPortalWorld();
+    world.preview = {}; // the server's uniform 404: expired, used, withdrawn, wrong or unknown are indistinguishable
+    const { requests } = await open(page, adminUrl, LINK(), world);
+    await expect(page.getByRole("heading", { name: "This invitation can no longer be used" })).toBeVisible();
+    await expect(page.getByText(/expired.*used.*withdrawn|expired, been used/i)).toBeVisible();
+    await expect(page.getByLabel("New password", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
+    await expect(page.getByText(/NOT_FOUND|INVITATION_|404/)).toHaveCount(0);
+    expect(requests.filter((request) => request.path.endsWith("/invitations/accept"))).toEqual([]);
+    for (const size of Object.values(viewports)) {
+      await page.setViewportSize(size);
+      await expectNoHorizontalScroll(page);
+      await expectAccessible(page);
+    }
+  });
+
+  test("a preview outage keeps the form and asks for the email as before", async ({ page, adminUrl }) => {
+    const world = newPortalWorld();
+    world.preview = "outage";
+    await open(page, adminUrl, LINK(), world);
+    await expect(page.getByRole("heading", { name: "Create your password" })).toBeVisible();
+    await fill(page);
+    await submit(page).click();
+    await expect(page).toHaveURL(/portal\/download/);
+  });
+
   test("a double click submits once", async ({ page, adminUrl }) => {
     const { world } = await open(page, adminUrl, LINK());
     await fill(page);

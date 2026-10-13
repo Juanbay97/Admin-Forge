@@ -37,8 +37,8 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 - [x] 4.2 RED/GREEN: company Members UI assignment
 
 ## G5 Invitations (migration 0046)
-- [ ] 5.1 RED/GREEN: admin invitations mail `?c=<code>`
-- [ ] 5.2 RED/GREEN: `invitation_identity` function + hidden route; join page uses it; one generic unusable-link message
+- [x] 5.1 RED/GREEN: admin invitations mail `?c=<code>`
+- [x] 5.2 RED/GREEN: `invitation_identity` function + hidden route; join page uses it; one generic unusable-link message
 
 ## G6 Edge forwards
 - [ ] 6.1 RED/GREEN: Caddyfile forwards + static policy tests

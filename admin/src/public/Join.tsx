@@ -16,6 +16,10 @@ import { PasswordForm } from "./PasswordForm";
 import { PublicFrame } from "./PublicFrame";
 import { usePublicBranding } from "./usePublicBranding";
 
+/** Who the invitation is for: not known yet, known from the server's preview, to be asked for (older server or a slow answer), or the uniform 404. */
+type Who = { status: "loading" | "asking" | "unusable" } | { status: "known"; email: string };
+const PREVIEW_WAIT_MS = 3000;
+
 const MESSAGES: Record<"throttled" | "unavailable" | "offline", string> = {
   throttled: "Too many attempts. Wait a few minutes and try again.",
   unavailable: "Joining is unavailable right now. Try again in a moment.",
@@ -42,8 +46,25 @@ export function Join() {
   const theme: BrandTheme = useMemo(() => (brand.status === "branded" ? themeFromBranding(brand.branding) : defaultTheme), [brand]);
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [failure, setFailure] = useState<JoinFailure | null>(null);
+  const [failureState, setFailure] = useState<JoinFailure | null>(null);
   const [ready, setReady] = useState(false);
+  const [who, setWho] = useState<Who>({ status: link ? "loading" : "asking" });
+  // The server's uniform 404 is shown before anything is typed, in one generic message.
+  const failure: JoinFailure | null = failureState ?? (who.status === "unusable" ? "invalid" : null);
+
+  useEffect(() => {
+    if (!link) return;
+    let current = true;
+    const timer = window.setTimeout(() => current && setWho((state) => (state.status === "loading" ? { status: "asking" } : state)), PREVIEW_WAIT_MS);
+    services.invitations.preview({ invitationId: link.invitationId, capability: link.capability }).then(
+      (found) => current && setWho(found.kind === "known" ? { status: "known", email: found.email } : found.kind === "unusable" ? { status: "unusable" } : { status: "asking" }),
+      () => current && setWho({ status: "asking" }), // an outage or a slow answer: ask for the email as before
+    );
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [services, link]);
 
   useEffect(() => {
     if (brand.status === "loading") return;
@@ -60,7 +81,7 @@ export function Join() {
 
   const loginCopy = brand.status === "branded" ? brand.branding.loginCopy : undefined;
 
-  if (brand.status === "loading") {
+  if (brand.status === "loading" || who.status === "loading") {
     return (
       <main role="status" aria-label="Loading your invitation" className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-6 p-4 sm:p-6">
         <Skeleton className="h-12 w-48" />
@@ -87,7 +108,7 @@ export function Join() {
   }
   if (failure === "invalid") {
     return (
-      <PublicFrame brand={theme} title="This invitation can no longer be used" description="It may have expired or already been used. Ask your company administrator for a new invitation. If you already set a password, sign in.">
+      <PublicFrame brand={theme} title="This invitation can no longer be used" description="It may have expired, been used already or been withdrawn, or the link may be wrong. Ask your company administrator for a new invitation. If you already set a password, sign in.">
         <Button onClick={() => navigate("/", { replace: true })}>Go to sign in</Button>
       </PublicFrame>
     );
@@ -109,7 +130,7 @@ export function Join() {
 
   async function submit(password: string) {
     setFailure(null);
-    const typed = email.trim();
+    const typed = who.status === "known" ? who.email : email.trim();
     if (!z.email().safeParse(typed).success) {
       setEmailError("Enter the email address this invitation was sent to.");
       return;
@@ -138,9 +159,13 @@ export function Join() {
         error={failure === "password" ? "That password is not accepted. Use at least 15 characters." : failure ? MESSAGES[failure] : null}
         onSubmit={submit}
       >
-        <Field label="Your email" hint="The address this invitation was sent to." error={emailError ?? undefined}>
-          {(control) => <Input {...control} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />}
-        </Field>
+        {who.status === "known" ? (
+          <p className="text-body text-fg">You are joining as <strong>{who.email}</strong>.</p>
+        ) : (
+          <Field label="Your email" hint="The address this invitation was sent to." error={emailError ?? undefined}>
+            {(control) => <Input {...control} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />}
+          </Field>
+        )}
       </PasswordForm>
       {code && <Alert tone="info">Your company code is <strong>{code}</strong>. You will need it in the desktop app.</Alert>}
     </PublicFrame>
