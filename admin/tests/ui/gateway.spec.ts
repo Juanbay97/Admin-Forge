@@ -10,13 +10,15 @@ async function openGateway(page: Page, adminUrl: string, email = "admin@example.
   await page.getByRole("button", { name: "Gateway" }).click();
 }
 
+const keys = (page: Page, count: string) => page.getByLabel("Gateway status").getByText("Usable platform keys").locator("..").getByText(count, { exact: true });
+
 test.describe("gateway status (read-only)", () => {
   test("shows the status and the usable platform keys, with nothing to edit", async ({ page, adminUrl }) => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await openGateway(page, adminUrl);
     await expect(page.getByRole("heading", { level: 1, name: "Gateway" })).toBeVisible();
     await expect(page.getByText("Not configured")).toBeVisible();
-    await expect(page.getByText("Usable platform keys: 0")).toBeVisible();
+    await expect(keys(page, "0")).toBeVisible();
     await expect(page.getByText("The gateway key is managed by the platform.")).toBeVisible();
     await expect(page.getByLabel("API key")).toHaveCount(0);
     await expect(page.getByLabel("Gateway base URL")).toHaveCount(0);
@@ -34,13 +36,13 @@ test.describe("gateway status (read-only)", () => {
   test("switching organizations clears the gateway before the next loads", async ({ page, adminUrl }) => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await openGateway(page, adminUrl, "multi@example.com");
-    await expect(page.getByText("Usable platform keys: 0")).toBeVisible();
+    await expect(keys(page, "0")).toBeVisible();
     api.hold(ORG_B);
     await page.getByLabel("Organization").selectOption({ label: "Org B" });
-    await expect(page.getByRole("status")).toHaveText("Loading gateway...");
-    await expect(page.getByText("Usable platform keys: 0")).toHaveCount(0);
+    await expect(page.getByRole("status")).toHaveText("Loading gateway…");
+    await expect(keys(page, "0")).toHaveCount(0);
     api.letThrough(ORG_B);
-    await expect(page.getByText("Usable platform keys: 2")).toBeVisible();
+    await expect(keys(page, "2")).toBeVisible();
     await expect(page.getByText("Configured", { exact: true })).toBeVisible();
     expect(api.stored(ORG_A)?.savedKey).toBeUndefined();
   });
