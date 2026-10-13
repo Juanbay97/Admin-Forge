@@ -4,6 +4,7 @@ import { createBrandingApi } from "./branding";
 import { createCatalogApi } from "./catalog";
 import { createApiClient } from "./client";
 import { createGatewayApi } from "./gateway";
+import { createInvitationsApi } from "./invitations";
 import { createMembersApi } from "./members";
 import { createPlatformApi } from "./platform";
 import type { Services } from "./services";
@@ -16,4 +17,5 @@ export const services: Services = {
   catalog: createCatalogApi(client),
   branding: createBrandingApi(client),
   platform: createPlatformApi(client),
+  invitations: createInvitationsApi(client),
 };

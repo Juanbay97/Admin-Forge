@@ -36,11 +36,11 @@ Chain strategy: stacked-to-main
 - [ ] 1.4 Contract reconcile: confirm link format with smtp-delivery, usage shapes with usage-metering, gateway read fields with gateway-keys (update fixtures/PC table)
 
 ## Phase 2 — Join / onboarding (PR 2)
-- [ ] 2.1 RED unit: `parseFragment`/scrub, error-code→`JoinState`, password hint rules, invitations schema
-- [ ] 2.2 `usePublicBranding(slug)` (800 ms bound, fallback), `useInvitationFragment`
-- [ ] 2.3 `Join` page: branded form (rhf+zod), submit once, auto sign-in (email fallback), error states, existing-account state, signed-in visitor notice
-- [ ] 2.4 UI spec: branded, hash scrubbed + no storage, each error state, policy error, double submit, mobile 375, axe/CSP
-- [ ] 2.5 Route `/admin/join` public (outside `RequireSession`), shell registration
+- [x] 2.1 RED unit: `parseFragment`/scrub, error-code→`JoinState`, password hint rules, invitations schema
+- [x] 2.2 `usePublicBranding(slug)` (800 ms bound, fallback), `useInvitationFragment`
+- [x] 2.3 `Join` page: branded form (rhf+zod), submit once, auto sign-in (email fallback), error states, existing-account state, signed-in visitor notice
+- [x] 2.4 UI spec: branded, hash scrubbed + no storage, each error state, policy error, double submit, mobile 375, axe/CSP
+- [x] 2.5 Route `/admin/join` public (outside `RequireSession`), shell registration
 
 ## Phase 3 — Download page (PR 3)
 - [ ] 3.1 RED unit: manifest schema (same-origin url, sha256 format), platform picker, size/date formatters

@@ -11,6 +11,8 @@ export interface UploadedAsset {
 
 export interface BrandingApi {
   get(orgId: string): Promise<Branding>;
+  /** The signed-out branding for a company code (the join page); an unknown code is `null`, never an error. */
+  getPublic(code: string): Promise<Branding | null>;
   save(orgId: string, expectedRevision: number, document: BrandingDocument): Promise<Branding>;
   reset(orgId: string, expectedRevision: number): Promise<Branding>;
   uploadAsset(orgId: string, kind: AssetKind, file: Blob): Promise<UploadedAsset>;
@@ -48,6 +50,14 @@ export function createBrandingApi(client: UploadClient): BrandingApi {
   const path = (orgId: string) => `/forge/v1/orgs/${encodeURIComponent(orgId)}/branding`;
   return {
     get: async (orgId) => checked(await client.request("GET", path(orgId))),
+    async getPublic(code) {
+      try {
+        return checked(await client.request("GET", `/forge/v1/branding?org=${encodeURIComponent(code)}`));
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
     save: async (orgId, expectedRevision, document) =>
       checked(await client.request("PUT", path(orgId), { expectedRevision, branding: document })),
     reset: async (orgId, expectedRevision) =>

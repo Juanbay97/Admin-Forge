@@ -10,6 +10,9 @@ import { hint, signOut } from "./session";
 
 const IdentityContext = createContext<Identity | null>(null);
 
+/** For public pages that may or may not sit under the boundary. */
+export const useIdentityOptional = (): Identity | null => useContext(IdentityContext);
+
 export function useIdentity(): Identity {
   const identity = useContext(IdentityContext);
   if (!identity) throw new Error("useIdentity must be used under IdentityBoundary");

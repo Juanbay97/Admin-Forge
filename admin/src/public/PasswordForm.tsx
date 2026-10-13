@@ -1,14 +1,14 @@
-﻿import { Check, Circle, Eye, EyeOff } from "lucide-react";
+import { Check, Circle, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { z } from "../lib/zod";
+import { MIN_PASSWORD } from "./passwordRules";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { useZodForm } from "../ui/form";
 import { FormError } from "../ui/FormError";
 import { Input } from "../ui/Input";
 
-/** The server's rule (account_api: 15 to 1024 characters); everything else about a good password is the person's choice. */
-export const MIN_PASSWORD = 15;
+export { MIN_PASSWORD };
 
 export const passwordSchema = z
   .object({ password: z.string().min(MIN_PASSWORD, `Use at least ${MIN_PASSWORD} characters.`).max(1024, "That password is too long."), confirm: z.string() })
