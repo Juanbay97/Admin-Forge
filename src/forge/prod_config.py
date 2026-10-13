@@ -24,10 +24,10 @@ DEFAULT_BIND_HOST = '0.0.0.0'
 DEFAULT_ADMIN_DIR = str(Path(__file__).resolve().parent/'web'/'admin')
 SSL_MODES = ('disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full')
 LOG_LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
-_SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_PLATFORM_KEY', 'FORGE_POLICY_KEY', 'FORGE_DB_ADMIN_PASSWORD')
+_SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_PLATFORM_KEY', 'FORGE_POLICY_KEY', 'FORGE_CONNECTOR_KEY', 'FORGE_DB_ADMIN_PASSWORD')
 _PLAIN = ('FORGE_PUBLIC_ORIGIN', 'FORGE_DB_HOST', 'FORGE_DB_PORT', 'FORGE_DB_NAME', 'FORGE_DB_SSLMODE',
           'FORGE_DB_ADMIN_USER', 'FORGE_ROLE_PASSWORDS_DIR', 'FORGE_ADMIN_DIR', 'FORGE_PORT', 'FORGE_BIND_HOST',
-          'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE, 'FORGE_GATEWAY_CA_FILE')
+          'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE, 'FORGE_GATEWAY_CA_FILE', 'FORGE_CONNECTOR_TEST_FIXTURES_FILE')
 # Later changes that add settings extend this tuple; any other FORGE_* name is a typo and refused.
 KNOWN_KEYS = (*_PLAIN, *_SECRETS, *(name + '_FILE' for name in _SECRETS), *SMTP_KEYS)
 _DB_HOST = re.compile(r'[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?')
@@ -60,6 +60,8 @@ class ProdConfig:
     smtp: object = None  # `SmtpSettings` when any FORGE_SMTP_* key is set; serving requires it, migrating does not
     gateway_ca_file: str | None = None  # an extra CA for private gateways (the allow-list stays https-only); None = system trust
     policy_key: str | None = field(default=None, repr=False)  # Ed25519 seed (base64url) signing the effective policy; None = those routes answer 503
+    connector_key: bytes | None = field(default=None, repr=False)  # seals connector credentials; None = the connector routes answer 503
+    connector_fixtures: dict | None = None  # loopback/dev fixture hosts for the egress guard; NEVER set in production
 
     @property
     def trusted_hosts(self):
@@ -140,6 +142,33 @@ def _policy_key(env, others):
     return value
 
 
+def _connector_key(env, others):
+    """The optional connector sealing key: a Fernet key of its own, never one of the other secrets."""
+    value = _secret(env, 'FORGE_CONNECTOR_KEY')
+    if value is None:
+        return None
+    from forge.connector_cipher import ConnectorCipher, ConnectorCipherError
+    try:
+        key = value.encode('ascii')
+        ConnectorCipher(key, distinct_from=list(others))
+    except (ValueError, TypeError, ConnectorCipherError):
+        _fail('FORGE_CONNECTOR_KEY')
+    return key
+
+
+def _connector_fixtures(env):
+    path = env.get('FORGE_CONNECTOR_TEST_FIXTURES_FILE')
+    if path is None:
+        return None
+    from forge.egress_guard import load_fixtures
+    try:
+        if not Path(path).is_absolute():
+            raise ValueError
+        return load_fixtures(path)
+    except (OSError, ValueError):
+        _fail('FORGE_CONNECTOR_TEST_FIXTURES_FILE')
+
+
 def _roles(env):
     directory = env.get('FORGE_ROLE_PASSWORDS_DIR')
     if not directory or not Path(directory).is_absolute() or not Path(directory).is_dir():
@@ -204,6 +233,8 @@ def load_prod_config(environ):
     if platform in (delivery, gateway):
         _fail('FORGE_PLATFORM_KEY')
     policy_key = _policy_key(env, (delivery, gateway, platform))
+    connector_key = _connector_key(env, (delivery, gateway, platform, *(() if policy_key is None else (policy_key,))))
+    connector_fixtures = _connector_fixtures(env)
     try:
         policy = policy_from_env(env)
     except ValueError:
@@ -224,4 +255,4 @@ def load_prod_config(environ):
     gateway_ca = env.get('FORGE_GATEWAY_CA_FILE')
     if gateway_ca is not None and (not Path(gateway_ca).is_absolute() or not Path(gateway_ca).is_file()):
         _fail('FORGE_GATEWAY_CA_FILE')
-    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key)
+    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key, connector_key, connector_fixtures)

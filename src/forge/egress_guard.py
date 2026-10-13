@@ -55,6 +55,22 @@ class Target:
         return self.host if self.port == default else '%s:%d' % (self.host, self.port)
 
 
+def load_fixtures(path):
+    """Explicit test/dev fixture hosts from a JSON file ``{host: {connect_host, port, tls?}}``; ValueError on anything else."""
+    from pathlib import Path
+    document = __import__('json').loads(Path(path).read_text('utf-8'))
+    if type(document) is not dict:
+        raise ValueError('fixtures')
+    fixtures = {}
+    for host, item in document.items():
+        if (type(host) is not str or not _HOST.fullmatch(host) or type(item) is not dict or not {'connect_host', 'port'} <= set(item) <= {'connect_host', 'port', 'tls'}
+                or type(item['connect_host']) is not str or not item['connect_host'] or type(item['port']) is not int or not 1 <= item['port'] <= 65535
+                or type(item.get('tls', False)) is not bool):
+            raise ValueError('fixtures')
+        fixtures[host] = Fixture(item['connect_host'], item['port'], item.get('tls', False))
+    return fixtures
+
+
 def system_resolver(host):
     return [item[4][0] for item in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)]
 

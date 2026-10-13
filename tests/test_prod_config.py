@@ -1,5 +1,6 @@
 """prod_config: environment and *_FILE secret loading for the production profile; no ports, no database."""
 import base64
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -81,6 +82,40 @@ class PolicyKeyTests(unittest.TestCase):
                     f.refused(self, 'FORGE_POLICY_KEY', FORGE_POLICY_KEY_FILE=str(f.root/(name + '.pk')))
             f.refused(self, 'FORGE_POLICY_KEY', FORGE_POLICY_KEY=seed, FORGE_POLICY_KEY_FILE=str(f.root/'policy.key'))  # ambiguous
         self.assertTrue({'FORGE_POLICY_KEY', 'FORGE_POLICY_KEY_FILE'} <= set(KNOWN_KEYS))
+
+
+class ConnectorConfigTests(unittest.TestCase):
+    def test_the_connector_key_is_optional_a_fernet_key_and_separate_from_the_other_keys(self):
+        with Fixture() as f:
+            self.assertEqual((f.load().connector_key, f.load().connector_fixtures), (None, None))
+            key = Fernet.generate_key().decode()
+            (f.root/'connector.key').write_text(key + '\n', 'utf-8')
+            self.assertEqual(f.load(FORGE_CONNECTOR_KEY_FILE=str(f.root/'connector.key')).connector_key, key.encode())
+            self.assertNotIn(key, repr(f.load(FORGE_CONNECTOR_KEY=key)))
+            for name, text in (('bad', 'not a key'), ('empty', ''), ('delivery', f.delivery), ('gateway', f.gateway), ('platform', f.platform)):
+                (f.root/(name + '.ck')).write_text(text, 'utf-8')
+                with self.subTest(name):
+                    f.refused(self, 'FORGE_CONNECTOR_KEY', FORGE_CONNECTOR_KEY_FILE=str(f.root/(name + '.ck')))
+            seed = base64.urlsafe_b64encode(bytes(range(32))).decode().rstrip('=')
+            (f.root/'policy.key').write_text(seed, 'utf-8')
+            same = base64.urlsafe_b64encode(bytes(range(32))).decode()
+            (f.root/'same.ck').write_text(same, 'utf-8')
+            f.refused(self, 'FORGE_CONNECTOR_KEY', FORGE_POLICY_KEY_FILE=str(f.root/'policy.key'), FORGE_CONNECTOR_KEY_FILE=str(f.root/'same.ck'))  # not the policy seed either
+        self.assertTrue({'FORGE_CONNECTOR_KEY', 'FORGE_CONNECTOR_KEY_FILE', 'FORGE_CONNECTOR_TEST_FIXTURES_FILE'} <= set(KNOWN_KEYS))
+
+    def test_test_fixtures_are_an_explicit_absolute_file_that_must_parse(self):
+        with Fixture() as f:
+            good = f.root/'fixtures.json'
+            good.write_text(json.dumps({'oauth.fixture.test': {'connect_host': 'fake-connectors', 'port': 3414}}), 'utf-8')
+            loaded = f.load(FORGE_CONNECTOR_TEST_FIXTURES_FILE=str(good)).connector_fixtures
+            self.assertEqual((loaded['oauth.fixture.test'].connect_host, loaded['oauth.fixture.test'].port, loaded['oauth.fixture.test'].tls), ('fake-connectors', 3414, False))
+            for name, text in (('bad.json', 'not json'), ('list.json', '[]'), ('port.json', '{"h.test":{"connect_host":"x","port":0}}'), ('extra.json', '{"h.test":{"connect_host":"x","port":1,"x":1}}'),
+                               ('host.json', '{"UPPER..":{"connect_host":"x","port":1}}')):
+                (f.root/name).write_text(text, 'utf-8')
+                with self.subTest(name):
+                    f.refused(self, 'FORGE_CONNECTOR_TEST_FIXTURES_FILE', FORGE_CONNECTOR_TEST_FIXTURES_FILE=str(f.root/name))
+            f.refused(self, 'FORGE_CONNECTOR_TEST_FIXTURES_FILE', FORGE_CONNECTOR_TEST_FIXTURES_FILE='relative.json')
+            f.refused(self, 'FORGE_CONNECTOR_TEST_FIXTURES_FILE', FORGE_CONNECTOR_TEST_FIXTURES_FILE=str(f.root/'absent.json'))
 
 
 class LoadTests(unittest.TestCase):

@@ -40,6 +40,7 @@ done
 create delivery_key fernet
 create gateway_key fernet
 create platform_key fernet
+create connector_key fernet
 create policy_key fernet  # an Ed25519 seed is 32 random bytes too (the policy signing key; see docs/capability-governance.md)
 
 # The mail relay password is yours (a Resend or SES credential): only the empty placeholder a Docker file secret needs

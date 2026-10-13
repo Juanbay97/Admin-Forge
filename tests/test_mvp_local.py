@@ -185,6 +185,20 @@ class PolicyKeyTests(unittest.TestCase):
                 self.assertNotIn('SECRET!', str(caught.exception))
 
 
+class ConnectorKeyTests(unittest.TestCase):
+    def test_a_connector_key_is_optional_a_fernet_key_and_separate_from_the_others(self):
+        with Workspace() as w:
+            good = json.loads(Path(w.secrets_path).read_text('utf-8'))
+            self.assertIsNone(load_secrets(w.secrets_path).connector_key)
+            key = Fernet.generate_key().decode()
+            self.assertEqual(load_secrets(write(w.root/'s.json', {**good, 'connector_key': key})).connector_key, key.encode())
+            for name, value in {'not fernet': 'nope SECRET', 'empty': '', 'number': 5, 'shared with the gateway': good['gateway_key'],
+                                'shared with the delivery': good['delivery_key'], 'shared with the platform': good['platform_key']}.items():
+                with self.subTest(name), self.assertRaises(ConfigError) as caught:
+                    load_secrets(write(w.root/'s.json', {**good, 'connector_key': value}))
+                self.assertEqual(str(caught.exception), 'SECRETS_INVALID')
+
+
 class Ready:
     def __init__(self, value=True):
         self.value = value

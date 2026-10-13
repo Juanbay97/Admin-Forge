@@ -67,7 +67,7 @@ def add_status(app, readiness, admin_dir):
 
 
 def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery_key, gateway_key, platform_key,
-              gateway_policy, gateway_ca_file=None, policy_key=None):
+              gateway_policy, gateway_ca_file=None, policy_key=None, connector_key=None, connector_fixtures=None, public_origin=None):
     import ssl
     from forge.account_api import create_account_app
     from forge.account_sessions import PostgresSessionStore, SessionService
@@ -79,9 +79,16 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.capability_audit import InvocationLog
     from forge.capability_effective import EffectivePolicy
     from forge.capability_signing import load_signer
+    from forge.connector_api import mount_connectors
+    from forge.connector_cipher import ConnectorCipher
+    from forge.connector_oauth import ConnectorOAuth
+    from forge.connector_service import Connectors
+    from forge.connector_store import PostgresConnectorStore
+    from forge.egress_guard import EgressGuard, GuardedClient
+    from forge.mcp_broker import McpBroker
     from forge.capability_service import Capabilities
     from forge.capability_store import PostgresCapabilityStore
-    from forge.directory import DirectoryService
+    from forge.directory import DirectoryDenied, DirectoryService, DirectorySuspended
     from forge.directory_store import PostgresDirectoryStore
     from forge.gateway_catalog import GatewayCatalog
     from forge.gateway_catalog_adapter import HttpxModelsAdapter
@@ -125,14 +132,30 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         directory=directory)
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
     capabilities = Capabilities(PostgresCapabilityStore(capability))
+    # The connector broker: its own sealing key, its own pool, its own egress guard. Without the key every connector route answers 503.
+    connectors = oauth = broker_proxy = None
+    if connector_key is not None:
+        if public_origin is None:
+            raise ConfigError('CONFIG_INVALID:public_origin')
+        connector_store = PostgresConnectorStore(broker)
+        connector_cipher = ConnectorCipher(connector_key, distinct_from=[delivery_key, gateway_key, platform_key, *([policy_key] if policy_key else [])])
+        guarded_client = GuardedClient(EgressGuard(fixtures=connector_fixtures))
+        connectors = Connectors(connector_store, connector_cipher)
+        oauth = ConnectorOAuth(connector_store, connector_cipher, guarded_client, public_origin=public_origin)
+        broker_proxy = McpBroker(connector_store, oauth, connector_cipher, guarded_client)
     mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),
                    sessions=sessions, readiness=readiness, keys=GatewayKeys(PostgresGatewayKeyStore(platform), cipher),
-                   usage=PlatformUsage(PostgresPlatformUsageStore(platform)), capabilities=capabilities)
+                   usage=PlatformUsage(PostgresPlatformUsageStore(platform)), capabilities=capabilities, connectors=connectors)
     mount_company_capabilities(app, capabilities=capabilities, sessions=sessions, readiness=readiness)
     signer = None if policy_key is None else load_signer(policy_key)  # absent: the effective-policy routes answer 503
-    companies = lambda token: [item.id for item in directory.me(token).organizations if item.status == 'active']
+    def companies(token):
+        try:
+            return [item.id for item in directory.me(token).organizations if item.status == 'active']
+        except (DirectoryDenied, DirectorySuspended):
+            return []  # a stale, suspended or unknown member has no company: the route answers the same 404
     mount_effective(app, policy=EffectivePolicy(PostgresCapabilityStore(capability), signer), sessions=sessions, readiness=readiness, organizations=companies)
     mount_invocation_audit(app, log=InvocationLog(PostgresCapabilityStore(capability)), sessions=sessions, readiness=readiness, organizations=companies)
+    mount_connectors(app, service=connectors, oauth=oauth, broker=broker_proxy, sessions=sessions, readiness=readiness, organizations=companies)
     mount_company_usage(app, usage=CompanyUsage(PostgresCompanyUsageStore(gateway)), sessions=sessions,
                         authorization_reader=PostgresAuthorizationReader(bootstrap), readiness=readiness)
     return app

@@ -129,6 +129,7 @@ class MvpSecrets:
     gateway_key: bytes = field(repr=False)
     platform_key: bytes = field(repr=False)
     policy_key: str | None = field(default=None, repr=False)  # the Ed25519 seed that signs the effective policy; absent = the route answers 503
+    connector_key: bytes | None = field(default=None, repr=False)  # seals connector credentials; absent = the connector routes answer 503
 
 
 def load_secrets(path):
@@ -140,7 +141,7 @@ def load_secrets(path):
         raise ConfigError('SECRETS_INVALID') from None
     try:
         roles = values['roles']
-        if (set(values) - {'policy_key'} != {'roles', 'delivery_key', 'gateway_key', 'platform_key'} or set(roles) != set(ROLES)
+        if (set(values) - {'policy_key', 'connector_key'} != {'roles', 'delivery_key', 'gateway_key', 'platform_key'} or set(roles) != set(ROLES)
                 or any(type(password) is not str or not password for password in roles.values())
                 or len({values['delivery_key'], values['gateway_key'], values['platform_key']}) != 3):
             raise ValueError
@@ -148,6 +149,11 @@ def load_secrets(path):
         for key in keys:
             Fernet(key)
         policy = values.get('policy_key')
+        connector = None
+        if 'connector_key' in values:
+            from forge.connector_cipher import ConnectorCipher
+            connector = values['connector_key'].encode('ascii')
+            ConnectorCipher(connector, distinct_from=[*keys, *([policy] if policy else [])])
         if 'policy_key' in values:
             from forge.capability_signing import load_signer, unb64u
             load_signer(policy)
@@ -155,7 +161,7 @@ def load_secrets(path):
                 raise ValueError  # one secret per purpose
     except (ValueError, TypeError, KeyError, AttributeError):
         raise ConfigError('SECRETS_INVALID') from None
-    return MvpSecrets(dict(roles), *keys, policy)
+    return MvpSecrets(dict(roles), *keys, policy, connector)
 
 
 def role_settings(config, secrets, role):
@@ -177,7 +183,7 @@ def assemble(app, config, readiness):
     return app
 
 
-def compose(config, secrets, pools):
+def compose(config, secrets, pools, *, connector_fixtures=None):
     """Real independent restricted pools; the pinned-profile readiness must pass before anything is served."""
     from forge import composition
     from forge.invitation_delivery import LocalTestMailbox
@@ -189,7 +195,8 @@ def compose(config, secrets, pools):
     app = composition.build_app(
         owned, readiness=readiness, delivery_adapter=LocalTestMailbox(mailbox, sender='forge@local.test'),
         onboarding_origin=config.client_origin, delivery_key=secrets.delivery_key, gateway_key=secrets.gateway_key, platform_key=secrets.platform_key,
-        gateway_policy=config.gateway_policy, policy_key=secrets.policy_key)
+        gateway_policy=config.gateway_policy, policy_key=secrets.policy_key, connector_key=secrets.connector_key,
+        connector_fixtures=connector_fixtures, public_origin=config.admin_origin)
     return assemble(app, config, readiness)
 
 

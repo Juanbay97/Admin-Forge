@@ -49,9 +49,9 @@ Chain strategy: stacked-to-main
 - [x] 4.3 Metadata log via governance ingest fn (source=broker)
 
 ## B5 APIs
-- [ ] 5.1 `connector_api.py` hidden routes (start, callback, status, disconnect, credential PUT)
-- [ ] 5.2 Revoke on member removal (hook into lifecycle) + governance audit rows
-- [ ] 5.3 Hidden-OpenAPI + MVP pin unchanged test
+- [x] 5.1 `connector_api.py` hidden routes (start, callback, status, disconnect, credential PUT)
+- [x] 5.2 Revoke on member removal (hook into lifecycle) + governance audit rows
+- [x] 5.3 Hidden-OpenAPI + MVP pin unchanged test
 
 ## B6 Hardening
 - [ ] 6.1 Leak scan: responses/logs/errors contain no secret (E2E)

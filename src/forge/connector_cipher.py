@@ -20,7 +20,7 @@ _CAPABILITY = re.compile(r'connector:[a-z0-9][a-z0-9._-]{0,127}')
 _NAME = re.compile(r'[a-z][a-z0-9_]{0,63}')
 
 
-class ConnectorCipherError(Exception):
+class ConnectorCipherError(ValueError):
     def __init__(self):
         super().__init__('Connector secret unavailable.')
 
