@@ -20,9 +20,9 @@ Strict TDD is active: each slice writes the failing test first (RED observed), t
 fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 
 ## G1 Member own usage (migration 0042)
-- [ ] 1.1 RED/GREEN: `usage_member_me` database function + PG gate + readiness F pin
-- [ ] 1.2 RED/GREEN: service, route `GET /orgs/{id}/usage/me` (hidden), contract pin unchanged
-- [ ] 1.3 RED/GREEN: portal "My usage" live (fixtures, unit, UI), docs PC-5 closed
+- [x] 1.1 RED/GREEN: `usage_member_me` database function + PG gate + readiness F pin
+- [x] 1.2 RED/GREEN: service, route `GET /orgs/{id}/usage/me` (hidden), contract pin unchanged
+- [x] 1.3 RED/GREEN: portal "My usage" live (fixtures, unit, UI), docs PC-5 closed
 
 ## G2 Platform company members (migration 0043)
 - [ ] 2.1 RED/GREEN: `platform_company_members` function + route + pin

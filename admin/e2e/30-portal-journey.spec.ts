@@ -97,7 +97,7 @@ test("the person joins, downloads and finds their own usage page", async ({ page
   await shot(page, "portal", "20-member-home");
   await page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: "My usage" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "My usage" })).toBeVisible();
-  await expect(page.getByText("Usage reporting is not available yet")).toBeVisible(); // this server has no per-person usage route yet
+  await expect(page.getByText("No usage yet")).toBeVisible(); // the live own-usage route answers zeros before the first conversation
   await shot(page, "portal", "21-my-usage");
   // A plain member has no way into the company area.
   await page.goto("/admin/company/members");
@@ -126,4 +126,13 @@ test("the administrator's dashboard shows that person's real usage", async ({ pa
   await expect(page.getByRole("heading", { level: 1, name: "Gateway" })).toBeVisible();
   await expect(page.locator("input[type=password]")).toHaveCount(0);
   await shot(page, "portal", "31-gateway-read-only");
+});
+
+test("the person's own usage page now shows the metered conversation", async ({ page }) => {
+  await signIn(page, MEMBER.email, MEMBER.password, "/admin/portal/usage");
+  const mine = page.getByRole("region", { name: "My usage" });
+  await expect(mine.getByText("Requests")).toBeVisible();
+  await expect(mine.getByText("1", { exact: true })).toBeVisible();
+  await expect(page.getByText("No usage yet")).toHaveCount(0);
+  await shot(page, "portal", "40-my-usage-metered");
 });
