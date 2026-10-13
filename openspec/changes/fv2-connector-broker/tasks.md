@@ -39,9 +39,9 @@ Chain strategy: stacked-to-main
 - [x] 2.3 PG tests: cross-org, revision `CONFLICT`, advisory lock
 
 ## B3 OAuth
-- [ ] 3.1 `tests/fixtures/fake_oauth_provider.py` (loopback authorize/token/refresh)
-- [ ] 3.2 RED→GREEN `connector_oauth.py` state/PKCE/callback/exchange/refresh single-flight
-- [ ] 3.3 Replay, expired state, disabled-connector, concurrent-refresh tests
+- [x] 3.1 `tests/fixtures/fake_oauth_provider.py` (loopback authorize/token/refresh)
+- [x] 3.2 RED→GREEN `connector_oauth.py` state/PKCE/callback/exchange/refresh single-flight
+- [x] 3.3 Replay, expired state, disabled-connector, concurrent-refresh tests
 
 ## B4 MCP proxy
 - [ ] 4.1 `tests/fixtures/fake_mcp_server.py` (initialize, tools/list, tools/call, header echo)

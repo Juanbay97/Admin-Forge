@@ -159,8 +159,8 @@ class OAuthTests(BrokerWorld, unittest.TestCase):
             self.start(state)
             self.assertEqual(db.admin.execute('SELECT length(state_hash),taken_at IS NULL,completed_at IS NULL FROM forge.connector_oauth_states').fetchone(), (64, True, True),
                              'only the hash is stored')
-            taken = self.call('SELECT * FROM forge.broker_oauth_take(%s)', (digest_of(state),))[0]
-            self.assertEqual(taken, (self.org_a, self.membership['member_a'], CONNECTOR, SEALED, 0))
+            taken = self.call('SELECT organization_id,membership_id,capability_id,sealed_verifier,grant_revision,attributes,credential_scope FROM forge.broker_oauth_take(%s)', (digest_of(state),))[0]
+            self.assertEqual(taken, (self.org_a, self.membership['member_a'], CONNECTOR, SEALED, 0, ATTRIBUTES, None))
             self.assertEqual(self.refusal('SELECT * FROM forge.broker_oauth_take(%s)', (digest_of(state),)), 'BROKER_DENIED', 'a replay is refused')
             self.assertEqual(self.call('SELECT forge.broker_oauth_complete(%s,%s,%s,now()+%s::interval)', (digest_of(state), 0, 'G' * 120, '1 hour')), [(1,)])
             self.assertEqual(self.refusal('SELECT forge.broker_oauth_complete(%s,%s,%s,now())', (digest_of(state), 1, 'G' * 120)), 'BROKER_DENIED', 'completion is single-use too')

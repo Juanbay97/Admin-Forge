@@ -129,6 +129,6 @@ F40 = 'fa349660e7fb0e155b4ae0cd1585da0e922309593f3a75af494f1a115793c8e9'
 
 # Schema fingerprint after 0041 (F41): fresh apply of 0001-0005+0010-0041 and upgrade
 # from the 0040 profile were proven identical on the owned PG17 harness.
-F41 = 'dfbdab8d1114c5f83c6c9a88c5613d7f5c0f7534af0b17ad7a0e90bcf64074c1'
+F41 = '744a8107bd43b4689340125e5adbbbf4b2073f58d8e6290a5a268e156d9adc80'
 
 MVP_CHECKPOINTS = (*CHECKPOINTS, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36, F37, F38, F39, F40, F41)

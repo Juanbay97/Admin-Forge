@@ -291,7 +291,9 @@ END $$;
 
 -- OAuth callback, step 1 (no session): consume a valid state once and return what the exchange needs. Any other state is the same refusal.
 CREATE FUNCTION forge.broker_oauth_take(hashed text)
-RETURNS TABLE(organization_id uuid,membership_id uuid,capability_id text,sealed_verifier text,grant_revision bigint)
+RETURNS TABLE(organization_id uuid,membership_id uuid,capability_id text,sealed_verifier text,grant_revision bigint,attributes jsonb,
+ default_state text,min_sandbox_level integer,platform_state text,platform_lock text,company_state text,company_lock text,org_enabled boolean,
+ credential_scope text,credential_kind text,credential_sealed text,credential_revision bigint)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE s forge.connector_oauth_states%ROWTYPE; current_revision bigint;
 BEGIN
@@ -306,7 +308,19 @@ BEGIN
  UPDATE forge.connector_oauth_states t SET taken_at=clock_timestamp() WHERE t.state_hash=hashed;
  SELECT g.revision INTO current_revision FROM forge.connector_grants g
   WHERE g.organization_id=s.organization_id AND g.membership_id=s.membership_id AND g.capability_id=s.capability_id;
- RETURN QUERY SELECT s.organization_id,s.membership_id,s.capability_id,s.sealed_verifier,coalesce(current_revision,0);
+ -- The exchange has no session, so the state also carries what the exchange needs: the connector's attributes, the layers (a connector
+ -- turned off since the start is refused by the application) and the client credential, resolved exactly as for a call.
+ PERFORM set_config('forge.broker_platform','1',true);
+ RETURN QUERY SELECT s.organization_id,s.membership_id,s.capability_id,s.sealed_verifier,coalesce(current_revision,0),m.attributes,
+   l.default_state,l.min_sandbox_level,l.platform_state,l.platform_lock,l.company_state,l.company_lock,l.org_enabled,
+   CASE WHEN oc.capability_id IS NOT NULL THEN 'org' WHEN pc.capability_id IS NOT NULL THEN 'platform' END,
+   coalesce(oc.kind,pc.kind),coalesce(oc.sealed,pc.sealed),coalesce(oc.revision,pc.revision)
+  FROM forge.cap_layers(s.organization_id) l
+  JOIN forge.cap_connector_meta(l.id) m ON true
+  LEFT JOIN forge.connector_credentials oc ON oc.organization_id=s.organization_id AND oc.capability_id=l.id
+  LEFT JOIN forge.connector_credentials pc ON pc.organization_id IS NULL AND pc.capability_id=l.id
+  WHERE l.id=s.capability_id;
+ PERFORM set_config('forge.broker_platform','',true);
 END $$;
 
 -- Step 2 (no session): store the grant for a state that was taken and not completed; compare-and-swap on the grant revision.

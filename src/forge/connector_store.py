@@ -106,7 +106,9 @@ class PostgresConnectorStore:
         rows = self._rows('SELECT * FROM forge.broker_oauth_take(%s)', (hashed,))
         if len(rows) != 1:
             raise BrokerDenied()
-        return TakenState(*rows[0])
+        row = rows[0]
+        return TakenState(row[0], row[1], row[2], row[3], row[4], row[5], connector_state(row[2], row[6], row[7], row[8], row[9], row[10], row[11], row[12]),
+                          row[13], row[14], row[15], row[16])
 
     def oauth_complete(self, hashed, expected, sealed, expires):
         return self._rows('SELECT forge.broker_oauth_complete(%s,%s,%s,%s)', (hashed, expected, sealed, expires))[0][0]

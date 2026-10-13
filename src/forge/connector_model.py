@@ -34,6 +34,30 @@ class BrokerUnavailable(BrokerError):
     pass
 
 
+class BrokerDisabled(BrokerError):
+    """The connector is not ``on`` for this company (off, or force-disabled by the platform)."""
+
+
+class BrokerNotConfigured(BrokerError):
+    """The connector has no usable credential configuration (no OAuth app, no API key, or not a server-side connector)."""
+
+
+class BrokerReauth(BrokerError):
+    """The member's grant is missing, expired beyond refresh or revoked: the member must connect again."""
+
+
+class BrokerUpstream(BrokerError):
+    """The upstream failed, was refused by the egress guard or answered something the broker will not relay."""
+
+
+class BrokerTooLarge(BrokerError):
+    pass
+
+
+class BrokerRateLimited(BrokerError):
+    pass
+
+
 @dataclass(frozen=True)
 class ConnectorStatus:
     """One connector as a member sees it (no secret): public attributes, the policy verdict and the connection state."""
@@ -82,11 +106,18 @@ class CredentialStatus:
 
 @dataclass(frozen=True)
 class TakenState:
+    """A consumed OAuth state plus what the code exchange needs (there is no session at the callback)."""
     organization_id: UUID
     membership_id: UUID
     capability_id: str
     sealed_verifier: str
     grant_revision: int
+    attributes: dict
+    state: str
+    credential_scope: str | None
+    credential_kind: str | None
+    credential_sealed: str | None
+    credential_revision: int | None
 
 
 @dataclass(frozen=True)
