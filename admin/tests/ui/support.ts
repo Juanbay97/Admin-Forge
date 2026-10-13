@@ -4,6 +4,7 @@ import { test as base, type Page, type Route } from "@playwright/test";
 import { build, preview } from "vite";
 import { ADMIN_CSP } from "../csp";
 import { contrastOfHex, generatePalette, type PaletteInput } from "../../src/brand/palette";
+import { expectNoCspViolations, watchCsp, type CspWatch } from "./quality";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const PREVIEW_PORT = 3415;
@@ -437,11 +438,23 @@ export const ADMIN_BACKEND: Backend = {
   },
 };
 
-export const test = base.extend<{ adminUrl: string }, { origin: string }>({
+export const test = base.extend<{ adminUrl: string; enforceCsp: boolean; csp: CspWatch }, { origin: string }>({
+  // Every UI test fails on any `securitypolicyviolation` or CSP console error; the gate self-test opts out to prove it fires.
+  enforceCsp: [true, { option: true }],
+  csp: [
+    async ({ page, enforceCsp }, use) => {
+      const watch = await watchCsp(page);
+      await use(watch);
+      if (enforceCsp) expectNoCspViolations(watch);
+    },
+    { auto: true },
+  ],
   // The production bundle, built once per run into an ignored directory and served with
   // the same CSP the control plane sends.
   origin: [
     async ({}, use) => {
+      // The kit gallery (`?kit`) exists only in this test build; production builds drop it at compile time.
+      process.env.VITE_KIT = "1";
       await build({ root: ROOT, logLevel: "warn", build: { outDir: ".test-dist", emptyOutDir: true } });
       const server = await preview({
         root: ROOT,
@@ -462,3 +475,4 @@ export const test = base.extend<{ adminUrl: string }, { origin: string }>({
 });
 
 export { expect } from "@playwright/test";
+export { expectAccessible, expectNoCspViolations, expectNoHorizontalScroll, viewports } from "./quality";

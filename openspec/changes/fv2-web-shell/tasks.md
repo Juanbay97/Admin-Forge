@@ -31,12 +31,12 @@ Chain strategy: stacked-to-main
 | 7 | Port Gateway + Catalog + Branding; delete legacy Console; e2e + README | PR 7 (~780) | needs PR6 |
 
 ## Phase 1 — Foundation (PR 1)
-- [ ] 1.1 RED: `tests/ui/support.ts` `expectNoCspViolations` (listens `securitypolicyviolation` + console), `expectAccessible` (axe), `viewports`; failing self-test that injects a `<style>` and must be reported
-- [ ] 1.2 GREEN: add pinned deps (`@axe-core/playwright`, router, query, rhf, zod, resolvers, class-variance-authority, clsx, tailwind-merge, lucide-react, cmdk, selected `@radix-ui/react-*`); `npm audit`; README version table
-- [ ] 1.3 RED→GREEN: `brand/platformTheme.ts` (+ `unit/platform-theme.spec.ts`: values pass contrast, no company asset)
-- [ ] 1.4 `tokens.css`: `--ui-*` layer, dark overrides, type scale, focus ring; unit test mapping every `--ui-*` to a brand var
-- [ ] 1.5 Spike test `ui/primitives-csp.spec.ts`: mount each allow-listed Radix primitive in the test build; record pass/fail → update design allow-list
-- [ ] 1.6 `lib/cn.ts`, `lib/format.ts` (+ unit)
+- [x] 1.1 RED: `tests/ui/support.ts` `expectNoCspViolations` (listens `securitypolicyviolation` + console), `expectAccessible` (axe), `viewports`; failing self-test that injects a `<style>` and must be reported
+- [x] 1.2 GREEN: add pinned deps (`@axe-core/playwright`, router, query, rhf, zod, resolvers, class-variance-authority, clsx, tailwind-merge, lucide-react, cmdk, selected `@radix-ui/react-*`); `npm audit`; README version table
+- [x] 1.3 RED→GREEN: `brand/platformTheme.ts` (+ `unit/platform-theme.spec.ts`: values pass contrast, no company asset)
+- [x] 1.4 `tokens.css`: `--ui-*` layer, dark overrides, type scale, focus ring; unit test mapping every `--ui-*` to a brand var
+- [x] 1.5 Spike test `ui/primitives-csp.spec.ts`: mount each allow-listed Radix primitive in the test build; record pass/fail → update design allow-list
+- [x] 1.6 `lib/cn.ts`, `lib/format.ts` (+ unit)
 
 ## Phase 2 — Kit core (PR 2)
 - [ ] 2.1 RED: gallery spec (variants, disabled, loading, focus ring, 40px targets, axe) → GREEN: Button, Input, Textarea, Select, Checkbox, Switch, RadioGroup, Label

@@ -52,6 +52,141 @@
   --color-carbon: var(--brand-carbon);
   --font-title: var(--brand-font-title);
   --font-body: var(--brand-font-body);
+
+  /* Semantic colours the kit styles through (see the --ui-* layer below). */
+  --color-app: var(--ui-bg);
+  --color-surface: var(--ui-surface);
+  --color-raised: var(--ui-surface-raised);
+  --color-subtle: var(--ui-surface-muted);
+  --color-line: var(--ui-border);
+  --color-line-strong: var(--ui-border-strong);
+  --color-fg: var(--ui-fg);
+  --color-muted: var(--ui-fg-muted);
+  --color-action: var(--ui-primary);
+  --color-action-hover: var(--ui-primary-hover);
+  --color-on-action: var(--ui-primary-fg);
+  --color-action-soft: var(--ui-primary-soft);
+  --color-on-action-soft: var(--ui-primary-soft-fg);
+  --color-focus: var(--ui-ring);
+  --color-highlight: var(--ui-accent);
+  --color-nav: var(--ui-nav-bg);
+  --color-nav-hover: var(--ui-nav-hover);
+  --color-on-nav: var(--ui-nav-fg);
+  --color-on-nav-muted: var(--ui-nav-fg-muted);
+  --color-ok: var(--ui-success);
+  --color-ok-soft: var(--ui-success-soft);
+  --color-on-ok-soft: var(--ui-success-fg);
+  --color-warn: var(--ui-warning);
+  --color-warn-soft: var(--ui-warning-soft);
+  --color-on-warn-soft: var(--ui-warning-fg);
+  --color-danger: var(--ui-destructive);
+  --color-danger-hover: var(--ui-destructive-hover);
+  --color-on-danger: var(--ui-destructive-fg);
+  --color-danger-soft: var(--ui-destructive-soft);
+  --color-on-danger-soft: var(--ui-destructive-text);
+  --color-chart-1: var(--ui-chart-1);
+  --color-chart-2: var(--ui-chart-2);
+  --color-chart-3: var(--ui-chart-3);
+  --color-chart-4: var(--ui-chart-4);
+  --color-chart-5: var(--ui-chart-5);
+
+  /* Type scale (size / line height): page title 24/32, section 18/28, card title 16/24, body 14/20, caption 12/16. */
+  --text-page: 1.5rem;
+  --text-page--line-height: 2rem;
+  --text-section: 1.125rem;
+  --text-section--line-height: 1.75rem;
+  --text-card: 1rem;
+  --text-card--line-height: 1.5rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.05), 0 1px 3px rgb(0 0 0 / 0.04);
+  --shadow-overlay: 0 12px 32px rgb(0 0 0 / 0.18), 0 2px 6px rgb(0 0 0 / 0.08);
+}
+
+/* Semantic layer: components read only --ui-*; the values derive from the --brand-* variables the applier writes
+   inline (company theme or the fixed platform theme), so a company palette restyles every component with no edit.
+   Status colours and plain white are the only fixed values. */
+:root {
+  color-scheme: light;
+  --ui-bg: color-mix(in srgb, var(--brand-sand) 30%, white);
+  --ui-surface: white;
+  --ui-surface-raised: white;
+  --ui-surface-muted: color-mix(in srgb, var(--brand-sand) 16%, white);
+  --ui-border: color-mix(in srgb, var(--brand-sand) 85%, var(--brand-carbon));
+  --ui-border-strong: color-mix(in srgb, var(--brand-carbon) 55%, white);
+  --ui-fg: var(--brand-carbon);
+  --ui-fg-muted: color-mix(in srgb, var(--brand-carbon) 70%, white);
+  --ui-primary: var(--brand-teal);
+  --ui-primary-hover: color-mix(in srgb, var(--brand-teal) 86%, black);
+  --ui-primary-fg: white;
+  --ui-primary-soft: color-mix(in srgb, var(--brand-teal) 11%, white);
+  --ui-primary-soft-fg: color-mix(in srgb, var(--brand-teal) 82%, black);
+  --ui-accent: var(--brand-accent);
+  --ui-ring: var(--brand-teal);
+  --ui-nav-bg: var(--brand-primary);
+  --ui-nav-hover: color-mix(in srgb, var(--brand-primary) 88%, white);
+  --ui-nav-fg: color-mix(in srgb, var(--brand-sand) 82%, white);
+  --ui-nav-fg-muted: color-mix(in srgb, var(--brand-sand) 62%, var(--brand-primary));
+  --ui-success: rgb(15 123 79);
+  --ui-success-soft: rgb(228 244 236);
+  --ui-success-fg: rgb(10 92 59);
+  --ui-warning: rgb(180 83 9);
+  --ui-warning-soft: rgb(254 243 199);
+  --ui-warning-fg: rgb(138 61 8);
+  --ui-destructive: rgb(180 35 24);
+  --ui-destructive-hover: rgb(154 28 18);
+  --ui-destructive-fg: white;
+  --ui-destructive-soft: rgb(254 228 226);
+  --ui-destructive-text: rgb(145 32 24);
+  --ui-chart-1: var(--brand-teal);
+  --ui-chart-2: var(--brand-accent);
+  --ui-chart-3: color-mix(in srgb, var(--brand-carbon) 62%, white);
+  --ui-chart-4: color-mix(in srgb, var(--brand-teal) 45%, var(--brand-accent));
+  --ui-chart-5: color-mix(in srgb, var(--brand-sand) 55%, var(--brand-carbon));
+}
+
+/* Platform area only (data-mode is set on <html> while it is open). Overrides --ui-* and nothing else: the
+   --brand-* variables are written inline by the applier and would win over any stylesheet rule. */
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --ui-bg: var(--brand-primary);
+  --ui-surface: color-mix(in srgb, var(--brand-primary) 90%, white);
+  --ui-surface-raised: color-mix(in srgb, var(--brand-primary) 82%, white);
+  --ui-surface-muted: color-mix(in srgb, var(--brand-primary) 94%, white);
+  --ui-border: color-mix(in srgb, var(--brand-primary) 76%, white);
+  --ui-border-strong: color-mix(in srgb, var(--brand-primary) 48%, white);
+  --ui-fg: color-mix(in srgb, var(--brand-sand) 55%, white);
+  --ui-fg-muted: color-mix(in srgb, var(--brand-sand) 70%, var(--brand-primary));
+  --ui-primary: color-mix(in srgb, var(--brand-teal) 55%, white);
+  --ui-primary-hover: color-mix(in srgb, var(--brand-teal) 42%, white);
+  --ui-primary-fg: var(--brand-primary);
+  --ui-primary-soft: color-mix(in srgb, var(--brand-teal) 30%, var(--brand-primary));
+  --ui-primary-soft-fg: color-mix(in srgb, var(--brand-teal) 40%, white);
+  --ui-accent: var(--brand-accent);
+  --ui-ring: var(--brand-accent);
+  --ui-nav-bg: color-mix(in srgb, var(--brand-primary) 88%, black);
+  --ui-nav-hover: color-mix(in srgb, var(--brand-primary) 84%, white);
+  --ui-success: rgb(91 211 154);
+  --ui-success-soft: rgb(15 58 46);
+  --ui-success-fg: rgb(138 230 185);
+  --ui-warning: rgb(242 179 90);
+  --ui-warning-soft: rgb(61 47 18);
+  --ui-warning-fg: rgb(246 200 131);
+  --ui-destructive: rgb(255 143 133);
+  --ui-destructive-hover: rgb(255 167 159);
+  --ui-destructive-fg: rgb(42 14 11);
+  --ui-destructive-soft: rgb(67 25 26);
+  --ui-destructive-text: rgb(255 180 173);
+  --ui-chart-1: color-mix(in srgb, var(--brand-teal) 55%, white);
+  --ui-chart-2: var(--brand-accent);
+  --ui-chart-3: color-mix(in srgb, var(--brand-sand) 75%, var(--brand-primary));
+  --ui-chart-4: color-mix(in srgb, var(--brand-accent) 55%, white);
+  --ui-chart-5: color-mix(in srgb, var(--brand-teal) 30%, white);
 }
 
 @layer base {

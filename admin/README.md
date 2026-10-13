@@ -39,3 +39,44 @@ previewed from a locally decoded canvas because the CSP forbids `blob:` and `dat
 Fonts: the six vetted typefaces (Inter, Montserrat, Source Sans 3, IBM Plex Sans, Nunito Sans, Roboto;
 latin subset) are self-hosted in `public/fonts` under the SIL Open Font License; the licences and the
 source of each file (`SOURCES.md`) ship next to them and a face only downloads when a theme uses it.
+
+## UI foundation (fv2-web-shell)
+
+Exact pins, resolved from the official registry at apply time (`npm audit`: 0 vulnerabilities):
+
+| Package | Version | Use |
+|---------|---------|-----|
+| `react-router` | 7.18.4 | router (library mode); v8 needs React >= 19.2.7 |
+| `@tanstack/react-query` | 5.104.2 | server state |
+| `react-hook-form`, `@hookform/resolvers`, `zod` | 7.90.0, 5.9.1, 4.6.7 | forms and response parsing |
+| `@radix-ui/react-{tabs,tooltip,popover,dropdown-menu,switch,checkbox,radio-group,label,slot}` | see `package.json` | non-modal primitives |
+| `cmdk`, `lucide-react` | 1.1.1, 1.55.0 | command palette list, SVG icons |
+| `class-variance-authority`, `clsx`, `tailwind-merge` | 0.7.1, 2.1.1, 3.7.0 | variants and class merging |
+| `@axe-core/playwright` (dev) | 4.13.0 | accessibility gate |
+
+### CSP rules for the kit
+
+The CSP is `style-src 'self'` and stays that way. Anything that injects a `<style>` element, sets the `style`
+attribute through `setAttribute`/`innerHTML`, uses `eval`/`new Function`, or loads a remote resource is out.
+Styling is by class names and CSSOM (`element.style.x`, the React `style` prop) only.
+
+Allow-listed primitives, each proven by `tests/ui/primitives-csp.spec.ts` (slice-1 spike, all passed):
+Radix Tabs, Tooltip, Popover, DropdownMenu (`modal={false}`), Switch, Checkbox, RadioGroup, Label, Slot; `cmdk`;
+`lucide-react`. Dialog, AlertDialog, Sheet and the command palette use the native `<dialog>`; Radix Dialog/Select/
+ScrollArea (`react-remove-scroll` / `react-style-singleton` inject `<style>`) and Sonner are not used.
+
+zod compiles validators with `new Function` unless told not to, and under `script-src 'self'` the probe itself is
+reported as a `securitypolicyviolation`. `src/ui/form.ts` calls `config({ jitless: true })`; use `useZodForm` (or import
+that module) before running any schema.
+
+### Quality gates
+
+Every UI spec runs with an automatic CSP watch (`tests/ui/support.ts`): any `securitypolicyviolation` or CSP console
+error fails the test. `tests/ui/quality.ts` adds `expectAccessible` (axe, WCAG 2.0/2.1 A/AA, serious and critical
+fail), `expectNoHorizontalScroll` and the `viewports` (375, 768, 1280). The kit gallery (`/admin/?kit=<name>`)
+exists only in the UI-test build (`VITE_KIT=1`); production builds drop it at compile time.
+
+Tokens: components style only through the semantic `--ui-*` layer in `src/brand/tokens.css`, derived from the
+`--brand-*` variables; dark mode (`data-mode="dark"`, platform area only) overrides `--ui-*` and nothing else.
+
+`tokens.css` writes the fixed status colours and white as `rgb()`/named colours: `unit/theme.spec.ts` keeps the stylesheet free of `#RRGGBB` literals so brand colours stay single-sourced in `brand/theme.ts`.
