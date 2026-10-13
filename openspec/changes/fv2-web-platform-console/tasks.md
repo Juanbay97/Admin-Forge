@@ -75,9 +75,9 @@ Chain strategy: stacked-to-main
 - [x] 7.3 UI + e2e with metered usage seeded by the stack's fake gateway
 
 ## Phase 8 — Key pool & prices (PR 8)
-- [ ] 8.1 Key pool table + add (write-only `KeyField`, cleared after submit) + rename + retire (`KEY_IN_USE` handling)
-- [ ] 8.2 Prices: decimal string → micros math (unit, no float), edit dialog, history drawer, effective-date rule
-- [ ] 8.3 UI + e2e (add key, price edit round-trip)
+- [x] 8.1 Key pool table + add (write-only `KeyField`, cleared after submit) + rename + retire (`KEY_IN_USE` handling)
+- [x] 8.2 Prices: decimal string → micros math (unit, no float), edit dialog, history drawer, effective-date rule
+- [x] 8.3 UI + e2e (add key, price edit round-trip)
 
 ## Phase 9 — Audit, palette, sweep, closeout (PR 9)
 - [ ] 9.1 Audit table + filters + load more (URL-synced)

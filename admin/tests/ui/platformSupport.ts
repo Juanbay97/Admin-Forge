@@ -18,6 +18,8 @@ export interface World {
   companies: Company[];
   audit: Json[];
   keys: Json[];
+  /** Every key text the double has been sent: a test asserts it never comes back. */
+  secrets: string[];
   assignments: Record<string, Json[]>;
   models: Record<string, string[]>;
   prices: Json[];
@@ -37,6 +39,7 @@ export const newWorld = (): World => ({
   companies: fixture<{ companies: Company[] }>("companies").companies.map((company) => ({ ...company })),
   audit: fixture<{ entries: Json[] }>("audit").entries,
   keys: fixture<{ keys: Json[] }>("gateway-keys").keys,
+  secrets: [],
   assignments: { [ACME]: fixture<{ keys: Json[] }>("company-keys").keys },
   models: { [ACME]: ["gpt-4o", "gpt-4o-mini"] },
   prices: fixture<{ prices: Json[] }>("prices").prices,
@@ -108,12 +111,41 @@ export async function installPlatform(page: Page, world: World = newWorld()) {
 }
 
 type Reply = (route: Route, status: number, body?: unknown) => Promise<boolean>;
-async function handlers(key: string, _url: URL, body: Json | undefined, world: World, reply: Reply, route: Route): Promise<boolean> {
+async function handlers(key: string, url: URL, body: Json | undefined, world: World, reply: Reply, route: Route): Promise<boolean> {
   let match: RegExpMatchArray | null;
   if (key === "GET /companies") return reply(route, 200, { companies: world.companies, next_after: null });
   if (key === "GET /audit") return reply(route, 200, { entries: world.audit, next_before: null });
   if (key === "GET /gateway-keys") return reply(route, 200, { keys: world.keys, allowed_origins: ["https://gateway.example.test"] });
-  if (key === "GET /prices") return reply(route, 200, { prices: world.prices });
+  if (key === "GET /prices") {
+    const only = url.searchParams.get("upstream_id");
+    return reply(route, 200, { prices: world.prices.filter((price) => !only || price.upstream_id === only) });
+  }
+  if (key === "POST /prices") {
+    const input = body as { upstream_id: string; input_micros: number; output_micros: number; effective_from?: string };
+    const version = Math.max(0, ...world.prices.filter((price) => price.upstream_id === input.upstream_id).map((price) => price.version as number)) + 1;
+    const created = { id: world.prices.length + 100, upstream_id: input.upstream_id, version, input_micros: input.input_micros, output_micros: input.output_micros, currency: "USD", effective_from: input.effective_from ?? "2026-10-13T00:00:00+00:00", set_by: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" };
+    world.prices.push(created);
+    return reply(route, 201, created);
+  }
+  if (key === "POST /gateway-keys") {
+    const input = body as { label: string; origin: string; key?: string };
+    if (world.keys.some((item) => item.label === input.label)) return reply(route, 409, envelope("KEY_CONFLICT"));
+    if (input.key) world.secrets.push(input.key);
+    const created = { id: `77777777-7777-4777-8777-${String(world.keys.length + 1).padStart(12, "0")}`, label: input.label, origin: input.origin, revision: 1, status: "active", has_key: Boolean(input.key), hint: input.key ? input.key.slice(-4) : null, companies: 0 };
+    world.keys.push(created);
+    return reply(route, 201, created);
+  }
+  if ((match = key.match(/^POST \/gateway-keys\/([^/]+)\/(rotate|enable|disable)$/))) {
+    const found = world.keys.find((item) => item.id === match![1]);
+    if (!found) return reply(route, 404, envelope("NOT_FOUND"));
+    if (match[2] === "rotate") {
+      const input = body as { expected_revision: number; key: string };
+      if (input.expected_revision !== found.revision) return reply(route, 409, envelope("REVISION_CONFLICT"));
+      world.secrets.push(input.key);
+      Object.assign(found, { revision: (found.revision as number) + 1, has_key: true, hint: input.key.slice(-4) });
+    } else found.status = match[2] === "enable" ? "active" : "disabled";
+    return reply(route, 200, found);
+  }
   if (key === "GET /usage/totals") return reply(route, 200, world.usage.totals);
   if (key === "GET /usage/companies") return reply(route, 200, world.usage.companies);
   if (key === "GET /usage/models") return reply(route, 200, world.usage.models);
