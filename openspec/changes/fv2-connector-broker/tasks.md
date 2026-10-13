@@ -54,5 +54,5 @@ Chain strategy: stacked-to-main
 - [x] 5.3 Hidden-OpenAPI + MVP pin unchanged test
 
 ## B6 Hardening
-- [ ] 6.1 Leak scan: responses/logs/errors contain no secret (E2E)
-- [ ] 6.2 Readiness probe + `docs/connector-broker.md` (key backup, public origin)
+- [x] 6.1 Leak scan: responses/logs/errors contain no secret (E2E)
+- [x] 6.2 Readiness probe + `docs/connector-broker.md` (key backup, public origin)

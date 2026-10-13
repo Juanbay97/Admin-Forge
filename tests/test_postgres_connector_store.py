@@ -124,6 +124,17 @@ class StoreTests(StoreWorld, unittest.TestCase):
             with self.assertRaises(BrokerUnavailable):
                 PostgresConnectorStore(db.pool('forge_capability_service')).status(self.digest['member_a'], self.org_a)
 
+    def test_the_readiness_probe_attests_the_broker_role_and_composition_fails_closed_without_it(self):
+        with mvp_database() as db:
+            self.build(db)
+            self.assertIs(self.store.ready(), True)
+            self.assertIs(PostgresConnectorStore(db.pool('forge_capability_service')).ready(), False)
+            db.admin.execute('ALTER ROLE forge_broker_service LOGIN SUPERUSER')
+            try:
+                self.assertIs(PostgresConnectorStore(db.pool('forge_broker_service')).ready(), False, 'a privileged login role is not the reviewed role')
+            finally:
+                db.admin.execute('ALTER ROLE forge_broker_service NOSUPERUSER')
+
     def test_the_call_log_is_metadata_only(self):
         with mvp_database() as db:
             self.build(db)

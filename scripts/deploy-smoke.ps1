@@ -113,6 +113,9 @@ try {
     $null = New-Item -ItemType Directory -Force -Path $fakeGateway
     & $python -c "import sys; sys.path.insert(0, r'$root/src'); from forge.fake_gateway import main; raise SystemExit(main(['--make-cert', r'$fakeGateway', '--name', 'fake-gateway']))" | Out-Null
     Assert-True ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath (Join-Path $fakeGateway 'gateway.crt'))) 'the fake gateway certificate was not generated'
+    $fakeConnectors = Join-Path $work 'fake-connectors'
+    $null = New-Item -ItemType Directory -Force -Path $fakeConnectors
+    Set-Content -LiteralPath (Join-Path $fakeConnectors 'fixtures.json') -Encoding ascii -Value '{"oauth.fixture.test":{"connect_host":"fake-connectors","port":3414},"mcp.fixture.test":{"connect_host":"fake-connectors","port":3415}}'
     $goodKey, $badKey = 'smoke-key-good-0001', 'smoke-key-bad-0000'
     Set-Content -LiteralPath (Join-Path $fakeGateway 'keys.txt') -Value $goodKey -Encoding ascii
     @(
@@ -123,7 +126,8 @@ try {
         ('FORGE_DOWNLOADS_DIR=' + (& $forward (Join-Path $work 'downloads'))),
         ('FORGE_CREDENTIALS_DIR=' + (& $forward (Join-Path $work 'credentials'))),
         ('FORGE_BACKUPS_DIR=' + (& $forward (Join-Path $work 'backups'))),
-        ('FORGE_FAKE_GATEWAY_DIR=' + (& $forward $fakeGateway)), 'FORGE_GATEWAY_ORIGINS=https://fake-gateway:3413'
+        ('FORGE_FAKE_GATEWAY_DIR=' + (& $forward $fakeGateway)), 'FORGE_GATEWAY_ORIGINS=https://fake-gateway:3413',
+        ('FORGE_FAKE_CONNECTORS_DIR=' + (& $forward $fakeConnectors))
     ) | Set-Content -LiteralPath $envFile -Encoding ascii
     $secretValues = Get-ChildItem -LiteralPath (Join-Path $work 'secrets') -File | ForEach-Object { (Get-Content -LiteralPath $_.FullName -Raw) } | ForEach-Object { "$_".Trim() } | Where-Object { $_ }
 
@@ -137,7 +141,7 @@ try {
     $containers = @((Invoke-Compose @('ps', '-a', '--format', 'json')).Output -split "`n" | Where-Object { $_.Trim().StartsWith('{') } | ForEach-Object { $_ | ConvertFrom-Json })
     $state = @{}
     foreach ($container in $containers) { $state[$container.Service] = $container }
-    foreach ($service in 'postgres', 'control-plane', 'caddy', 'fake-gateway') {
+    foreach ($service in 'postgres', 'control-plane', 'caddy', 'fake-gateway', 'fake-connectors') {
         Assert-True ($state[$service].State -eq 'running' -and $state[$service].Health -eq 'healthy') "$service is not running healthy"
     }
     Assert-True ($state['migrate'].State -eq 'exited' -and $state['migrate'].ExitCode -eq 0) 'migrate did not exit 0'
@@ -479,6 +483,71 @@ try {
     Assert-True ((Invoke-Send 'POST' '/forge/v1/capabilities/audit' $content $memberToken).Status -eq 422) 'an invocation event with content was accepted'
     Assert-True ((Get-Rows 'SELECT count(*) FROM forge.tool_invocation_log') -eq '1') 'the invocation log does not hold exactly the one metadata row'
     Write-Pass 'governance: invocation metadata is stored once per event and content fields are refused'
+
+    # Connector broker: a fixture OAuth provider and MCP server run beside the stack (compose.dev.yml, plain http, never published, reachable
+    # by the control plane only through explicit egress fixtures). The owner registers the connector, the company administrator writes the
+    # OAuth app write-only, the member connects through the public callback and calls tools through the proxy; the credential never reaches
+    # the member, a force-off lock denies at once, and disconnecting stops brokering.
+    $connectorEntry = @{ expected_revision = 0; entry = @{ version = '1.0.0'; risk = 'medium'; is_base = $true; default_state = 'on'; min_sandbox_level = 0; credential_locus = 'server'
+        attributes = @{ name = 'Fixture'; category = 'dev-tools'; transport = 'mcp_http'; auth = 'oauth'; mcp_url = 'http://mcp.fixture.test/mcp'
+            egress_hosts = @('oauth.fixture.test', 'mcp.fixture.test')
+            oauth = @{ authorize_url = 'http://oauth.fixture.test/authorize'; token_url = 'http://oauth.fixture.test/token'; scopes = @('read', 'write'); revocation_url = 'http://oauth.fixture.test/revoke' } } } }
+    Assert-True ((Invoke-Send 'PUT' '/forge/v1/platform/capabilities/connector:fixture' $connectorEntry $ownerToken).Status -eq 200) 'the owner could not register the fixture connector'
+    $clientSecret = 'fixture-client-secret-0001'
+    $secretValues = @($secretValues) + @($clientSecret)
+    $credential = Invoke-Send 'PUT' '/forge/v1/connectors/connector:fixture/credential' @{ expected_revision = 0; kind = 'oauth_client'; client_id = 'fixture-client'; client_secret = $clientSecret } $smokeAdmin
+    Assert-True ($credential.Status -eq 200 -and -not $credential.Body.Contains($clientSecret) -and ($credential.Body | ConvertFrom-Json).hint -eq '0001') "the OAuth app was not stored write-only ($($credential.Status) $($credential.Body))"
+    Assert-True ((Invoke-Send 'PUT' '/forge/v1/connectors/connector:fixture/credential' @{ expected_revision = 0; kind = 'oauth_client'; client_id = 'x' } $memberToken).Status -eq 404) 'a plain member wrote a connector credential'
+    $connectorStart = Invoke-Send 'POST' '/forge/v1/connectors/connector:fixture/oauth/start' $null $memberToken
+    Assert-True ($connectorStart.Status -eq 200) "the member could not start the OAuth flow ($($connectorStart.Status) $($connectorStart.Body))"
+    $authorizeUrl = ($connectorStart.Body | ConvertFrom-Json).authorize_url
+    Assert-True ($authorizeUrl -like 'http://oauth.fixture.test/authorize?*' -and -not $authorizeUrl.Contains($clientSecret)) 'the authorize URL is not the connector endpoint or carries the client secret'
+    $consentScript = "import sys,httpx;r=httpx.get('http://fake-connectors:3414/authorize?'+sys.argv[1],follow_redirects=False);print(r.status_code,r.headers.get('location',''))"
+    $consent = (Invoke-Compose @('exec', '-T', 'control-plane', 'python', '-c', $consentScript, ([uri]$authorizeUrl).Query.TrimStart('?'))).Output.Trim()
+    Assert-True ($consent -match '^302 (\S+)$') "the fixture provider did not redirect back ($consent)"
+    $callback = [uri]$Matches[1]
+    Assert-True ($callback.GetLeftPart([UriPartial]::Path) -eq "$origin/forge/v1/connectors/oauth/callback") "the redirect URI is not the configured public origin ($callback)"
+    $connected = Invoke-Curl $callback.PathAndQuery
+    Assert-True ($connected.Status -eq 200 -and $connected.Body -match 'Connected') "the public callback did not connect the member ($($connected.Status))"
+    Assert-True ((Invoke-Curl $callback.PathAndQuery).Status -eq 400) 'a replayed OAuth callback was accepted'
+    $listed = ((Invoke-Authenticated '/forge/v1/connectors' $memberToken).Body | ConvertFrom-Json).connectors | Where-Object { $_.id -eq 'connector:fixture' }
+    Assert-True ($listed.status -eq 'connected' -and $listed.configured) 'the member status does not show the connector connected'
+    Assert-True ((Get-Rows "SELECT count(*) FROM forge.connector_grants WHERE sealed LIKE '%at-%'") -eq '0') 'a grant holds plaintext token material'
+    Write-Pass 'broker: the connector is connected through the public callback (state single-use, redirect URI from configuration, credential written write-only)'
+
+    $mcp = '/forge/v1/mcp/connector:fixture'
+    $initialize = Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 1; method = 'initialize'; params = @{ protocolVersion = '2025-03-26' } } $memberToken
+    Assert-True ($initialize.Status -eq 200 -and $initialize.Headers['mcp-session-id'] -eq 'fixture-session') "the broker did not relay initialize ($($initialize.Status) $($initialize.Body))"
+    $echo = Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 2; method = 'tools/call'; params = @{ name = 'echo'; arguments = @{ text = 'PRIVATE-SMOKE-TEXT' } } } $memberToken
+    Assert-True ($echo.Status -eq 200 -and $echo.Body -match 'PRIVATE-SMOKE-TEXT') "the broker did not relay a tool call ($($echo.Status) $($echo.Body))"
+    $echoHeaders = Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 3; method = 'tools/call'; params = @{ name = 'headers'; arguments = @{} } } $memberToken
+    Assert-True ($echoHeaders.Status -eq 200 -and $echoHeaders.Body.Contains('[redacted]') -and $echoHeaders.Body -notmatch 'at-[A-Za-z0-9_-]{20,}') 'a connector that echoes request headers handed the upstream credential back'
+    Assert-True ($echoHeaders.Body -notmatch 'Bearer ') 'the echoed Authorization header was not scrubbed'
+    foreach ($reply in $initialize, $echo, $echoHeaders, $connectorStart, $connected, $credential) { Assert-True (-not $reply.Body.Contains($clientSecret)) 'the OAuth client secret appeared in a response' }
+    $blocked = Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 4; method = 'sampling/createMessage'; params = @{} } $memberToken
+    Assert-True ($blocked.Status -eq 403 -and $blocked.Body -match 'METHOD_NOT_ALLOWED') 'a server-to-client method was relayed'
+    Write-Pass 'broker: the credential never reaches the member (header echo scrubbed, no secret in any response) and server-to-client methods are blocked'
+
+    $lockFixture = Invoke-Send 'PUT' '/forge/v1/platform/capabilities/connector:fixture/policy' @{ state = $null; lock = 'forced_off' } $ownerToken
+    Assert-True ($lockFixture.Status -eq 200) 'the owner could not force-off the connector'
+    $denied = Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 5; method = 'ping' } $memberToken
+    Assert-True ($denied.Status -eq 403 -and $denied.Body -match 'CONNECTOR_DISABLED') "a force-off lock did not deny the broker at once ($($denied.Status) $($denied.Body))"
+    Assert-True ((Invoke-Send 'PUT' '/forge/v1/platform/capabilities/connector:fixture/policy' @{ state = $null; lock = 'none' } $ownerToken).Status -eq 200) 'the owner could not lift the lock'
+    Assert-True ((Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 6; method = 'ping' } $memberToken).Status -eq 200) 'lifting the lock did not restore the connector'
+    Write-Pass 'broker: a force-off lock denies the next call at once and lifting it restores brokering'
+
+    $metadata = Get-Rows "SELECT count(*) FROM forge.tool_invocation_log WHERE source = 'broker'"
+    Assert-True ([int]$metadata -ge 4) "the broker logged $metadata metadata rows"
+    Assert-True ((Get-Rows "SELECT count(*) FROM forge.tool_invocation_log WHERE source = 'broker' AND tool_name = 'echo'") -eq '1') 'the tool call was not logged by name'
+    Assert-True ((Get-Rows "SELECT count(*) FROM forge.tool_invocation_log WHERE source = 'broker' AND method = 'sampling/createmessage'") -eq '0') 'a blocked method was logged as a call'
+    $disconnect = Invoke-Send 'DELETE' '/forge/v1/connectors/connector:fixture/grant' $null $memberToken
+    Assert-True ($disconnect.Status -eq 200 -and ($disconnect.Body | ConvertFrom-Json).disconnected) 'the member could not disconnect'
+    $afterDisconnect = Invoke-Send 'POST' $mcp @{ jsonrpc = '2.0'; id = 7; method = 'ping' } $memberToken
+    Assert-True ($afterDisconnect.Status -eq 409 -and $afterDisconnect.Body -match 'REAUTH_REQUIRED') 'a disconnected member could still use the connector'
+    Assert-True ((Get-Rows 'SELECT count(*) FROM forge.connector_grants') -eq '0') 'disconnecting left the grant behind'
+    $brokerAudit = ((Invoke-Authenticated "/forge/v1/orgs/$smokeOrg/capability-audit?page=20" $smokeAdmin).Body | ConvertFrom-Json).entries | ForEach-Object { $_.action }
+    Assert-True ((@($brokerAudit) -contains 'connector.credential_set') -and (@($brokerAudit) -contains 'connector.connected') -and (@($brokerAudit) -contains 'connector.disconnected')) 'the credential, connection and disconnection are not audited'
+    Write-Pass 'broker: disconnect destroys the grant and stops brokering; metadata (no content) and the change audit are recorded'
 
     # Backups: a verified dump, retention, restore refusing a used database, and a round trip into a fresh volume.
     $backups = Join-Path $work 'backups'

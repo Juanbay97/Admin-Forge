@@ -12,6 +12,7 @@ fixture host still has to be in the connector's allow-list. Production compositi
 """
 from dataclasses import dataclass
 import ipaddress
+import logging
 import re
 import socket
 import time
@@ -23,6 +24,9 @@ _HOST = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9
 _BAD_URL_CHARS = re.compile(r'[\s\\\x00-\x1f\x7f]')
 _BLOCKED_V6 = tuple(ipaddress.ip_network(net) for net in ('2002::/16', '64:ff9b::/96', '64:ff9b:1::/48', '2001::/32'))
 USER_AGENT = 'forge-connector-broker/1'
+# The HTTP libraries log every request URL (pinned addresses, query strings) at INFO/DEBUG: the broker never wants those in a log.
+for _library in ('httpx', 'httpcore'):
+    logging.getLogger(_library).setLevel(logging.WARNING)
 
 
 class EgressDenied(Exception):

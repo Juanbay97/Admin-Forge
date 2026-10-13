@@ -66,13 +66,46 @@ services:
         max-size: 10m
         max-file: "5"
 
+  # A fake OAuth 2.0 provider (3414) and MCP server (3415) over plain http for the connector broker proof. Never published, never part of
+  # the production stack: the control plane reaches them only through the explicit egress fixtures file below (the production egress
+  # guard refuses http, loopback and private addresses). scripts/deploy-smoke.ps1 writes fixtures.json into FORGE_FAKE_CONNECTORS_DIR.
+  fake-connectors:
+    image: ${FORGE_IMAGE:-forge-control-plane:local}
+    entrypoint: ["python", "-m", "forge.fake_connectors"]
+    command: ["serve", "--bind", "0.0.0.0", "--oauth-port", "3414", "--mcp-port", "3415"]
+    restart: unless-stopped
+    networks:
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 3414), 3).close()"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
   control-plane:
     environment:
       FORGE_GATEWAY_CA_FILE: /run/fake-gateway/gateway.crt
+      FORGE_CONNECTOR_TEST_FIXTURES_FILE: /run/fake-connectors/fixtures.json
     volumes:
       - ${FORGE_FAKE_GATEWAY_DIR:?set FORGE_FAKE_GATEWAY_DIR in deploy/.env.dev}/gateway.crt:/run/fake-gateway/gateway.crt:ro
+      - ${FORGE_FAKE_CONNECTORS_DIR:?set FORGE_FAKE_CONNECTORS_DIR in deploy/.env.dev}/fixtures.json:/run/fake-connectors/fixtures.json:ro
     depends_on:
       fake-gateway:
+        condition: service_healthy
+      fake-connectors:
         condition: service_healthy
 
   caddy:

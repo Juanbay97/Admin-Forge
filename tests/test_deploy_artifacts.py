@@ -724,6 +724,29 @@ class SmokeGovernancePhase(unittest.TestCase):
         self.assertEqual(order, sorted(order))
 
 
+class SmokeBrokerPhase(unittest.TestCase):
+    def test_the_smoke_connects_a_fixture_connector_and_proves_the_broker_end_to_end(self):
+        script = text('scripts/deploy-smoke.ps1')
+        for needle in ('fake-connectors', 'FORGE_FAKE_CONNECTORS_DIR', '/forge/v1/connectors/connector:fixture/credential', '/forge/v1/connectors/connector:fixture/oauth/start',
+                       '/forge/v1/connectors/oauth/callback', '/forge/v1/mcp/connector:fixture', 'CONNECTOR_DISABLED', 'REAUTH_REQUIRED', 'METHOD_NOT_ALLOWED',
+                       '[redacted]', "source = 'broker'", 'broker: the connector is connected', 'broker: the credential never reaches the member', 'broker: a force-off lock',
+                       'broker: disconnect'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, script)
+        order = [script.index(piece) for piece in ('governance: invocation metadata is stored once', 'broker: the connector is connected', 'backup dump is valid')]
+        self.assertEqual(order, sorted(order))
+
+    def test_the_dev_overlay_runs_the_fixture_server_unpublished_and_wires_it_into_the_control_plane_only_for_the_smoke(self):
+        overlay = text('deploy/compose.dev.yml')
+        service = services(overlay)['fake-connectors']
+        self.assertNotIn('ports:', service)
+        for needle in ('forge.fake_connectors', '--oauth-port', '3414', '--mcp-port', '3415', 'cap_drop', 'read_only: true', 'no-new-privileges'):
+            self.assertIn(needle, service)
+        control_plane = services(overlay)['control-plane']
+        self.assertIn('FORGE_CONNECTOR_TEST_FIXTURES_FILE', control_plane)
+        self.assertNotIn('FORGE_CONNECTOR_TEST_FIXTURES_FILE', text('deploy/compose.yml'), 'the production stack never carries the fixture switch')
+
+
 class SmokeBackupPhase(unittest.TestCase):
     def test_the_smoke_proves_dump_retention_refusal_and_round_trip_and_checks_dumps_for_secrets(self):
         script = text('scripts/deploy-smoke.ps1')

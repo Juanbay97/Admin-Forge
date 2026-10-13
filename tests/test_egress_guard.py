@@ -145,6 +145,11 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(str(caught.exception), 'connect')
         self.assertNotIn('secret', str(caught.exception))
 
+    def test_the_http_libraries_cannot_log_request_urls(self):
+        import logging
+        for name in ('httpx', 'httpcore'):
+            self.assertGreaterEqual(logging.getLogger(name).level, logging.WARNING)
+
     def test_trust_env_and_redirects_are_off_by_construction(self):
         client = GuardedClient(EgressGuard(resolver(['93.184.216.34'])))
         self.assertEqual((client.follow_redirects, client.trust_env), (False, False))

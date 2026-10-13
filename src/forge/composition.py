@@ -138,6 +138,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         if public_origin is None:
             raise ConfigError('CONFIG_INVALID:public_origin')
         connector_store = PostgresConnectorStore(broker)
+        if not connector_store.ready():
+            raise ConfigError('CONNECTOR_BROKER_UNAVAILABLE')  # fail closed: never serve a broker whose role cannot be attested
         connector_cipher = ConnectorCipher(connector_key, distinct_from=[delivery_key, gateway_key, platform_key, *([policy_key] if policy_key else [])])
         guarded_client = GuardedClient(EgressGuard(fixtures=connector_fixtures))
         connectors = Connectors(connector_store, connector_cipher)
