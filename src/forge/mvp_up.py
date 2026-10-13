@@ -20,6 +20,7 @@ from forge.capability_signing import b64u
 from forge.fake_gateway import MODELS as FAKE_MODELS
 from forge.mvp_profile import MVP_ADDITIONS, MVP_PROFILE
 from forge.platform_cli import bootstrap_owner, write_private_file
+from forge.migrate import seed_catalog
 from forge.pool_seed import seed_gateway_pool
 from forge.provisioning import MULTIUSER_SEED as MVP_SEED, provision, write_credentials
 
@@ -98,6 +99,7 @@ def up(stopping, *, require_admin_build=False, emit=None):
             seeded = provision(connection, MVP_SEED, lambda created: write_credentials(credentials, created))
             # A company's key is the platform's: seed it the way the platform would assign it (see forge.pool_seed).
             seed_gateway_pool(connection, gateway_secret, fake_origin, seeded, FAKE_MODELS)
+            seed_catalog(connection)  # the governed capability inventory, like the migrate job of a deployment
         (workspace.directory/'mailbox').mkdir()
         stage_downloads(workspace.directory/'downloads')
         owner_link = workspace.directory/'owner-link.txt'
