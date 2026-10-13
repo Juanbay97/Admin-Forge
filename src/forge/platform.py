@@ -1,17 +1,22 @@
-"""Platform administration: the platform owner, company reads and the audit log, over an injected store.
+"""Platform administration: the platform owner, mandatory TOTP, company reads and the audit log, over an injected store.
 
 The platform owner is an owned account with a platform role and no membership. Authority never lives in this
-process: every operation is a database function that re-validates the live account session and the owner role
-(0028), so this service only turns a bearer capability into its digest, bounds the arguments and maps failures to
-finite codes. ``python -m forge.platform bootstrap-owner`` is the operator entry point (``forge.platform_cli``).
+process: every operation is a database function that re-validates the live account session, the owner role and (from
+0029) a verified MFA state for that very session, so this service only turns a bearer capability into its digest,
+bounds the arguments, runs the TOTP arithmetic and maps failures to finite codes. The database owns the replay guard
+and the attempt budget. ``python -m forge.platform bootstrap-owner`` is the operator entry point (``forge.platform_cli``).
 """
+import base64
 from dataclasses import dataclass
 from datetime import datetime
 import re
+import time
 from typing import Protocol
 from uuid import UUID
 
 from forge.invitations import capability_digest
+from forge.platform_totp import (SecretSealer, SecretUnreadable, generate_recovery_codes, generate_secret, hash_recovery_code,
+                                 match_step, otpauth_uri)
 
 COMPANY_CODE = re.compile(r'[a-z0-9][a-z0-9-]{0,62}')
 DEFAULT_PAGE = 50
@@ -47,6 +52,28 @@ class PlatformUnavailable(PlatformError):
     code = 'PLATFORM_UNAVAILABLE'
 
 
+class MfaRequired(PlatformError):
+    """A platform call without a verified (or, for a change, a fresh) MFA state for this session."""
+    code = 'MFA_REQUIRED'
+    message = 'A verified second factor is required.'
+
+
+class MfaInvalid(PlatformError):
+    """Wrong, malformed, replayed or unusable code: one outcome, never explained."""
+    code = 'MFA_INVALID'
+    message = 'The verification code was not accepted.'
+
+
+class MfaLocked(PlatformError):
+    code = 'MFA_LOCKED'
+    message = 'Too many attempts; try again later.'
+
+
+class MfaEnrolled(PlatformError):
+    code = 'MFA_ENROLLED'
+    message = 'A second factor is already enrolled.'
+
+
 @dataclass(frozen=True)
 class PlatformIdentity:
     account_id: UUID
@@ -71,7 +98,38 @@ class AuditEntry:
     recorded_at: datetime
 
 
+@dataclass(frozen=True)
+class MfaStatus:
+    state: str  # none | pending | active
+    verified: bool  # this session has passed the second factor
+    fresh: bool  # ... recently enough for a change
+
+
+@dataclass(frozen=True)
+class MfaChallenge:
+    """What the database hands back after reserving an attempt: the sealed secret and the last accepted step."""
+    state: str
+    sealed: str
+    last_step: int
+
+
+@dataclass(frozen=True, repr=False)
+class MfaEnrollment:
+    """Shown to the owner exactly once; ``repr`` never carries the secret or the codes."""
+    secret: str
+    otpauth_uri: str
+    recovery_codes: tuple
+
+    def __repr__(self):
+        return 'MfaEnrollment(...)'
+
+
 class PlatformStore(Protocol):
+    def mfa_status(self, digest: str) -> MfaStatus: ...
+    def mfa_enroll(self, digest: str, sealed: str, hashes: list[str]) -> None: ...
+    def mfa_begin(self, digest: str) -> MfaChallenge: ...
+    def mfa_confirm(self, digest: str, step: int) -> None: ...
+    def mfa_recover(self, digest: str, code_hash: str) -> None: ...
     def me(self, digest: str) -> PlatformIdentity: ...
     def companies(self, digest: str, after: str | None, page: int) -> list[Company]: ...
     def company(self, digest: str, organization_id: UUID) -> Company | None: ...
@@ -84,9 +142,12 @@ def _page(value):
     return value
 
 
+ACCOUNT_LABEL = 'platform-owner'
+
+
 class PlatformService:
-    def __init__(self, store: PlatformStore):
-        self.store = store
+    def __init__(self, store: PlatformStore, sealer: SecretSealer | None = None, clock=time.time):
+        self.store, self.sealer, self.clock = store, sealer, clock
 
     @staticmethod
     def _digest(token):
@@ -97,6 +158,42 @@ class PlatformService:
 
     def me(self, token: str) -> PlatformIdentity:
         return self.store.me(self._digest(token))
+
+    def mfa_status(self, token: str) -> MfaStatus:
+        return self.store.mfa_status(self._digest(token))
+
+    def enroll_mfa(self, token: str) -> MfaEnrollment:
+        """Start (or restart, while still pending) the TOTP enrollment; the secret and codes are returned once."""
+        digest = self._digest(token)
+        if self.sealer is None:
+            raise PlatformUnavailable()
+        secret, codes = generate_secret(), generate_recovery_codes()
+        self.store.mfa_enroll(digest, self.sealer.seal(secret), [hash_recovery_code(code) for code in codes])
+        return MfaEnrollment(base64.b32encode(secret).decode('ascii').rstrip('='), otpauth_uri(secret, ACCOUNT_LABEL), tuple(codes))
+
+    def verify_mfa(self, token: str, code) -> None:
+        """Spend one attempt, then accept a code only for a step newer than the last accepted one."""
+        digest = self._digest(token)
+        challenge = self.store.mfa_begin(digest)
+        if self.sealer is None or challenge.state not in ('pending', 'active'):
+            raise MfaInvalid()
+        try:
+            secret = self.sealer.open(challenge.sealed)
+        except SecretUnreadable:
+            raise PlatformUnavailable() from None
+        step = match_step(secret, code, self.clock())
+        if step is None or step <= challenge.last_step:
+            raise MfaInvalid()
+        self.store.mfa_confirm(digest, step)
+
+    def recover_mfa(self, token: str, code) -> None:
+        digest = self._digest(token)
+        self.store.mfa_begin(digest)  # the attempt is spent first, so guessing recovery codes is as bounded as guessing codes
+        try:
+            code_hash = hash_recovery_code(code)
+        except ValueError:
+            raise MfaInvalid() from None
+        self.store.mfa_recover(digest, code_hash)
 
     def companies(self, token: str, *, after: str | None = None, page: int = DEFAULT_PAGE) -> list[Company]:
         digest = self._digest(token)

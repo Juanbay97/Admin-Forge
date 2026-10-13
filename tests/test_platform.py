@@ -8,8 +8,11 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 from forge.invitations import capability_digest
-from forge.platform import (AuditEntry, Company, PlatformDenied, PlatformIdentity, PlatformInvalid, PlatformNotFound,
-                            PlatformService, PlatformUnavailable)
+from cryptography.fernet import Fernet
+from forge.platform import (AuditEntry, Company, MfaChallenge, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
+                            PlatformDenied, PlatformIdentity, PlatformInvalid, PlatformNotFound, PlatformService,
+                            PlatformUnavailable)
+from forge.platform_totp import SecretSealer, generate_secret, hash_recovery_code, match_step, totp
 
 ACCOUNT, ORG = uuid4(), uuid4()
 NOW = datetime(2026, 10, 12, tzinfo=timezone.utc)
@@ -43,6 +46,129 @@ class FakeStore:
         self.calls.append(('audit', digest, before, page))
         self._check(digest)
         return [AuditEntry(2, ACCOUNT, 'company.suspended', ORG, NOW)]
+
+
+class MfaStore(FakeStore):
+    """The MFA half of the store port: records calls, answers with a configured challenge."""
+    def __init__(self, known=None, challenge=None, fail=None):
+        super().__init__(known)
+        self.challenge, self.fail = challenge, fail
+
+    def mfa_status(self, digest):
+        self.calls.append(('mfa_status', digest))
+        self._check(digest)
+        return MfaStatus('active', True, True)
+
+    def mfa_enroll(self, digest, sealed, hashes):
+        self.calls.append(('mfa_enroll', digest, sealed, tuple(hashes)))
+        self._check(digest)
+        if self.fail:
+            raise self.fail
+
+    def mfa_begin(self, digest):
+        self.calls.append(('mfa_begin', digest))
+        self._check(digest)
+        if self.fail:
+            raise self.fail
+        return self.challenge
+
+    def mfa_confirm(self, digest, step):
+        self.calls.append(('mfa_confirm', digest, step))
+        self._check(digest)
+
+    def mfa_recover(self, digest, code_hash):
+        self.calls.append(('mfa_recover', digest, code_hash))
+        self._check(digest)
+
+
+class MfaServiceTests(unittest.TestCase):
+    NOW = 1760000000
+
+    def setUp(self):
+        self.token = secrets.token_urlsafe(32)
+        self.digest = capability_digest(self.token)
+        self.sealer = SecretSealer(Fernet.generate_key())
+        self.secret = generate_secret()
+        self.sealed = self.sealer.seal(self.secret)
+        self.step = self.NOW // 30
+
+    def service(self, store):
+        return PlatformService(store, sealer=self.sealer, clock=lambda: self.NOW)
+
+    def challenge(self, last_step=0, state='active', sealed=None):
+        return MfaChallenge(state, sealed or self.sealed, last_step)
+
+    def test_a_right_code_confirms_exactly_the_step_it_matched(self):
+        store = MfaStore(self.digest, self.challenge())
+        self.service(store).verify_mfa(self.token, totp(self.secret, self.step))
+        self.assertEqual([call[0] for call in store.calls], ['mfa_begin', 'mfa_confirm'])
+        self.assertEqual(store.calls[-1], ('mfa_confirm', self.digest, self.step))
+
+    def test_the_previous_step_is_accepted_within_the_window_but_not_if_it_was_already_used(self):
+        store = MfaStore(self.digest, self.challenge(last_step=self.step - 2))
+        self.service(store).verify_mfa(self.token, totp(self.secret, self.step - 1))
+        self.assertEqual(store.calls[-1], ('mfa_confirm', self.digest, self.step - 1))
+        for used in (self.step - 1, self.step):  # replay: that step (or a later one) was already accepted
+            replay = MfaStore(self.digest, self.challenge(last_step=used))
+            with self.subTest(last_step=used), self.assertRaises(MfaInvalid):
+                self.service(replay).verify_mfa(self.token, totp(self.secret, self.step - 1))
+            self.assertEqual([call[0] for call in replay.calls], ['mfa_begin'], 'a replay never reaches confirm')
+
+    def test_wrong_malformed_far_away_or_unenrolled_attempts_never_confirm(self):
+        for code in ('000000', 'abcdef', '', None, totp(self.secret, self.step + 5), totp(generate_secret(), self.step)):
+            store = MfaStore(self.digest, self.challenge())
+            with self.subTest(code=code), self.assertRaises(MfaInvalid):
+                self.service(store).verify_mfa(self.token, code)
+            self.assertNotIn('mfa_confirm', [call[0] for call in store.calls])
+        store = MfaStore(self.digest, self.challenge(state='none', sealed=''))
+        with self.assertRaises(MfaInvalid):
+            self.service(store).verify_mfa(self.token, totp(self.secret, self.step))
+        unreadable = MfaStore(self.digest, self.challenge(sealed='not-a-sealed-secret'))
+        with self.assertRaises(PlatformUnavailable):
+            self.service(unreadable).verify_mfa(self.token, totp(self.secret, self.step))
+
+    def test_a_locked_account_and_a_denied_caller_surface_their_own_code_before_any_check(self):
+        locked = MfaStore(self.digest, self.challenge(), fail=MfaLocked())
+        with self.assertRaises(MfaLocked):
+            self.service(locked).verify_mfa(self.token, totp(self.secret, self.step))
+        with self.assertRaises(PlatformDenied):
+            self.service(MfaStore('0' * 64, self.challenge())).verify_mfa(self.token, '123456')
+
+    def test_enrollment_returns_the_secret_the_uri_and_ten_codes_once_and_stores_only_sealed_and_hashed_material(self):
+        store = MfaStore(self.digest)
+        enrollment = self.service(store).enroll_mfa(self.token)
+        (call,) = store.calls
+        self.assertEqual((call[0], call[1]), ('mfa_enroll', self.digest))
+        self.assertEqual(self.sealer.open(call[2]), __import__('base64').b32decode(enrollment.secret))
+        self.assertIn('secret=' + enrollment.secret, enrollment.otpauth_uri)
+        self.assertEqual(len(enrollment.recovery_codes), 10)
+        self.assertEqual(sorted(call[3]), sorted(hash_recovery_code(code) for code in enrollment.recovery_codes))
+        for code in enrollment.recovery_codes:
+            self.assertNotIn(code.replace('-', ''), ' '.join(map(str, call[2:])))
+        self.assertNotIn(enrollment.secret, repr(enrollment), 'the secret never reaches a log through repr')
+
+    def test_an_already_enrolled_owner_is_refused_and_enrollment_needs_a_sealer(self):
+        with self.assertRaises(MfaEnrolled):
+            self.service(MfaStore(self.digest, fail=MfaEnrolled())).enroll_mfa(self.token)
+        with self.assertRaises(PlatformUnavailable):
+            PlatformService(MfaStore(self.digest)).enroll_mfa(self.token)
+
+    def test_a_recovery_code_is_checked_for_shape_then_reserved_then_spent_as_a_hash(self):
+        store = MfaStore(self.digest, self.challenge())
+        self.service(store).recover_mfa(self.token, 'abcd-efgh-ijkl-mnop')
+        self.assertEqual(store.calls[0][0], 'mfa_begin')
+        self.assertEqual(store.calls[1], ('mfa_recover', self.digest, hash_recovery_code('ABCD-EFGH-IJKL-MNOP')))
+        for bad in ('', 'short', None, 'ABCD-EFGH-IJKL-MNO1'):
+            malformed = MfaStore(self.digest, self.challenge())
+            with self.subTest(bad=bad), self.assertRaises(MfaInvalid):
+                self.service(malformed).recover_mfa(self.token, bad)
+            self.assertEqual([call[0] for call in malformed.calls], ['mfa_begin'], 'a bad guess still spends an attempt')
+
+    def test_the_finite_codes_and_the_status_values(self):
+        self.assertEqual({cls.__name__: cls().code for cls in (MfaRequired, MfaInvalid, MfaLocked, MfaEnrolled)},
+                         {'MfaRequired': 'MFA_REQUIRED', 'MfaInvalid': 'MFA_INVALID', 'MfaLocked': 'MFA_LOCKED',
+                          'MfaEnrolled': 'MFA_ENROLLED'})
+        self.assertEqual(self.service(MfaStore(self.digest)).mfa_status(self.token), MfaStatus('active', True, True))
 
 
 class PlatformServiceTests(unittest.TestCase):

@@ -11,11 +11,12 @@ from psycopg.pq import TransactionStatus
 from psycopg.rows import tuple_row
 
 from forge.account_store import _KEYS, _ROLE
-from forge.platform import (AuditEntry, Company, PlatformDenied, PlatformError, PlatformIdentity, PlatformInvalid,
-                            PlatformUnavailable)
+from forge.platform import (AuditEntry, Company, MfaChallenge, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
+                            PlatformDenied, PlatformError, PlatformIdentity, PlatformInvalid, PlatformUnavailable)
 
 ROLE = 'forge_platform_service'
-_MESSAGES = {'PLATFORM_DENIED': PlatformDenied, 'PLATFORM_INVALID': PlatformInvalid}
+_MESSAGES = {'PLATFORM_DENIED': PlatformDenied, 'PLATFORM_INVALID': PlatformInvalid, 'MFA_REQUIRED': MfaRequired,
+             'MFA_INVALID': MfaInvalid, 'MFA_LOCKED': MfaLocked, 'MFA_ENROLLED': MfaEnrolled}
 
 
 class PlatformConnection:
@@ -53,6 +54,34 @@ class PlatformConnection:
 class PostgresPlatformStore:
     def __init__(self, pool, *, acquisition_timeout=1.0):
         self.connection = PlatformConnection(pool, acquisition_timeout=acquisition_timeout)
+
+    def mfa_status(self, digest):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.platform_mfa_status(%s)', (digest,))
+            return MfaStatus(*cursor.fetchone())
+
+    def mfa_enroll(self, digest, sealed, hashes):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT forge.platform_mfa_enroll(%s,%s,%s)', (digest, sealed, list(hashes)))
+            if cursor.fetchone() != (True,):
+                raise PlatformUnavailable()
+
+    def mfa_begin(self, digest):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.platform_mfa_begin(%s)', (digest,))
+            return MfaChallenge(*cursor.fetchone())
+
+    def mfa_confirm(self, digest, step):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT forge.platform_mfa_confirm(%s,%s)', (digest, step))
+            if cursor.fetchone() != (True,):
+                raise PlatformUnavailable()
+
+    def mfa_recover(self, digest, code_hash):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT forge.platform_mfa_recover(%s,%s)', (digest, code_hash))
+            if cursor.fetchone() != (True,):
+                raise PlatformUnavailable()
 
     def me(self, digest):
         with self.connection.cursor() as cursor:

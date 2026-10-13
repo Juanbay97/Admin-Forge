@@ -19,7 +19,12 @@ SERVICE_FUNCTIONS = ('forge.platform_me(text)', 'forge.platform_company_list(tex
                      'forge.platform_company_get(text,uuid)', 'forge.platform_audit_page(text,bigint,integer)')
 INTERNAL_FUNCTIONS = ('forge.platform_lock_owner(text,boolean)', 'forge.platform_audit_write(uuid,text,uuid)')
 AUTHORITY_GRANTS = {('organizations', 'SELECT'), ('memberships', 'SELECT'), ('identities', 'SELECT'),
-                    ('platform_roles', 'SELECT'), ('platform_audit_log', 'SELECT'), ('platform_audit_log', 'INSERT')}
+                    ('platform_roles', 'SELECT'), ('platform_audit_log', 'SELECT'), ('platform_audit_log', 'INSERT'),
+                    # 0029: the second factor's own tables (nothing else is added to the authority)
+                    ('platform_totp', 'SELECT'), ('platform_totp', 'INSERT'), ('platform_totp', 'UPDATE'),
+                    ('platform_recovery_codes', 'SELECT'), ('platform_recovery_codes', 'INSERT'),
+                    ('platform_recovery_codes', 'UPDATE'), ('platform_recovery_codes', 'DELETE'),
+                    ('platform_mfa_sessions', 'SELECT'), ('platform_mfa_sessions', 'INSERT'), ('platform_mfa_sessions', 'UPDATE')}
 PRIVILEGES = ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
 
 
@@ -33,12 +38,12 @@ class PlatformProfileTests(unittest.TestCase):
     """No database: the profile appends 0028 and its own pinned checkpoint after 0027."""
     def test_0028_follows_0027_with_its_own_pinned_checkpoint(self):
         self.assertEqual(PLATFORM_SCOPE_MIGRATION, '0028_platform_scope.sql')
-        self.assertEqual(MVP_ADDITIONS[-2:], ('0027_gateway_origin_config.sql', PLATFORM_SCOPE_MIGRATION))
-        self.assertEqual(MVP_CHECKPOINTS[-2:], (F27, F28))
+        self.assertEqual(MVP_ADDITIONS[-3:-1], ('0027_gateway_origin_config.sql', PLATFORM_SCOPE_MIGRATION))
+        self.assertEqual(MVP_CHECKPOINTS[-3:-1], (F27, F28))
         self.assertRegex(F28 or '', r'^[0-9a-f]{64}$', 'F28 must be pinned')
         self.assertNotEqual(F28, F27)
         self.assertEqual(len(MVP_CHECKPOINTS), len(MVP_ADDITIONS) + 1)
-        self.assertTrue(MVP_PROFILE.startswith('0001-0005+0010-0028/'))
+        self.assertTrue(MVP_PROFILE.startswith('0001-0005+0010-00'))
 
 
 class PlatformFingerprintGateTests(unittest.TestCase):
@@ -48,7 +53,7 @@ class PlatformFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0027_share_the_pinned_fingerprint(self):
-        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-1])
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-2])
         with separate_database() as conn:
             for name in (*previous, PLATFORM_SCOPE_MIGRATION):
                 conn.execute(migration_text(name))
@@ -158,7 +163,7 @@ class PlatformFunctionTests(unittest.TestCase):
         self.orgs = {result.slug: result.organization_id for result in results}
         self.admins = {result.slug: result.accounts[0] for result in results}
         self.owner = add_owner(db.admin)
-        self.token, self.digest = sign_in(db)
+        self.token, self.digest = sign_in(db, mfa=True)
 
     def test_the_owner_reads_its_own_identity_and_every_other_caller_is_denied_the_same_way(self):
         with mvp_database() as db:
@@ -194,7 +199,7 @@ class PlatformFunctionTests(unittest.TestCase):
             self.world(db)
             db.admin.execute('UPDATE forge.account_sessions SET revoked=true')
             self.assertEqual(refusal(self, lambda: call(db, 'SELECT * FROM forge.platform_me(%s)', (self.digest,))), 'PLATFORM_DENIED')
-            _, second = sign_in(db)
+            _, second = sign_in(db, mfa=True)
             self.assertEqual(call(db, 'SELECT role FROM forge.platform_me(%s)', (second,)), [('platform_owner',)])
             db.admin.execute('UPDATE forge.owned_accounts SET active=false WHERE id=%s', (self.owner,))
             self.assertEqual(refusal(self, lambda: call(db, 'SELECT * FROM forge.platform_me(%s)', (second,))), 'PLATFORM_DENIED')
@@ -285,7 +290,7 @@ class PlatformAuditTests(unittest.TestCase):
     def test_the_owner_pages_the_log_newest_first_with_a_bounded_page_and_a_cursor(self):
         with mvp_database() as db:
             owner = add_owner(db.admin)
-            token, digest = sign_in(db)
+            token, digest = sign_in(db, mfa=True)
             org = provision(db.admin, SEED[:1], lambda created: None)[0].organization_id
             for action in ('company.created', 'company.suspended', 'company.reactivated'):
                 self.audit(db, owner, action, org)

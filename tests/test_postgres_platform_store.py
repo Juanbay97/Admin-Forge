@@ -19,7 +19,7 @@ class PlatformStoreTests(unittest.TestCase):
         self.people = {(result.slug, account.role): account for result in results for account in result.accounts}
         self.owner = add_owner(db.admin)
         self.service = PlatformService(PostgresPlatformStore(db.pool('forge_platform_service')))
-        self.token, _ = sign_in(db)
+        self.token, _ = sign_in(db, mfa=True)
 
     def operations(self, token):
         return {'me': lambda: self.service.me(token), 'companies': lambda: self.service.companies(token),
@@ -69,7 +69,7 @@ class PlatformStoreTests(unittest.TestCase):
             for operation, run in self.operations(self.token).items():
                 with self.subTest(operation=operation), self.assertRaises(PlatformDenied):
                     run()
-            second, _ = sign_in(db)
+            second, _ = sign_in(db, mfa=True)
             db.admin.execute('UPDATE forge.owned_accounts SET active=false WHERE id=%s', (self.owner,))
             for operation, run in self.operations(second).items():
                 with self.subTest(after='disabled', operation=operation), self.assertRaises(PlatformDenied):

@@ -6,11 +6,13 @@ account plus a ``platform_roles`` row), here directly through the superuser conn
 from functools import lru_cache
 from uuid import uuid4
 
+from cryptography.fernet import Fernet
 from psycopg import errors
 
 from forge.account_sessions import PostgresSessionStore, SessionService
 from forge.accounts import ACCOUNT_ISSUER, PasswordHasher
 from forge.invitations import capability_digest
+from forge.platform_totp import SecretSealer, generate_secret
 
 PASSWORD = 'fixture-only-platform-passphrase'
 OWNER_EMAIL = 'owner@platform.test'
@@ -38,11 +40,23 @@ def add_owner(admin, email=OWNER_EMAIL, role='platform_owner'):
     return account
 
 
-def sign_in(db, email=OWNER_EMAIL, password=PASSWORD):
-    """A password-only account session: (bearer capability, its digest)."""
+def verify_directly(admin, email, digest):
+    """Mark one session as having passed the second factor, the way a completed TOTP check would (superuser fixture)."""
+    account = admin.execute('SELECT id FROM forge.owned_accounts WHERE canonical_email=%s', (email,)).fetchone()[0]
+    admin.execute("INSERT INTO forge.platform_totp(account_id,sealed_secret,state,last_step,activated_at) "
+                  "VALUES(%s,%s,'active',0,clock_timestamp()) ON CONFLICT DO NOTHING",
+                  (account, SecretSealer(Fernet.generate_key()).seal(generate_secret())))
+    admin.execute('INSERT INTO forge.platform_mfa_sessions(capability_hash,account_id) VALUES(%s,%s)', (digest, account))
+
+
+def sign_in(db, email=OWNER_EMAIL, password=PASSWORD, *, mfa=False):
+    """An account session: (bearer capability, its digest); password-only unless ``mfa`` marks it second-factor verified."""
     sessions = SessionService(PostgresSessionStore(db.pool('forge_account_service')))
     token = sessions.login(email, password).capability
-    return token, capability_digest(token)
+    digest = capability_digest(token)
+    if mfa:
+        verify_directly(db.admin, email, digest)
+    return token, digest
 
 
 def call(db, text, params=(), role='forge_platform_service'):
