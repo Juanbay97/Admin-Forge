@@ -83,6 +83,9 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
                                           PostgresPoolStatusStore)
     from forge.gateway_keys import GatewayKeys
     from forge.gateway_keys_store import PostgresGatewayKeyStore
+    from forge.usage_api import mount_company_usage
+    from forge.usage_company import CompanyUsage
+    from forge.usage_company_store import PostgresCompanyUsageStore
     from forge.usage_platform import PlatformUsage
     from forge.usage_platform_store import PostgresPlatformUsageStore
     from forge.usage_store import PostgresUsageStore
@@ -113,4 +116,6 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),
                    sessions=sessions, readiness=readiness, keys=GatewayKeys(PostgresGatewayKeyStore(platform), cipher),
                    usage=PlatformUsage(PostgresPlatformUsageStore(platform)))
+    mount_company_usage(app, usage=CompanyUsage(PostgresCompanyUsageStore(gateway)), sessions=sessions,
+                        authorization_reader=PostgresAuthorizationReader(bootstrap), readiness=readiness)
     return app

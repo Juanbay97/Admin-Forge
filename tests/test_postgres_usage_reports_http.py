@@ -52,6 +52,32 @@ class PostgresUsageReportsHttpTests(unittest.TestCase):
             self.assertEqual(actions[:2], ['model_price.set', 'model_price.set'])
             self.assertNotIn('content', repr(totals) + repr(models))
 
+    def test_a_company_administrator_reads_per_person_usage_of_the_own_company_only_including_suspended_members(self):
+        with stack() as (db, client, results, root, secrets):
+            org_a, org_b = results[0].organization_id, results[1].organization_id
+            ids = [row[0] for row in db.admin.execute('SELECT m.id FROM forge.memberships m JOIN forge.owned_accounts a ON a.id=m.identity_id '
+                                                      'WHERE m.organization_id=%s ORDER BY a.canonical_email', (org_a,))]
+            record(db, org_a, ids[0], 'up/model-a', 1000, 500)
+            record(db, org_a, ids[1], 'up/model-a', 20, 10)
+            record(db, org_b, db.admin.execute('SELECT id FROM forge.memberships WHERE organization_id=%s', (org_b,)).fetchone()[0], 'up/model-a', 7, 7)
+            admin, member = results[0].accounts
+            path = '/forge/v1/orgs/%s/usage/members' % org_a
+            report = client.get(path, headers=login(client, admin), params=RANGE)
+            self.assertEqual(report.status_code, 200, report.text)
+            rows = {row['email']: row for row in report.json()['members']}
+            self.assertEqual({email: (row['requests'], row['prompt_tokens'], row['state']) for email, row in rows.items()},
+                             {admin.email: (1, 1000, 'active'), member.email: (1, 20, 'active')})
+            self.assertEqual(sum(row['prompt_tokens'] for row in rows.values()), 1020, 'the other company is not in the report')
+            self.assertNotIn(str(org_b), report.text)
+            db.admin.execute("UPDATE forge.memberships SET status='suspended' WHERE id=%s", (ids[1],))
+            after = client.get(path, headers=login(client, admin), params=RANGE).json()['members']
+            self.assertEqual({row['state'] for row in after}, {'active', 'suspended'}, 'a suspended member keeps visible history')
+            denied = (client.get(path, headers=login(client, member), params=RANGE), client.get(path.replace(str(org_a), str(org_b)), headers=login(client, admin), params=RANGE),
+                      client.get(path, headers=login(client, results[1].accounts[0]), params=RANGE), client.get(path, params=RANGE))
+            self.assertEqual([response.status_code for response in denied], [404, 404, 404, 401])
+            self.assertEqual({response.json()['error']['code'] for response in denied[:3]}, {'NOT_FOUND'})
+            self.assertEqual(client.get(path, headers=login(client, admin), params={**RANGE, 'from': '2020-01-01'}).status_code, 422)
+
     def test_company_administrators_and_members_are_denied_on_every_platform_usage_route(self):
         with stack() as (db, client, results, root, secrets):
             self.verified_owner(db, client)
