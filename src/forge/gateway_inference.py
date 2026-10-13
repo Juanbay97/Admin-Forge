@@ -53,6 +53,8 @@ class RouteContext:
     gateway: GatewayRecord
     # Further keys of the company in priority order; ``gateway`` is the lowest-priority (primary) one.
     fallbacks: tuple = ()
+    # The authorized member, for usage attribution; None where the store does not resolve it (retained demo profile).
+    membership_id: UUID | None = None
 
     @property
     def candidates(self):
@@ -72,7 +74,8 @@ class RouteContext:
                 or not re.fullmatch(r'[!-~]{1,255}', self.upstream_id)
                 or type(self.gateway) is not GatewayRecord or type(self.fallbacks) is not tuple
                 or len(self.fallbacks) >= MAX_CANDIDATES
-                or any(type(item) is not GatewayRecord for item in self.fallbacks)):
+                or any(type(item) is not GatewayRecord for item in self.fallbacks)
+                or (self.membership_id is not None and type(self.membership_id) is not UUID)):
             raise GatewayUnavailable()
 
 

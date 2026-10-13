@@ -96,6 +96,11 @@ class World(unittest.TestCase):
         self.admin_token, _ = sign_in(db, self.admin_a.email, self.admin_a.password)
         self.member_token, _ = sign_in(db, self.member_a.email, self.member_a.password)
 
+    def upgrade(self, db):
+        """0033 and every later migration, applied over the legacy-only database."""
+        for name in MVP_ADDITIONS[at(GATEWAY_KEY_ROUTING_MIGRATION):]:
+            db.admin.execute(migration_text(name))
+
     def owner(self):
         add_owner(self.db.admin)
         self.owner_token, _ = sign_in(self.db, mfa=True)
@@ -122,7 +127,7 @@ class UpgradeTests(World):
             self.assertEqual(self.old_catalog.admin_status(self.admin_token, self.org_a)['publication_state'], 'CURRENT')
             binding = db.admin.execute('SELECT binding_id FROM forge.organization_gateways WHERE organization_id=%s', (self.org_a,)).fetchone()[0]
             snapshots = db.admin.execute('SELECT count(*) FROM forge.model_catalog_snapshots').fetchone()
-            db.admin.execute(migration_text(GATEWAY_KEY_ROUTING_MIGRATION))
+            self.upgrade(db)
             self.assertEqual(db.admin.execute('SELECT revision,binding_id,ceiling FROM forge.organization_gateway_profiles WHERE organization_id=%s',
                                               (self.org_a,)).fetchone(), (1, binding, None), 'the profile carries the legacy binding; no ceiling yet')
             self.assertEqual(db.admin.execute('SELECT count(*) FROM forge.model_catalog_snapshots').fetchone(), snapshots, 'no snapshot is rewritten')
@@ -217,7 +222,7 @@ class PoolRoutingTests(World):
             saved = self.legacy.save(self.admin_token, self.org_a, 0, LEGACY)
             self.old_catalog.refresh(self.admin_token, self.org_a)
             self.publish(self.old_catalog, self.org_a, self.admin_token, 0, saved.revision)
-            db.admin.execute(migration_text(GATEWAY_KEY_ROUTING_MIGRATION))
+            self.upgrade(db)
             self.assertEqual(self.cipher.open_key(self.org_a, self.route().gateway), LEGACY)
             self.owner()
             spare = self.keys.create(self.owner_token, 'spare', DEFAULT_ENDPOINT, None)

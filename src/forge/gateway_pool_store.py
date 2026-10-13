@@ -24,11 +24,11 @@ class PostgresPoolInferenceStore:
             rows = cursor.fetchall()
         if not rows:
             raise GatewayDenied()
-        if any(len(row) != 8 or row[:4] != rows[0][:4] for row in rows):
+        if any(len(row) != 9 or row[:4] != rows[0][:4] or row[8] != rows[0][8] for row in rows):
             raise GatewayUnavailable()
         revision, upstream = rows[0][:2]
         records = [GatewayRecord(row[2], row[3], row[4], row[5], row[6], row[7]) for row in rows]
-        return RouteContext(organization_id, alias, revision, upstream, records[0], tuple(records[1:]))
+        return RouteContext(organization_id, alias, revision, upstream, records[0], tuple(records[1:]), rows[0][8])
 
 
 class PostgresPoolCatalogStore(PostgresGatewayCatalogStore):

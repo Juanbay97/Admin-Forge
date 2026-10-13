@@ -33,8 +33,8 @@ Chain strategy: stacked-to-main
 - [x] 1.1 RED fuzz `tests/test_gateway_inference_adapter.py` (usage shapes); GREEN parser + `stream_options`
 - [x] 1.2 RED/GREEN `fake_gateway.py` usage default + `fake-nousage`; `test_fake_gateway.py`
 ## Phase 2: Storage (S2)
-- [ ] 2.1 RED `tests/test_postgres_usage_events.py` (record auth, rollup==sum, pool no SELECT); GREEN `0034_usage_events.sql`
-- [ ] 2.2 F34 pin + readiness/up/profile ripple + previous-profile test
+- [x] 2.1 RED `tests/test_postgres_usage_events.py` (record auth, rollup==sum, pool no SELECT); GREEN `0034_usage_events.sql`
+- [x] 2.2 F34 pin + readiness/up/profile ripple + previous-profile test
 ## Phase 3: Capture (S3)
 - [ ] 3.1 RED `test_gateway_inference.py`: event on success/cancel/failure/estimated; GREEN `gateway_inference.py`, `usage_store.py`
 - [ ] 3.2 RED recording-failure-doesn't-break-stream; GREEN shielded best-effort
