@@ -70,9 +70,9 @@ Chain strategy: stacked-to-main
 - [x] 6.3 Models tab (allow-list, ceiling, price display); UI + e2e for assign flow
 
 ## Phase 7 — Detail tabs II (PR 7)
-- [ ] 7.1 Usage tab (range, AreaChart, StackedBars by model, BarChart top members; a11y tables)
+- [x] 7.1 Usage tab (range, AreaChart, StackedBars by model, BarChart top members; a11y tables)
 - [ ] 7.2 Members tab read-only DataTable; no keys/PII beyond contract
-- [ ] 7.3 UI + e2e with metered usage seeded by the stack's fake gateway
+- [x] 7.3 UI + e2e with metered usage seeded by the stack's fake gateway
 
 ## Phase 8 — Key pool & prices (PR 8)
 - [ ] 8.1 Key pool table + add (write-only `KeyField`, cleared after submit) + rename + retire (`KEY_IN_USE` handling)

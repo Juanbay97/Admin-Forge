@@ -3,6 +3,7 @@ import type { Company } from "../../../api/platform";
 import { BrandingTab } from "./BrandingTab";
 import { KeysTab } from "./KeysTab";
 import { ModelsTab } from "./ModelsTab";
+import { UsageTab } from "./UsageTab";
 
 export interface CompanyTab {
   id: string;
@@ -17,5 +18,6 @@ export function companyTabs(company: Company): CompanyTab[] {
     { id: "branding", label: "Branding", render: () => <BrandingTab company={company} readOnly={readOnly} /> },
     { id: "keys", label: "Keys", render: () => <KeysTab company={company} readOnly={readOnly} /> },
     { id: "models", label: "Models", render: () => <ModelsTab company={company} readOnly={readOnly} /> },
+    { id: "usage", label: "Usage", render: () => <UsageTab company={company} /> },
   ];
 }

@@ -127,3 +127,11 @@ test("branding, keys and models tabs apply to the company and the public brandin
   await page.getByRole("tab", { name: "Overview" }).click();
   await expect(page.getByRole("region", { name: "Setup" }).getByText("3 allowed")).toBeVisible();
 });
+test("a company's usage tab shows what its members really consumed", async ({ page }) => {
+  const orgA = seededOrg("org-a");
+  await signInOwner(page, `/admin/platform/companies/${orgA.id}?tab=usage`);
+  const kpis = page.getByRole("region", { name: "Company usage" });
+  await expect(kpis.getByText("Requests")).toBeVisible();
+  await expect(page.getByRole("figure").filter({ hasText: "Prompt and completion tokens" })).toBeVisible();
+  await shot(page, "console", "43-company-usage");
+});
