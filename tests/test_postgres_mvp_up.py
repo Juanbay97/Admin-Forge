@@ -9,7 +9,13 @@ from forge.account_readiness import catalog_fingerprint
 from forge.mvp_local import ConfigError, ROLES
 from forge.mvp_profile import F37
 from forge.mvp_readiness import MvpReadiness
+from cryptography.fernet import Fernet
+from forge.gateway_configuration import GatewayCipher, GatewayRecord
+from forge.gateway_origins import OriginPolicy
+from forge.invitations import capability_digest
 from forge.mvp_up import install_schema
+from forge.pool_seed import seed_gateway_pool
+from forge.provisioning import SEED, provision
 from postgres_support import connect, settings
 from test_postgres_gateway_origin import separate_database
 
@@ -33,6 +39,33 @@ class PostgresMvpUpTests(unittest.TestCase):
                 finally:
                     for pool in pools:
                         pool.close(timeout=5)
+        finally:
+            with connect() as cleanup:
+                for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service',
+                              'forge_platform_authority', 'forge_platform_service'):
+                    cleanup.execute('DROP ROLE IF EXISTS ' + role)
+
+    def test_the_local_stack_gives_each_company_a_platform_key_with_a_ceiling_like_production_does(self):
+        origin = 'http://127.0.0.1:3413'
+        try:
+            with separate_database() as conn:
+                install_schema(conn)
+                results = provision(conn, SEED, lambda created: None)
+                secret = Fernet.generate_key()
+                seeded = seed_gateway_pool(conn, secret, origin, results, ('fake-fast', 'fake-slow'))
+                cipher = GatewayCipher(secret, policy=OriginPolicy(frozenset({origin}), dev=True))
+                self.assertEqual(len(seeded), 2)
+                for result in results:
+                    row = conn.execute('SELECT k.id,k.origin,k.revision,k.encrypted_key,k.last4,p.revision,p.binding_id,p.ceiling,a.priority,a.active '
+                                       'FROM forge.organization_gateway_keys a JOIN forge.gateway_keys k ON k.id=a.key_id '
+                                       'JOIN forge.organization_gateway_profiles p ON p.organization_id=a.organization_id WHERE a.organization_id=%s',
+                                       (result.organization_id,)).fetchone()
+                    self.assertEqual((row[1], row[2], row[4], row[5], row[7], row[8], row[9]),
+                                     (origin, 1, result.gateway_key[-4:], 1, ['fake-fast', 'fake-slow'], 1, True))
+                    self.assertEqual(cipher.open_key(result.organization_id, GatewayRecord(1, row[6], origin, row[3], row[0], 1)), result.gateway_key)
+                    self.assertNotIn(result.gateway_key, row[3])
+                with self.assertRaises(ValueError):
+                    seed_gateway_pool(conn, secret, 'ftp://not-an-origin', results, ('fake-fast',))
         finally:
             with connect() as cleanup:
                 for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service',

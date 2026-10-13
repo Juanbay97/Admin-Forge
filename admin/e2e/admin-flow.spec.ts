@@ -22,7 +22,6 @@ const admin = orgA.accounts.find((account) => account.role === "organization_adm
 const member = orgA.accounts.find((account) => account.role === "member");
 if (!admin || !member) throw new Error("The seeded org-a accounts are missing from the credentials file.");
 
-const FAKE_GATEWAY = "http://127.0.0.1:3413";
 const NEWCOMER = { name: "Nina Newcomer", email: "nina.newcomer@forge.local.test" };
 
 /** Records real CSP violations (browser events, not a replica of the policy) for the whole page life. */
@@ -83,7 +82,7 @@ test("the control plane mounts the built admin under its real CSP", async ({ pag
   expect(await violations()).toEqual([expect.stringContaining("script-src")]);
 });
 
-test("an admin invites a member, suspends access, saves the gateway key and publishes the catalog", async ({
+test("an admin invites a member, suspends access, sees the platform-managed gateway and publishes the catalog", async ({
   page,
   request,
 }) => {
@@ -119,14 +118,11 @@ test("an admin invites a member, suspends access, saves the gateway key and publ
     await expect(row).toContainText("Active");
   });
 
-  await test.step("save the gateway key against the fake gateway", async () => {
+  await test.step("see the gateway key as platform-managed and read-only", async () => {
     await page.getByRole("button", { name: "Gateway" }).click();
-    await expect(page.getByText("Not configured")).toBeVisible();
-    await page.getByLabel("Gateway base URL").selectOption(FAKE_GATEWAY);
-    await page.getByLabel("API key").fill(orgA!.gateway_key);
-    await page.getByRole("button", { name: "Save key" }).click();
     await expect(page.getByText("Configured", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("API key")).toHaveValue("");
+    await expect(page.getByText("Usable platform keys: 1")).toBeVisible();
+    await expect(page.getByLabel("API key")).toHaveCount(0);
     expect(await page.content()).not.toContain(orgA!.gateway_key);
   });
 
@@ -135,11 +131,12 @@ test("an admin invites a member, suspends access, saves the gateway key and publ
     await expect(page.getByText("Not published")).toBeVisible();
     expect((await memberView(request)).aliases).toEqual([]);
     await page.getByRole("button", { name: "Refresh models" }).click();
-    for (const upstream of ["fake-fast", "fake-slow", "fake-error", "fake-malformed"]) {
+    for (const upstream of ["fake-fast", "fake-slow", "fake-error", "fake-malformed", "fake-nousage"]) {
       await expect(page.getByLabel(`Alias for ${upstream}`, { exact: true })).toBeVisible();
     }
     await page.getByLabel("Publish fake-error", { exact: true }).uncheck();
     await page.getByLabel("Publish fake-malformed", { exact: true }).uncheck();
+    await page.getByLabel("Publish fake-nousage", { exact: true }).uncheck();
     await page.getByLabel("Alias for fake-fast", { exact: true }).fill("fast");
     await page.getByLabel("Alias for fake-slow", { exact: true }).fill("slow");
     await page.getByLabel("Default: fake-fast", { exact: true }).check();

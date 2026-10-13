@@ -15,7 +15,9 @@ from psycopg import sql
 
 from forge.dev_accounts import MIGRATIONS, ROOT, OwnedPostgres, PrivateWorkspace, validate_repository
 from forge.mvp_local import ConfigError, MVP_PORTS, ROLES, reserve_loopback_port, serve
+from forge.fake_gateway import MODELS as FAKE_MODELS
 from forge.mvp_profile import MVP_ADDITIONS, MVP_PROFILE
+from forge.pool_seed import seed_gateway_pool
 from forge.provisioning import MULTIUSER_SEED as MVP_SEED, provision, write_credentials
 
 DATABASE = 'forge_dev'
@@ -72,14 +74,18 @@ def up(stopping, *, require_admin_build=False, emit=None):
         postgres.start(stopping)
         import psycopg
         credentials = workspace.directory/'credentials.json'
+        gateway_secret = Fernet.generate_key()
+        fake_origin = 'http://127.0.0.1:%d' % MVP_PORTS['fake_gateway']
         with psycopg.connect(**postgres.settings()) as connection:
             passwords = install_schema(connection)
             seeded = provision(connection, MVP_SEED, lambda created: write_credentials(credentials, created))
+            # A company's key is the platform's: seed it the way the platform would assign it (see forge.pool_seed).
+            seed_gateway_pool(connection, gateway_secret, fake_origin, seeded, FAKE_MODELS)
         (workspace.directory/'mailbox').mkdir()
         config_path = runtime_files(
             workspace.directory, database={'host': '127.0.0.1', 'port': postgres.port, 'dbname': DATABASE},
             passwords=passwords, delivery_key=Fernet.generate_key().decode('ascii'),
-            gateway_key=Fernet.generate_key().decode('ascii'), platform_key=Fernet.generate_key().decode('ascii'),
+            gateway_key=gateway_secret.decode('ascii'), platform_key=Fernet.generate_key().decode('ascii'),
             admin_dir=ADMIN_BUILD, require_admin_build=require_admin_build)
 
         def run_gateway():

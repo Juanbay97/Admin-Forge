@@ -32,6 +32,49 @@ services:
         max-size: 10m
         max-file: "5"
 
+  # A fake OpenAI-compatible gateway over https with a throwaway certificate, so the proof can meter real inference end to end:
+  # the production allow-list refuses plain http, and the control plane trusts exactly this certificate through
+  # FORGE_GATEWAY_CA_FILE (below). Never published on the host, never part of the production stack.
+  # One-time setup (scripts/deploy-smoke.ps1 does this in a temp directory):
+  #   python -m forge.fake_gateway --make-cert DIR --name fake-gateway     # writes DIR/gateway.crt and DIR/gateway.key
+  #   one accepted key per line in DIR/keys.txt, then FORGE_FAKE_GATEWAY_DIR=DIR and FORGE_GATEWAY_ORIGINS=https://fake-gateway:3413
+  fake-gateway:
+    image: ${FORGE_IMAGE:-forge-control-plane:local}
+    entrypoint: ["python", "-m", "forge.fake_gateway"]
+    command: ["--keys-file", "/fake/keys.txt", "--tls-cert", "/fake/gateway.crt", "--tls-key", "/fake/gateway.key", "--bind-all"]
+    restart: unless-stopped
+    volumes:
+      - ${FORGE_FAKE_GATEWAY_DIR:?set FORGE_FAKE_GATEWAY_DIR in deploy/.env.dev (see compose.dev.yml)}:/fake:ro
+    networks:
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 3413), 3).close()"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  control-plane:
+    environment:
+      FORGE_GATEWAY_CA_FILE: /run/fake-gateway/gateway.crt
+    volumes:
+      - ${FORGE_FAKE_GATEWAY_DIR:?set FORGE_FAKE_GATEWAY_DIR in deploy/.env.dev}/gateway.crt:/run/fake-gateway/gateway.crt:ro
+    depends_on:
+      fake-gateway:
+        condition: service_healthy
+
   caddy:
     environment:
       FORGE_TLS: ${FORGE_TLS:-internal}

@@ -43,4 +43,4 @@ Chain strategy: stacked-to-main
 - [x] 4.1 RED/GREEN ceiling set/shrink + publication check (`catalog_publication*.py`)
 - [x] 4.2 RED/GREEN `0033` revoke `gateway_save`, `PUT` → 403, status GET (F33)
 - [x] 4.3 Admin Gateway view read-only; keep roles/labels; run admin 142 tests
-- [ ] 4.4 extend `mvp-smoke`: two keys, failover via fake gateway; docs
+- [x] 4.4 extend `mvp-smoke`: two keys, failover via fake gateway; docs

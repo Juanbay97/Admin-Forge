@@ -1,7 +1,7 @@
 # MVP acceptance smoke, loopback only, in real system Chrome:
 #   1. builds the admin web and starts the owned local stack (PostgreSQL 17 in a disposable container,
 #      two-organization seed, fake gateway on 3413, control plane + /admin on 3410);
-#   2. admin flow (admin/e2e): sign in to /admin, invite a member, save the gateway key, publish the catalog;
+#   2. admin flow (admin/e2e): sign in to /admin, invite a member, see the platform-managed gateway (seeded the way the platform assigns it), publish the catalog;
 #   3. starts the client through its single sanctioned launcher (production `next build` + `next start`,
 #      UI 3411, workspace backend 3412) in a private data directory;
 #   4. client flow (clients/openyak frontend e2e): the invited member activates the account in /onboarding,
@@ -187,7 +187,7 @@ try {
 
     $env:FORGE_E2E_ADMIN_URL = $ready.control_plane_origin
     $env:FORGE_E2E_CREDENTIALS = $ready.credentials_file
-    Write-Output 'mvp-smoke: admin flow (sign in, invite, gateway key, publish) in Chrome'
+    Write-Output 'mvp-smoke: admin flow (sign in, invite, read-only gateway, publish) in Chrome'
     $adminResult = Invoke-Bounded $npm 'run test:e2e' $admin $AdminTestTimeoutSeconds
     Remove-Item Env:FORGE_E2E_ADMIN_URL, Env:FORGE_E2E_CREDENTIALS -ErrorAction SilentlyContinue
     if ($adminResult -ne 0) { throw 'ADMIN_FLOW_FAILED' }

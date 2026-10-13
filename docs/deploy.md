@@ -65,7 +65,8 @@ only Caddy. PostgreSQL and the control plane have no published port and live on 
 | `FORGE_TLS` | `acme` or `internal` ([Choose the TLS mode](#choose-the-tls-mode)); anything else stops Caddy |
 | `FORGE_ACME_EMAIL` | Contact address Let's Encrypt uses for expiry notices (`acme` only) |
 | `FORGE_SMTP_*` | The mail relay for invitations and password resets ([Email delivery](#email-delivery-smtp)); required |
-| `FORGE_GATEWAY_ORIGINS` | Comma-separated https origins of your model gateway; empty keeps the built-in default |
+| `FORGE_GATEWAY_ORIGINS` | Comma-separated https origins of your model gateway; empty keeps the built-in default. It is the only origin authority: a gateway key can only be created for an origin listed here |
+| `FORGE_GATEWAY_CA_FILE` | Optional absolute path of an extra CA certificate for a private gateway (the allow-list stays https-only); unset means the system trust store |
 | `FORGE_BACKUP_CRON`, `FORGE_BACKUP_KEEP` | Backup schedule (UTC, 5 fields) and how many dumps to keep (default 14) |
 | `FORGE_UID`, `FORGE_GID` | Your user, so `backups/` and `credentials/` stay readable by you |
 
@@ -226,6 +227,46 @@ code is `409 COMPANY_CONFLICT` and creates nothing. If delivery says `failed`, t
 
 Every change writes one audit row (who, what, which company, when; never an email or a secret). Company administrators
 keep editing their own branding; they are never platform identities (`PLATFORM_DENIED`).
+
+## Gateway keys and usage
+
+Gateway keys belong to the platform, not to a company. The platform owner (a verified second factor, as above) creates keys,
+assigns them to companies with a priority, sets which upstream models each company may use and the price of each model. Company
+administrators see only whether a gateway is usable; they cannot read or write a key (`PUT /forge/v1/orgs/<id>/gateway` is
+`403 GATEWAY_MANAGED_BY_PLATFORM`, and the status is `revision` = number of usable keys, no origin, label or key data).
+
+| Call (platform owner) | What it does |
+|-----------------------|--------------|
+| `POST /forge/v1/platform/gateway-keys` `{"label","origin","key"}` | Create a key. `origin` must be in `FORGE_GATEWAY_ORIGINS`; `key` is optional (a placeholder is never routed). The key text is write-only: it is sealed (bound to the key id, its revision and the origin) and only a last-4 hint is ever shown |
+| `GET /forge/v1/platform/gateway-keys` | Labels, origins, hints, revisions, status and how many companies use each key; never key text |
+| `POST /forge/v1/platform/gateway-keys/<id>/rotate` `{"expected_revision","key"}` | New key text, same id; takes effect for new requests, in-flight streams finish on the old value |
+| `POST /forge/v1/platform/gateway-keys/<id>/disable`, `.../enable` | A disabled key is never selected |
+| `PUT /forge/v1/platform/companies/<id>/gateway-keys` `{"keys":[{"key_id","priority","active"}]}` | The company's whole key list; the lowest priority number serves first |
+| `PUT /forge/v1/platform/companies/<id>/model-access` `{"models":["upstream-id"]}` | The upstream models the company may publish and use (an empty list denies everything; a shrink applies on the next request) |
+| `POST /forge/v1/platform/prices` `{"upstream_id","input_micros","output_micros","effective_from"}` | A new price version, integer micro-USD per million tokens; `GET /forge/v1/platform/prices?upstream_id=` lists versions |
+
+Routing tries the active keys in priority order and moves to the next only when the gateway answers 401, 429, 5xx or cannot be
+reached *before the first byte* reached the member; each key is tried at most once per request. Rotating, reordering or disabling keys
+never stales a company's published catalogue. Losing `gateway_key` makes every stored key unrecoverable ([Backup and restore](#backup-and-restore)).
+
+Every inference that reaches the gateway writes one usage row (company, member, model, serving key, token counts, timings,
+status; no prompt or response text). Token counts come from the gateway's final usage chunk; when it is missing (cancelled
+stream, failure, an older gateway) they are estimated at four characters per token and marked `estimated`. Cost is snapshotted from the
+price in force when the row is written; a model without a price is counted as `unpriced_requests`, never as free. Reports (UTC days,
+at most 366 per request, `page` 1-100):
+
+| Call | Who | What |
+|------|-----|------|
+| `GET /forge/v1/platform/usage/companies?from=YYYY-MM-DD&to=YYYY-MM-DD&after=<company id>&page=` | platform owner | usage per company |
+| `GET /forge/v1/platform/usage/models?from=&to=&after=<upstream id>&page=` | platform owner | usage per upstream model |
+| `GET /forge/v1/platform/usage/totals?from=&to=` | platform owner | totals and the number of companies |
+| `GET /forge/v1/orgs/<id>/usage/members?from=&to=&after=<member id>&page=` | that company's administrator | per-person usage, suspended members included |
+
+**The local proof meters real inference.** `scripts/deploy-smoke.ps1` generates a throwaway certificate for a fake gateway
+(`python -m forge.fake_gateway --make-cert DIR --name fake-gateway`), serves it over https from the dev-only `fake-gateway` service in
+`deploy/compose.dev.yml` and points `FORGE_GATEWAY_ORIGINS=https://fake-gateway:3413` and `FORGE_GATEWAY_CA_FILE` at it, because the
+production allow-list refuses plain http. The proof then assigns a rejected key as the primary and a good key second, chats as a member
+(the request fails over), and reads the usage as the owner and as the company administrator.
 
 ## Provision the first company
 

@@ -5,6 +5,9 @@
 #   3. asserts health, applied migrations, TLS verified against Caddy's extracted root certificate, admin and
 #      downloads through the proxy, default-deny API, refused Host, first-company provisioning, no secret in
 #      `compose config`, non-root read-only control plane;
+#      and meters real inference: the platform owner assigns gateway keys, a member chats through the control plane to a fake
+#      gateway served over https with a throwaway certificate (the first key is rejected, so the request fails over), and the
+#      usage appears in the platform reports and in the company administrator's per-person report;
 #   4. proves a tampered migration is detected and blocks the control plane (separate throwaway project);
 #   5. removes containers, volumes, networks, the image and the temp directory, and asserts nothing is left.
 #
@@ -105,6 +108,13 @@ try {
     while ($httpsPort -eq $httpPort) { $httpsPort = Get-FreePort }
     while ($mailpitPort -eq $httpPort -or $mailpitPort -eq $httpsPort) { $mailpitPort = Get-FreePort }
     $forward = { param($path) $path.Replace('\', '/') }
+    # Fake gateway over https: a throwaway certificate (the control plane trusts exactly this file) and the keys it accepts.
+    $fakeGateway = Join-Path $work 'fake-gateway'
+    $null = New-Item -ItemType Directory -Force -Path $fakeGateway
+    & $python -c "import sys; sys.path.insert(0, r'$root/src'); from forge.fake_gateway import main; raise SystemExit(main(['--make-cert', r'$fakeGateway', '--name', 'fake-gateway']))" | Out-Null
+    Assert-True ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath (Join-Path $fakeGateway 'gateway.crt'))) 'the fake gateway certificate was not generated'
+    $goodKey, $badKey = 'smoke-key-good-0001', 'smoke-key-bad-0000'
+    Set-Content -LiteralPath (Join-Path $fakeGateway 'keys.txt') -Value $goodKey -Encoding ascii
     @(
         'FORGE_DOMAIN=localhost', "FORGE_PORT_SUFFIX=:$httpsPort", 'FORGE_TLS=internal',
         "FORGE_HTTP_PORT=$httpPort", "FORGE_HTTPS_PORT=$httpsPort", "FORGE_MAILPIT_PORT=$mailpitPort", "FORGE_IMAGE=$image",
@@ -112,7 +122,8 @@ try {
         ('FORGE_SECRETS_DIR=' + (& $forward (Join-Path $work 'secrets'))),
         ('FORGE_DOWNLOADS_DIR=' + (& $forward (Join-Path $work 'downloads'))),
         ('FORGE_CREDENTIALS_DIR=' + (& $forward (Join-Path $work 'credentials'))),
-        ('FORGE_BACKUPS_DIR=' + (& $forward (Join-Path $work 'backups')))
+        ('FORGE_BACKUPS_DIR=' + (& $forward (Join-Path $work 'backups'))),
+        ('FORGE_FAKE_GATEWAY_DIR=' + (& $forward $fakeGateway)), 'FORGE_GATEWAY_ORIGINS=https://fake-gateway:3413'
     ) | Set-Content -LiteralPath $envFile -Encoding ascii
     $secretValues = Get-ChildItem -LiteralPath (Join-Path $work 'secrets') -File | ForEach-Object { (Get-Content -LiteralPath $_.FullName -Raw) } | ForEach-Object { "$_".Trim() } | Where-Object { $_ }
 
@@ -126,7 +137,7 @@ try {
     $containers = @((Invoke-Compose @('ps', '-a', '--format', 'json')).Output -split "`n" | Where-Object { $_.Trim().StartsWith('{') } | ForEach-Object { $_ | ConvertFrom-Json })
     $state = @{}
     foreach ($container in $containers) { $state[$container.Service] = $container }
-    foreach ($service in 'postgres', 'control-plane', 'caddy') {
+    foreach ($service in 'postgres', 'control-plane', 'caddy', 'fake-gateway') {
         Assert-True ($state[$service].State -eq 'running' -and $state[$service].Health -eq 'healthy') "$service is not running healthy"
     }
     Assert-True ($state['migrate'].State -eq 'exited' -and $state['migrate'].ExitCode -eq 0) 'migrate did not exit 0'
@@ -146,7 +157,7 @@ try {
     foreach ($line in ($published -split "`n" | Where-Object { $_.Trim() })) {
         if ($line -match '-mailpit-\d+ ') {  # the dev-only mail catcher: its web UI and API on loopback, nothing else
             Assert-True ((@([regex]::Matches($line, '(\S+)->') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -notmatch '^127\.0\.0\.1:' })).Count -eq 0) "mailpit publishes beyond loopback: $line"
-        } elseif ($line -notmatch '-caddy-\d+ ') {
+        } elseif ($line -notmatch '-caddy-\d+ ') {  # (the fake gateway, like every other service, publishes nothing)
             Assert-True ($line -notmatch '->') "a non-caddy service publishes a port: $line"
         }
     }
@@ -307,6 +318,95 @@ try {
     $auditTrail = (Invoke-Authenticated '/forge/v1/platform/audit' $ownerToken).Body | ConvertFrom-Json
     Assert-True ((@($auditTrail.entries | ForEach-Object { $_.action }) -join ',') -eq 'company.reactivated,company.suspended,company.created,owner.mfa_enrolled') 'the audit log does not show the platform actions newest first'
     Write-Pass 'suspension denies the company and reactivation restores it; every platform action is audited'
+
+    # Metering: the owner assigns gateway keys to smoke-co, its administrator publishes a catalogue within the model ceiling,
+    # a member chats (the first key is rejected by the fake gateway, so the request fails over to the second), and the usage
+    # is visible to the owner (per company, per model, totals) and to the company administrator (per person) only.
+    function Invoke-Send([string]$Method, [string]$Path, $Body, [string]$Token) {
+        $arguments = @('-X', $Method, '-H', "Origin: $origin", '-H', "Authorization: Bearer $Token")
+        $file = $null
+        if ($null -ne $Body) {
+            $file = Join-Path $work ('s-' + [Guid]::NewGuid().ToString('N'))
+            Set-Content -LiteralPath $file -Value ($Body | ConvertTo-Json -Compress -Depth 6) -Encoding ascii
+            $arguments += @('-H', 'Content-Type: application/json', '--data-binary', "@$file")
+        }
+        $reply = Invoke-Curl $Path -Arguments $arguments
+        if ($file) { Remove-Item -LiteralPath $file -Force }
+        return $reply
+    }
+    function Get-Rows([string]$Sql) { return (Invoke-Compose @('exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'forge', '-tAc', $Sql)).Output.Trim() }
+    $smokeOrg = $company.organization_id
+    $gatewayOrigin = 'https://fake-gateway:3413'
+    $secretValues = @($secretValues) + @($goodKey, $badKey)
+    $good = Invoke-Send 'POST' '/forge/v1/platform/gateway-keys' @{ label = 'smoke-good'; origin = $gatewayOrigin; key = $goodKey } $ownerToken
+    $bad = Invoke-Send 'POST' '/forge/v1/platform/gateway-keys' @{ label = 'smoke-bad'; origin = $gatewayOrigin; key = $badKey } $ownerToken
+    Assert-True ($good.Status -eq 201 -and $bad.Status -eq 201) "the owner could not create the gateway keys ($($good.Status) $($bad.Status) $($good.Body))"
+    Assert-True (-not $good.Body.Contains($goodKey) -and -not $bad.Body.Contains($badKey) -and ($good.Body | ConvertFrom-Json).hint -eq '0001') 'a key response carries key text or no hint'
+    $goodId, $badId = ($good.Body | ConvertFrom-Json).id, ($bad.Body | ConvertFrom-Json).id
+    $evil = Invoke-Send 'POST' '/forge/v1/platform/gateway-keys' @{ label = 'smoke-evil'; origin = 'https://evil.example.test'; key = 'x-evil-key-0000' } $ownerToken
+    Assert-True ($evil.Status -eq 422) "a key for an origin outside the deployment allow-list was not refused ($($evil.Status))"
+    $assigned = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/gateway-keys" @{ keys = @(@{ key_id = $goodId; priority = 1; active = $true }) } $ownerToken
+    Assert-True ($assigned.Status -eq 200) "the owner could not assign the key ($($assigned.Status) $($assigned.Body))"
+    Assert-True ((Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/model-access" @{ models = @('fake-fast', 'fake-nousage') } $ownerToken).Status -eq 200) 'the owner could not set the model ceiling'
+    Assert-True ((Invoke-Send 'POST' '/forge/v1/platform/prices' @{ upstream_id = 'fake-fast'; input_micros = 1000000; output_micros = 2000000 } $ownerToken).Status -eq 201) 'the owner could not set a price'
+    Write-Pass 'the owner created two gateway keys (never echoed), refused a foreign origin, assigned one to the company, set its ceiling and a price'
+
+    $smokeLogin = Invoke-Json '/forge/v1/accounts/login' @{ email = $administrator.email; password = $administrator.password }
+    $smokeAdmin = ($smokeLogin.Body | ConvertFrom-Json).access_token
+    $memberToken = ($newLogin.Body | ConvertFrom-Json).access_token
+    $gatewayPath = "/forge/v1/orgs/$smokeOrg/gateway"
+    $status = Invoke-Authenticated $gatewayPath $smokeAdmin
+    $shown = $status.Body | ConvertFrom-Json
+    Assert-True ($status.Status -eq 200 -and $shown.status -eq 'SAVED_UNVERIFIED' -and $shown.revision -eq 1 -and $shown.endpoint -eq '' -and @($shown.allowed_endpoints).Count -eq 0) "the administrator's gateway status is not status-only ($($status.Body))"
+    $refusedWrite = Invoke-Send 'PUT' $gatewayPath @{ expected_revision = 0; api_key = 'admin-typed-key-0000' } $smokeAdmin
+    Assert-True ($refusedWrite.Status -eq 403 -and $refusedWrite.Body -match 'GATEWAY_MANAGED_BY_PLATFORM' -and -not $refusedWrite.Body.Contains('admin-typed-key')) 'a company administrator could write the gateway key'
+    $refresh = Invoke-Send 'POST' "$gatewayPath/catalogue/refresh" $null $smokeAdmin
+    Assert-True ($refresh.Status -eq 200 -and $refresh.Body -match 'fake-fast') "the administrator could not refresh the models ($($refresh.Status) $($refresh.Body))"
+    $publish = @{ operation_id = [Guid]::NewGuid().ToString(); expected_catalogue_revision = 0; expected_gateway_revision = 1
+        aliases = @{ assistant = 'fake-fast'; quiet = 'fake-nousage' }; default_alias = 'assistant' }
+    Assert-True ((Invoke-Send 'POST' "/forge/v1/orgs/$smokeOrg/models/publish" $publish $smokeAdmin).Status -eq 200) 'the administrator could not publish within the ceiling'
+    $outside = @{ operation_id = [Guid]::NewGuid().ToString(); expected_catalogue_revision = 1; expected_gateway_revision = 1
+        aliases = @{ assistant = 'fake-fast'; slow = 'fake-slow' }; default_alias = 'assistant' }
+    Assert-True ((Invoke-Send 'POST' "/forge/v1/orgs/$smokeOrg/models/publish" $outside $smokeAdmin).Status -eq 404) 'a model outside the platform ceiling was published'
+    Write-Pass 'the administrator sees status only (PUT is 403), refreshed the catalogue through the platform key and published within the ceiling (outside it is refused)'
+
+    # Failover: the rejected key becomes the primary; rotation or reordering never stales the published catalogue.
+    $reordered = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/gateway-keys" @{ keys = @(@{ key_id = $badId; priority = 1; active = $true }, @{ key_id = $goodId; priority = 2; active = $true }) } $ownerToken
+    Assert-True ($reordered.Status -eq 200 -and ($reordered.Body | ConvertFrom-Json).keys[0].label -eq 'smoke-bad') 'the owner could not make the rejected key the primary'
+    $catalogStatus = (Invoke-Authenticated "$gatewayPath/catalogue/status" $smokeAdmin).Body | ConvertFrom-Json
+    Assert-True ($catalogStatus.publication_state -eq 'CURRENT') 'reordering the keys staled the published catalogue'
+    $chatPath = "/forge/v1/orgs/$smokeOrg/chat/completions"
+    foreach ($alias in 'assistant', 'quiet') {
+        $chat = Invoke-Send 'POST' $chatPath @{ model = $alias; messages = @(@{ role = 'user'; content = 'Hello' }); stream = $true } $memberToken
+        Assert-True ($chat.Status -eq 200 -and $chat.Body -match 'data: \[DONE\]' -and $chat.Body -match '"content":"reply\."' -and $chat.Body -notmatch 'INFERENCE_UNAVAILABLE') "the member chat '$alias' did not stream through the failover ($($chat.Status) $($chat.Body))"
+        Assert-True (-not $chat.Body.Contains($goodKey) -and -not $chat.Body.Contains($badKey)) 'a chat response carries a gateway key'
+    }
+    $deadline = (Get-Date).AddSeconds(20)
+    while ((Get-Date) -lt $deadline -and (Get-Rows 'SELECT count(*) FROM forge.usage_events') -ne '2') { Start-Sleep -Milliseconds 500 }
+    Assert-True ((Get-Rows 'SELECT count(*) FROM forge.usage_events') -eq '2') 'two chats did not record exactly two usage events (one per request, failover included)'
+    Assert-True ((Get-Rows "SELECT count(*) FROM forge.usage_events e JOIN forge.gateway_keys k ON k.id = e.key_id WHERE k.label = 'smoke-good'") -eq '2') 'the usage events do not name the key that served after the failover'
+    Assert-True ((Get-Rows "SELECT string_agg(usage_source || ':' || status, ',' ORDER BY usage_source) FROM forge.usage_events") -eq 'estimated:ok,gateway:ok') 'the gateway-reported and the estimated events are not both recorded'
+    Write-Pass 'the member chat failed over from the rejected key, one event per request names the key that served; gateway usage and the estimate are both recorded'
+
+    $today = [DateTime]::UtcNow.ToString('yyyy-MM-dd')
+    $range = "from=$today&to=$today"
+    $byCompany = (Invoke-Authenticated "/forge/v1/platform/usage/companies?$range" $ownerToken).Body | ConvertFrom-Json
+    $row = @($byCompany.companies | Where-Object { $_.slug -eq 'smoke-co' })[0]
+    Assert-True ($row.requests -eq 2 -and $row.cost_micros -eq 14 -and $row.unpriced_requests -eq 1 -and $row.estimated_requests -eq 1) "the platform per-company report is wrong ($($byCompany | ConvertTo-Json -Compress -Depth 4))"
+    $byModel = (Invoke-Authenticated "/forge/v1/platform/usage/models?$range" $ownerToken).Body | ConvertFrom-Json
+    Assert-True ((@($byModel.models | ForEach-Object { $_.upstream_id }) -join ',') -eq 'fake-fast,fake-nousage') 'the platform per-model report is wrong'
+    $totals = (Invoke-Authenticated "/forge/v1/platform/usage/totals?$range" $ownerToken).Body | ConvertFrom-Json
+    Assert-True ($totals.requests -eq 2 -and $totals.companies -eq 1) 'the platform totals are wrong'
+    $people = Invoke-Authenticated "/forge/v1/orgs/$smokeOrg/usage/members?$range" $smokeAdmin
+    $person = ($people.Body | ConvertFrom-Json).members
+    Assert-True ($people.Status -eq 200 -and @($person).Count -eq 1 -and $person[0].email -eq 'newhire@smoke.example.test' -and $person[0].requests -eq 2 -and $person[0].cost_micros -eq 14) "the company per-person report is wrong ($($people.Body))"
+    Assert-True ((Invoke-Authenticated "/forge/v1/orgs/$smokeOrg/usage/members?$range" $adminToken).Status -eq 404) 'another company administrator read this company usage'
+    Assert-True ((Invoke-Authenticated "/forge/v1/orgs/$smokeOrg/usage/members?$range" $memberToken).Status -eq 404) 'a plain member read the company usage'
+    Assert-True ((Invoke-Authenticated "/forge/v1/platform/usage/totals?$range" $smokeAdmin).Status -eq 403) 'a company administrator read the platform usage'
+    $trail = ((Invoke-Authenticated '/forge/v1/platform/audit' $ownerToken).Body | ConvertFrom-Json).entries | ForEach-Object { $_.action }
+    Assert-True ((@($trail) -contains 'gateway_key.created') -and (@($trail) -contains 'company.gateway_assigned') -and (@($trail) -contains 'company.model_access_set') -and (@($trail) -contains 'model_price.set')) 'the key, assignment, ceiling and price changes are not audited'
+    Write-Pass 'usage is visible per company, model and total to the owner and per person to the company administrator only; the changes are audited'
+
     # Backups: a verified dump, retention, restore refusing a used database, and a round trip into a fresh volume.
     $backups = Join-Path $work 'backups'
     $backupScript = @('exec', '-T', 'backup', '/bin/sh', '/opt/forge/backup.sh')

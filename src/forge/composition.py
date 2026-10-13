@@ -65,7 +65,8 @@ def add_status(app, readiness, admin_dir):
 
 
 def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery_key, gateway_key, platform_key,
-              gateway_policy):
+              gateway_policy, gateway_ca_file=None):
+    import ssl
     from forge.account_api import create_account_app
     from forge.account_sessions import PostgresSessionStore, SessionService
     from forge.account_store import PostgresEnrollmentStore
@@ -98,6 +99,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.platform_totp import SecretSealer
     from forge.postgres import PostgresBootstrapReader
     accounts, enrollment, bootstrap, gateway, branding, platform = pools
+    verify = ssl.create_default_context(cafile=gateway_ca_file) if gateway_ca_file else True  # a private gateway CA, else the system store
     cipher = GatewayCipher(gateway_key, policy=gateway_policy)
     sessions = SessionService(PostgresSessionStore(accounts))
     delivery = DeliveryCoordinator(PostgresDeliveryStore(accounts), delivery_adapter, origin=onboarding_origin,
@@ -108,8 +110,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         delivery=delivery,
         bootstrap_reader=PostgresBootstrapReader(bootstrap), authorization_reader=PostgresAuthorizationReader(bootstrap),
         readiness=readiness, gateway_configuration=PoolGatewayConfiguration(PostgresPoolStatusStore(gateway), gateway_policy.allowed),
-        gateway_catalog=GatewayCatalog(PostgresPoolCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy)),
-        gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy),
+        gateway_catalog=GatewayCatalog(PostgresPoolCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy, verify=verify)),
+        gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy, verify=verify),
                                            usage=PostgresUsageStore(gateway)),
         directory=DirectoryService(PostgresDirectoryStore(gateway)))
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)

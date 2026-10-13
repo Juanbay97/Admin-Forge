@@ -31,10 +31,10 @@ class HttpxModelsAdapter:
     The optional smaller deadline is useful for labelled cancellation tests;
     no caller can increase the production ten-second ceiling.
     """
-    def __init__(self, *, transport=None, clock=monotonic, deadline_seconds=10.0, policy=DEFAULT_POLICY):
+    def __init__(self, *, transport=None, clock=monotonic, deadline_seconds=10.0, policy=DEFAULT_POLICY, verify=True):
         if type(policy) is not OriginPolicy:
             raise ValueError('Explicit gateway origin policy required.')
-        self._policy = policy
+        self._policy, self._verify = policy, verify  # verify: True or a private-CA SSLContext
         if (type(deadline_seconds) not in (int, float) or not math.isfinite(deadline_seconds)
                 or not 0 < deadline_seconds <= 10.0):
             raise ValueError('Invalid discovery deadline.')
@@ -60,7 +60,7 @@ class HttpxModelsAdapter:
             # Unlike per-read timeouts or clock observations, this cancellation
             # surrounds send, response headers and every awaited body fragment.
             async with asyncio.timeout(self._deadline_seconds):
-                async with httpx.AsyncClient(transport=self._transport, trust_env=False,
+                async with httpx.AsyncClient(transport=self._transport, trust_env=False, verify=self._verify,
                         follow_redirects=False, timeout=httpx.Timeout(5, connect=2, write=2, pool=1)) as client:
                     async with client.stream('GET', endpoint + '/v1/models',
                             headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json',

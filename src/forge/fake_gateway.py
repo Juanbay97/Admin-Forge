@@ -37,17 +37,27 @@ class FakeGatewayConfiguration:
     host: str = '127.0.0.1'
     port: int = DEFAULT_PORT
     slow_delay_seconds: float = 0.5
+    # Optional TLS (a throwaway certificate, see make_certificate): the deployment proof reaches the fake over https because the
+    # production allow-list refuses plain http. ``any_interface`` (host 0.0.0.0) exists only for that container run and needs TLS.
+    tls_cert: str | None = None
+    tls_key: str | None = None
+    any_interface: bool = False
 
     def __post_init__(self):
         if type(self.keys) is not tuple or not 1 <= len(self.keys) <= MAX_KEYS:
             raise ValueError('Invalid fake gateway keys.')
         if any(type(key) is not str or not KEY_PATTERN.fullmatch(key) for key in self.keys):
             raise ValueError('Invalid fake gateway keys.')
+        if (self.tls_cert is None) != (self.tls_key is None) or type(self.any_interface) is not bool:
+            raise ValueError('Invalid fake gateway TLS settings.')
         try:
             loopback = type(self.host) is str and ip_address(self.host).is_loopback
         except ValueError:
             loopback = False
-        if not loopback:
+        if self.any_interface:
+            if self.host != '0.0.0.0' or self.tls_cert is None:
+                raise ValueError('All interfaces are only for an explicit TLS container run.')
+        elif not loopback:
             raise ValueError('The fake gateway binds to numeric loopback only.')
         if type(self.port) is not int or not 1 <= self.port <= 65535:
             raise ValueError('Invalid fake gateway port.')
@@ -203,6 +213,55 @@ class GatewayPortOccupied(RuntimeError):
         super().__init__('PORT_OCCUPIED')
 
 
+_HOST_NAME = re.compile(r'[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?')
+
+
+def make_certificate(directory, names):
+    """Write a self-signed throwaway certificate (and its key) for ``names`` into ``directory``: gateway.crt, gateway.key.
+
+    Valid for two days and meant to be trusted explicitly (a private CA file), never installed anywhere. Returns both paths.
+    """
+    import datetime
+    import os
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+    if type(names) is not tuple or not 1 <= len(names) <= 8:
+        raise ValueError('Invalid certificate names.')
+    alternatives = []
+    for name in names:
+        if type(name) is not str:
+            raise ValueError('Invalid certificate names.')
+        try:
+            alternatives.append(x509.IPAddress(ip_address(name)))
+        except ValueError:
+            if not _HOST_NAME.fullmatch(name):
+                raise ValueError('Invalid certificate names.') from None
+            alternatives.append(x509.DNSName(name))
+    key = ec.generate_private_key(ec.SECP256R1())
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'forge fake gateway (throwaway)')])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    certificate = (x509.CertificateBuilder().subject_name(subject).issuer_name(subject).public_key(key.public_key())
+                   .serial_number(x509.random_serial_number()).not_valid_before(now - datetime.timedelta(minutes=5))
+                   .not_valid_after(now + datetime.timedelta(days=2))
+                   .add_extension(x509.SubjectAlternativeName(alternatives), critical=False)
+                   .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+                   .add_extension(x509.KeyUsage(digital_signature=True, key_cert_sign=True, crl_sign=False, content_commitment=False,
+                                                key_encipherment=False, data_encipherment=False, key_agreement=False,
+                                                encipher_only=False, decipher_only=False), critical=True)
+                   .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+                   .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+                   .sign(key, hashes.SHA256()))
+    directory = Path(directory)
+    certificate_path, key_path = directory/'gateway.crt', directory/'gateway.key'
+    certificate_path.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
+    descriptor = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, 'wb') as output:
+        output.write(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    return certificate_path, key_path
+
+
 def read_keys(path):
     """One accepted key per line; blank lines ignored. Errors never echo file content."""
     try:
@@ -218,14 +277,19 @@ def serve(configuration: FakeGatewayConfiguration, *, stopping=None, announce=No
     from forge.mvp_local import ConfigError, reserve_loopback_port
     stopping = Event() if stopping is None else stopping
     try:
-        listener = reserve_loopback_port(configuration.port)
+        if configuration.any_interface:
+            from forge.serve_prod import reserve_port
+            listener = reserve_port(configuration.host, configuration.port)
+        else:
+            listener = reserve_loopback_port(configuration.port)
     except ConfigError:
         raise GatewayPortOccupied() from None
     try:
         import uvicorn
         server = uvicorn.Server(uvicorn.Config(create_fake_gateway(configuration, sleep=sleep).app,
                                                host=configuration.host, port=configuration.port, access_log=False,
-                                               log_config=None, timeout_graceful_shutdown=5))
+                                               log_config=None, timeout_graceful_shutdown=5,
+                                               ssl_certfile=configuration.tls_cert, ssl_keyfile=configuration.tls_key))
 
         def watch():
             stopping.wait()
@@ -252,19 +316,34 @@ def main(argv=None, *, stopping=None):
     emit = lambda document: print(json.dumps(document), flush=True)
     try:
         parser = _Parser(prog='forge.fake_gateway', description='Fake OpenAI-compatible gateway; never a real provider.')
-        parser.add_argument('--keys-file', required=True)
+        parser.add_argument('--keys-file')
         parser.add_argument('--port', type=int, default=DEFAULT_PORT)
+        parser.add_argument('--tls-cert')
+        parser.add_argument('--tls-key')
+        parser.add_argument('--bind-all', action='store_true')
+        parser.add_argument('--make-cert', metavar='DIRECTORY')
+        parser.add_argument('--name', action='append')
         arguments = parser.parse_args(sys.argv[1:] if argv is None else argv)
+        if (arguments.make_cert is None) == (arguments.keys_file is None):
+            raise _Usage()
     except _Usage:
         emit({'status': 'failed', 'code': 'INVALID_ARGUMENTS'})
         return 2
     try:
+        if arguments.make_cert is not None:
+            certificate, _ = make_certificate(Path(arguments.make_cert), tuple(arguments.name or ()))
+            emit({'status': 'created', 'certificate': str(certificate)})
+            return 0
         from forge.mvp_local import FORBIDDEN_PORTS
         if arguments.port in FORBIDDEN_PORTS:
             raise ValueError('PORT_FORBIDDEN')
-        configuration = FakeGatewayConfiguration(keys=read_keys(arguments.keys_file), port=arguments.port)
+        options = {'tls_cert': arguments.tls_cert, 'tls_key': arguments.tls_key}
+        if arguments.bind_all:
+            options.update(host='0.0.0.0', any_interface=True)
+        configuration = FakeGatewayConfiguration(keys=read_keys(arguments.keys_file), port=arguments.port, **options)
+        scheme = 'https' if configuration.tls_cert else 'http'
         serve(configuration, stopping=stopping, announce=lambda: emit({
-            'status': 'ready', 'origin': 'http://%s:%d' % (configuration.host, configuration.port)}))
+            'status': 'ready', 'origin': '%s://%s:%d' % (scheme, configuration.host, configuration.port)}))
         return 0
     except KeyboardInterrupt:
         return 0

@@ -51,11 +51,11 @@ class PrivateEchoGuard:
 
 
 class HttpxTextAdapter:
-    def __init__(self, *, transport=None, policy=DEFAULT_POLICY):
+    def __init__(self, *, transport=None, policy=DEFAULT_POLICY, verify=True):
         # Injection is for explicitly labelled test transports; never ambient URLs.
         if type(policy) is not OriginPolicy:
             raise ValueError('Explicit gateway origin policy required.')
-        self._transport, self._policy = transport, policy
+        self._transport, self._policy, self._verify = transport, policy, verify  # verify: True or a private-CA SSLContext
 
     async def events(self, key, upstream_id, request):
         GatewayCipher.validate_key(key)
@@ -65,7 +65,7 @@ class HttpxTextAdapter:
             # An opened GatewayKey carries its bound origin; a plain key is the fixed default.
             url = self._policy.require(getattr(key, 'endpoint', GATEWAY_ENDPOINT)) + PATH
             async with asyncio.timeout(TOTAL_SECONDS):
-                async with httpx.AsyncClient(transport=self._transport, trust_env=False,
+                async with httpx.AsyncClient(transport=self._transport, trust_env=False, verify=self._verify,
                         follow_redirects=False,
                         timeout=httpx.Timeout(5.0, connect=3.0, pool=1.0)) as client:
                     async with client.stream('POST', url,

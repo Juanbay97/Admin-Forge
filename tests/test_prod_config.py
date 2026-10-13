@@ -143,6 +143,16 @@ class LoadTests(unittest.TestCase):
             self.assertEqual(config.gateway_policy.allowed, frozenset({'https://ia.example.test', 'https://gw.example.test'}))
             f.refused(self, 'FORGE_GATEWAY_ORIGINS', FORGE_GATEWAY_ORIGINS='http://127.0.0.1:3413')
 
+    def test_a_private_gateway_ca_file_is_optional_absolute_and_must_exist(self):
+        with Fixture() as f:
+            self.assertIsNone(f.load().gateway_ca_file)
+            ca = f.root/'gateway-ca.crt'
+            ca.write_text('-----BEGIN CERTIFICATE-----\n', 'utf-8')
+            self.assertEqual(f.load(FORGE_GATEWAY_CA_FILE=str(ca)).gateway_ca_file, str(ca))
+            self.assertIn('FORGE_GATEWAY_CA_FILE', KNOWN_KEYS)
+            f.refused(self, 'FORGE_GATEWAY_CA_FILE', FORGE_GATEWAY_CA_FILE='relative/ca.crt')
+            f.refused(self, 'FORGE_GATEWAY_CA_FILE', FORGE_GATEWAY_CA_FILE=str(f.root/'missing.crt'))
+
     def test_unknown_forge_keys_are_refused_but_other_variables_are_ignored(self):
         with Fixture() as f:
             f.refused(self, 'unknown_key', FORGE_SURPRISE='1')

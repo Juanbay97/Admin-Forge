@@ -280,3 +280,24 @@ class UsageTests(unittest.IsolatedAsyncioTestCase):
                     await self.collect(self.adapter(body))
         self.assertGreater(accepted, 20)
         self.assertGreater(rejected, 20)
+
+
+class VerifyTests(unittest.IsolatedAsyncioTestCase):
+    """A private gateway CA reaches the HTTP client of both adapters; without one the default trust store applies."""
+    async def test_the_configured_verify_context_is_handed_to_the_http_client(self):
+        import ssl
+        from forge.gateway_catalog_adapter import HttpxModelsAdapter
+        seen = []
+        real = httpx.AsyncClient
+
+        def capture(*args, **kwargs):
+            seen.append(kwargs.get('verify'))
+            return real(*args, **kwargs)
+        context = ssl.create_default_context()
+        for adapter, call in ((HttpxTextAdapter(verify=context), lambda a: a.events(KEY, UPSTREAM, REQUEST).__anext__()),
+                              (HttpxModelsAdapter(verify=context), lambda a: a.discover_async(KEY)),
+                              (HttpxTextAdapter(), lambda a: a.events(KEY, UPSTREAM, REQUEST).__anext__())):
+            with patch('httpx.AsyncClient', capture):
+                with self.assertRaises(GatewayUnavailable):  # nothing listens; only the client construction matters
+                    await asyncio.wait_for(call(adapter), 5)
+        self.assertEqual(seen, [context, context, True])

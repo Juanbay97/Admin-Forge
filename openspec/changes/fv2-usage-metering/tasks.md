@@ -43,4 +43,4 @@ Chain strategy: stacked-to-main
 - [x] 4.1 RED/GREEN `0035` model_prices versions, cost snapshot, audit (F35)
 - [x] 4.2 RED/GREEN `0036` platform per-company/model/totals/range (F36), MFA gate, non-owner denied
 - [x] 4.3 RED/GREEN `usage_api.py` company per-person; cross-company denial
-- [ ] 4.4 extend `mvp-smoke` with metered request; docs
+- [x] 4.4 extend `mvp-smoke` with metered request; docs
