@@ -17,7 +17,9 @@ from test_postgres_gateway_origin import migration_text, separate_database
 
 SERVICE_FUNCTIONS = ('forge.platform_me(text)', 'forge.platform_company_list(text,text,integer)',
                      'forge.platform_company_get(text,uuid)', 'forge.platform_audit_page(text,bigint,integer)',
-                     'forge.platform_company_create(text,uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer)')
+                     'forge.platform_company_create(text,uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer)',
+                     'forge.platform_company_set_active(text,uuid,boolean)', 'forge.platform_company_branding_read(text,uuid)',
+                     'forge.platform_company_branding_save(text,uuid,bigint,text,text,text,text,text,text,text,text,text,text,text)')
 INTERNAL_FUNCTIONS = ('forge.platform_lock_owner(text,boolean)', 'forge.platform_audit_write(uuid,text,uuid)',
                       'forge.platform_owner_exists(uuid)')
 AUTHORITY_GRANTS = {('organizations', 'SELECT'), ('memberships', 'SELECT'), ('identities', 'SELECT'),
@@ -43,8 +45,8 @@ class PlatformProfileTests(unittest.TestCase):
     """No database: the profile appends 0028 and its own pinned checkpoint after 0027."""
     def test_0028_follows_0027_with_its_own_pinned_checkpoint(self):
         self.assertEqual(PLATFORM_SCOPE_MIGRATION, '0028_platform_scope.sql')
-        self.assertEqual(MVP_ADDITIONS[-4:-2], ('0027_gateway_origin_config.sql', PLATFORM_SCOPE_MIGRATION))
-        self.assertEqual(MVP_CHECKPOINTS[-4:-2], (F27, F28))
+        self.assertEqual(MVP_ADDITIONS[-5:-3], ('0027_gateway_origin_config.sql', PLATFORM_SCOPE_MIGRATION))
+        self.assertEqual(MVP_CHECKPOINTS[-5:-3], (F27, F28))
         self.assertRegex(F28 or '', r'^[0-9a-f]{64}$', 'F28 must be pinned')
         self.assertNotEqual(F28, F27)
         self.assertEqual(len(MVP_CHECKPOINTS), len(MVP_ADDITIONS) + 1)
@@ -58,7 +60,7 @@ class PlatformFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0027_share_the_pinned_fingerprint(self):
-        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-3])
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-4])
         with separate_database() as conn:
             for name in (*previous, PLATFORM_SCOPE_MIGRATION):
                 conn.execute(migration_text(name))

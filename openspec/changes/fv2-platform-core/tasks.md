@@ -43,8 +43,8 @@ Strict TDD each task: RED → GREEN → REFACTOR; module-at-a-time unittest + PG
 ## Phase 3: API + lifecycle (S5–S7)
 - [x] 3.1 RED/GREEN `platform_api.py` routes `include_in_schema=False`; `test_contract.py` unchanged
 - [x] 3.2 RED/GREEN 0029 invitation relax + create_company + accept branch; member accept regression (F29)
-- [ ] 3.3 RED/GREEN suspend/reactivate across member/admin/inference paths
-- [ ] 3.4 RED/GREEN 0030 platform branding edit + other-company-unchanged (F30)
+- [x] 3.3 RED/GREEN suspend/reactivate across member/admin/inference paths
+- [x] 3.4 RED/GREEN 0030 platform branding edit + other-company-unchanged (F30)
 ## Phase 4: Verify (S8)
 - [ ] 4.1 audit read API + append-only denial tests
 - [ ] 4.2 extend `scripts/mvp-smoke.ps1`: owner→company→invite→admin; docs
