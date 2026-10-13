@@ -30,8 +30,8 @@ Chain strategy: stacked-to-main
 | B6 | Leak/hardening suite, readiness, runbook | PR 6 (~500) | |
 
 ## B1 Pure core
-- [ ] 1.1 RED `tests/test_connector_cipher.py` (binding drift, missing key, rotation); GREEN `connector_cipher.py`
-- [ ] 1.2 RED `tests/test_egress_guard.py` (private IP, redirect, rebind, allow-list); GREEN `egress_guard.py`
+- [x] 1.1 RED `tests/test_connector_cipher.py` (binding drift, missing key, rotation); GREEN `connector_cipher.py`
+- [x] 1.2 RED `tests/test_egress_guard.py` (private IP, redirect, rebind, allow-list); GREEN `egress_guard.py`
 
 ## B2 Schema/store
 - [ ] 2.1 Migration credentials/grants/oauth_states, broker role pair, RLS + DEFINER fns
