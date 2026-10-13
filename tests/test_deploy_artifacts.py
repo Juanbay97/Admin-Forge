@@ -295,7 +295,7 @@ class ComposePolicy(unittest.TestCase):
             with self.subTest(service=name):
                 self.assertIsNotNone(image)
                 if '${FORGE_IMAGE:-' in image.group(1):  # the control-plane image, built locally by one service
-                    self.assertIn(name, ('control-plane', 'migrate', 'provision'))
+                    self.assertIn(name, ('control-plane', 'migrate', 'provision', 'platform'))
                 elif name in ('backup', 'restore'):  # PostgreSQL client tools: the same pinned image as the database
                     self.assertEqual(image.group(1), re.search(r'(?m)^    image: (\S+)$', self.services['postgres']).group(1))
                 else:
@@ -324,9 +324,24 @@ class ComposePolicy(unittest.TestCase):
 
     def test_only_postgres_migrate_and_the_tools_profile_receive_the_database_administrator_secret(self):
         holders = sorted(name for name, block in self.services.items() if re.search(r'^      - pg_superuser$', block, re.M))
-        self.assertEqual(holders, ['migrate', 'postgres', 'provision', 'restore'])
-        for name in ('provision', 'restore'):
+        self.assertEqual(holders, ['migrate', 'platform', 'postgres', 'provision', 'restore'])
+        for name in ('provision', 'restore', 'platform'):
             self.assertRegex(self.services[name], r'(?m)^    profiles:\n      - tools$')  # never started by `up`
+
+    def test_the_platform_tool_runs_the_bootstrap_cli_unprivileged_reaching_the_database_and_the_mail_relay(self):
+        block = self.services['platform']
+        self.assertRegex(block, r'(?m)^    profiles:\n      - tools$')  # never started by `up`
+        self.assertIn('entrypoint: ["python", "-m", "forge.platform"]', block)
+        self.assertIn('<<: [*forge-env, *forge-smtp]', block)
+        self.assertIn('FORGE_DB_ADMIN_PASSWORD_FILE: /run/secrets/pg_superuser', block)
+        self.assertRegex(block, r'(?m)^      - smtp_password$')
+        self.assertRegex(block, r'(?m)^    user: "\$\{FORGE_UID:-10001\}:\$\{FORGE_GID:-10001\}"$')
+        self.assertIn(':/credentials', block)  # the one-time link file lands where the operator can read it
+        self.assertNotRegex(block, r'(?m)^    ports:')
+        self.assertNotIn('network_mode', block)  # PostgreSQL by name on `data`, the relay through `edge`
+        self.assertRegex(block, r'(?m)^      - data$')
+        self.assertRegex(block, r'(?m)^      - edge$')
+        self.assertNotRegex(block, r'(?m)^      - forge_')  # no service-role password is needed
 
     def test_secrets_are_docker_secrets_for_exactly_the_generated_files(self):
         declared = top_level(self.source, 'secrets')
@@ -605,6 +620,14 @@ class RunbookDocument(unittest.TestCase):
             with self.subTest(heading=heading):
                 self.assertIn(heading + '\n', self.doc)
 
+    def test_the_first_owner_section_bootstraps_with_the_tools_service_and_explains_the_one_time_link(self):
+        section = self.doc[self.doc.index('## First platform owner'):self.doc.index('## Provision the first company')]
+        self.assertNotIn('Placeholder', section)
+        for needle in ('run --rm platform bootstrap-owner', '--link-file /credentials/', '--smtp', 'single-use', 'forgot-password',
+                       '--mailbox-dir', '"exists"'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, section)
+
     def test_it_warns_that_losing_the_fernet_keys_is_unrecoverable_and_defines_the_offline_secrets_backup(self):
         section = self.doc[self.doc.index('## Backup and restore'):]
         self.assertRegex(section, r'(?i)losing[^\n]*delivery_key[^\n]*gateway_key[^\n]*unrecoverable')
@@ -624,7 +647,7 @@ class RunbookDocument(unittest.TestCase):
                      'deploy/backup/restore.sh', 'scripts/deploy-smoke.ps1'):
             with self.subTest(path=path):
                 self.assertTrue((ROOT/path).is_file())
-        for service in ('provision', 'restore', 'backup'):
+        for service in ('provision', 'restore', 'backup', 'platform'):
             self.assertIn('run --rm %s' % service if service != 'backup' else 'exec backup', self.doc)
 
 

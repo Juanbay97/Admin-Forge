@@ -152,15 +152,28 @@ recipient or the account), so run the check above and read the category:
 Delivery is synchronous: a slow relay delays the request that sends the invitation by up to 10 seconds, then it is
 recorded as failed (invite again once the relay is fixed).
 
-Placeholder: there is no platform-owner sign-in yet. Until the platform administration change
-(`fv2-platform-core`) lands, whoever has shell access to this server and the `deploy/secrets/pg_superuser` file is
-the platform owner, and companies are created from the command line as described next. Keep that access limited.
-
 ## First platform owner
 
-Placeholder: there is no platform-owner sign-in yet. Until the platform administration change
-(`fv2-platform-core`) lands, whoever has shell access to this server and the `deploy/secrets/pg_superuser` file is
-the platform owner, and companies are created from the command line as described next. Keep that access limited.
+The platform owner is a Forge account that belongs to no company. It is created once, on the server, by the `platform`
+service (profile `tools`, so `up` never starts it). The command never prints or stores a password and cannot be reached
+over HTTP: it writes a **single-use set-password link** to a new private file in `deploy/credentials/` (an existing
+file is never overwritten) and can mail the same link through the relay you configured.
+
+```bash
+docker compose --profile tools run --rm platform bootstrap-owner \
+  --email owner@example.test --name "Platform Owner" --link-file /credentials/owner-link.txt --smtp
+```
+
+Expected: `{"status": "created", "link_file": "/credentials/owner-link.txt", "delivery": "delivered"}`.
+
+1. `--smtp` mails the link through `FORGE_SMTP_*`; leave it out to use the file alone. `"delivery": "failed"` means the
+   relay refused or did not answer: the file still holds the link (run the one-command check in
+   [Email delivery](#email-delivery-smtp) to see why).
+2. Open the link, set a password, then delete `deploy/credentials/owner-link.txt`. The link works once and expires after
+   24 hours (`--ttl-hours`, 1 to 168); only a digest of it is stored in the database.
+3. Running the command again is a no-op (`{"status": "exists"}`): once an owner exists nothing is created and no file
+   is written. If the link was lost or expired before use, use the owner's normal forgot-password flow on the sign-in page.
+4. For local testing without a relay, `--mailbox-dir <private folder>` writes the message as an `.eml` file instead.
 
 ## Provision the first company
 

@@ -246,7 +246,8 @@ services:
       - no-new-privileges:true
 
   # Operator tool, never started by `up`. It joins the database's network namespace because the trusted
-  # provisioning CLI only connects to 127.0.0.1. Temporary until the platform administration lands.
+  # provisioning CLI only connects to 127.0.0.1. Companies are normally created through the platform API (docs/deploy.md);
+  # this tool remains for the very first company and for recovery.
   #   FORGE_UID=$(id -u) FORGE_GID=$(id -g) docker compose --profile tools run --rm provision org --slug ... 
   provision:
     image: ${FORGE_IMAGE:-forge-control-plane:local}
@@ -270,6 +271,38 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+
+  # Platform owner bootstrap, never started by up. It is on BOTH networks: PostgreSQL is reached by name over the
+  # internal data network, and the one-time set-password link can be mailed through the relay on edge (--smtp).
+  #   docker compose --profile tools run --rm platform bootstrap-owner --email ... --name ... --link-file /credentials/owner-link.txt
+  platform:
+    image: ${FORGE_IMAGE:-forge-control-plane:local}
+    profiles:
+      - tools
+    entrypoint: ["python", "-m", "forge.platform"]
+    user: "${FORGE_UID:-10001}:${FORGE_GID:-10001}"
+    environment:
+      <<: [*forge-env, *forge-smtp]
+      FORGE_DB_ADMIN_PASSWORD_FILE: /run/secrets/pg_superuser
+    secrets:
+      - pg_superuser
+      - smtp_password
+    volumes:
+      - ${FORGE_CREDENTIALS_DIR:-./credentials}:/credentials
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
 networks:
   edge: {}
   data:
