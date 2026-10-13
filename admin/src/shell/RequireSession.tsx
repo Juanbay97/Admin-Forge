@@ -17,14 +17,16 @@ export function RequireSession({ children }: { children: ReactNode }) {
   const [expired, setExpired] = useState(false);
 
   useEffect(() => {
-    if (token) setExpired(false);
-    else if (previous.current && !exit.intentional) setExpired(true);
+    if (token) {
+      setExpired(false);
+      exit.notice = null;
+    } else if (previous.current && !exit.intentional) setExpired(true);
     if (!token) exit.intentional = false;
     previous.current = token;
   }, [token]);
 
   if (!token) {
-    return <Login api={services.account} onSignedIn={(accessToken) => session.set(accessToken)} notice={expired ? EXPIRED_NOTICE : undefined} />;
+    return <Login api={services.account} onSignedIn={(accessToken) => session.set(accessToken)} notice={expired ? (exit.notice ?? EXPIRED_NOTICE) : undefined} />;
   }
   return <>{children}</>;
 }

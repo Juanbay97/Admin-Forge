@@ -1,11 +1,11 @@
 import type { AccountApi, Me, Organization } from "../api/account";
 import { ApiError } from "../api/client";
-import type { PlatformApi } from "../api/platform";
+import type { PlatformApi, PlatformMe } from "../api/platform";
 import type { AreaId } from "./areas";
 
 export interface Identity {
   account: Me["account"];
-  platform: { role: "platform_owner" | "platform_viewer"; mfaLevel: "none" | "totp" } | null;
+  platform: Pick<PlatformMe, "role" | "mfa"> | null;
   orgs: Organization[];
 }
 
@@ -21,7 +21,7 @@ export function homeFor(identity: Identity): AreaId {
  * failure is one. While no platform area exists (`probePlatform: false`) the probe is not made at all.
  */
 export async function loadIdentity(
-  api: { account: AccountApi; platform?: PlatformApi },
+  api: { account: AccountApi; platform?: Pick<PlatformApi, "me"> },
   { probePlatform = true }: { probePlatform?: boolean } = {},
 ): Promise<Identity> {
   const [me, platform] = await Promise.all([
@@ -34,6 +34,6 @@ export async function loadIdentity(
   return {
     account: me.account,
     orgs: me.organizations,
-    platform: platform ? { role: platform.role, mfaLevel: platform.mfa } : null,
+    platform: platform ? { role: platform.role, mfa: platform.mfa } : null,
   };
 }

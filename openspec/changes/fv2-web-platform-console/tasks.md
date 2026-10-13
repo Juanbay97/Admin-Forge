@@ -33,12 +33,12 @@ Chain strategy: stacked-to-main
 | 9 | Audit log + command palette company search + sweep + full e2e journey + README | PR 9 (~700) | needs all |
 
 ## Phase 1 — API layer & area skeleton (PR 1)
-- [ ] 1.1 RED: fixtures + schema specs for PC1, PC3, PC10, errors (each fails on missing/extra field)
-- [ ] 1.2 GREEN: `api/platform/*` modules, error-code map (`MFA_REQUIRED`, `CODE_TAKEN`, `KEY_IN_USE`…)
-- [ ] 1.3 Platform manifest (nav: Overview, Companies, Keys, Prices, Audit), `requires` guard, fixed theme + dark toggle, badge, owner email
-- [ ] 1.4 `useIdleTimeout` (fake timers unit) + cache clear on sign-out/401
-- [ ] 1.5 UI spec: guard (org admin denied, platform allowed), branding isolation, dark axe
-- [ ] 1.6 Contract reconcile task: diff fixtures vs sibling specs (platform-core, gateway-keys, usage-metering) → update PC table + fixtures
+- [x] 1.1 RED: fixtures + schema specs for PC1, PC3, PC10, errors (each fails on missing/extra field)
+- [x] 1.2 GREEN: `api/platform/*` modules, error-code map (`MFA_REQUIRED`, `CODE_TAKEN`, `KEY_IN_USE`…)
+- [x] 1.3 Platform manifest (nav: Overview, Companies, Keys, Prices, Audit), `requires` guard, fixed theme + dark toggle, badge, owner email
+- [x] 1.4 `useIdleTimeout` (fake timers unit) + cache clear on sign-out/401
+- [x] 1.5 UI spec: guard (org admin denied, platform allowed), branding isolation, dark axe
+- [x] 1.6 Contract reconcile task: diff fixtures vs sibling specs (platform-core, gateway-keys, usage-metering) → update PC table + fixtures
 
 ## Phase 2 — TOTP (PR 2)
 - [ ] 2.1 RED unit: `e2e/support/totp.ts` RFC 6238 vectors; QR matrix → path builder

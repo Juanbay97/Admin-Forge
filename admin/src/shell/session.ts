@@ -2,7 +2,15 @@ import type { Services } from "../api/services";
 import { session } from "../auth/session";
 
 /** Set while the user is signing out, so the shell can tell that from a session that expired under them. */
-export const exit = { intentional: false };
+export const exit: { intentional: boolean; notice: string | null } = { intentional: false, notice: null };
+
+export const IDLE_NOTICE = "Signed out for inactivity.";
+
+/** Drops the session on the user's behalf (idle timeout): the sign-in page says why instead of calling it an expiry. */
+export function signOutWithNotice(notice: string): void {
+  exit.notice = notice;
+  session.clear();
+}
 
 export async function signOut(services: Services): Promise<void> {
   exit.intentional = true;

@@ -4,6 +4,13 @@ import { ApiError } from "../api/client";
 export const ERROR_MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: "Your session expired. Sign in again to continue.",
   MFA_REQUIRED: "Two-factor verification is required.",
+  MFA_INVALID: "That code was not accepted. Check it and try again.",
+  MFA_LOCKED: "Too many attempts. Try again in 15 minutes.",
+  MFA_ENROLLED: "A second factor is already set up for this account.",
+  PLATFORM_DENIED: "This account cannot use the platform console.",
+  COMPANY_CONFLICT: "A company with this code already exists.",
+  KEY_CONFLICT: "A gateway key with this label already exists.",
+  INVALID_RESPONSE: "The server answered in a way this console does not understand. Contact support.",
   FORBIDDEN: "You do not have access to this.",
   NOT_FOUND: "That could not be found.",
   REVISION_CONFLICT: "This was changed elsewhere. Reload to see the latest version.",

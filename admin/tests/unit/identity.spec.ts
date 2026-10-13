@@ -1,14 +1,16 @@
 import { expect, test } from "@playwright/test";
 import type { AccountApi, Me } from "../../src/api/account";
 import { ApiError } from "../../src/api/client";
-import type { PlatformApi } from "../../src/api/platform";
+import type { PlatformApi, PlatformMe } from "../../src/api/platform";
 import { ERROR_MESSAGES, errorMessage, needsMfa } from "../../src/shell/errors";
 import { homeFor, loadIdentity, type Identity } from "../../src/shell/identity";
 
 const org = (id: string, roles: string[]) => ({ id, display_name: id, status: "active" as const, roles, departments: [] });
 const me = (...orgs: ReturnType<typeof org>[]): Me => ({ account: { id: "a1", email: "a@example.com", display_name: "Ada" }, organizations: orgs });
 const account = (value: Me): AccountApi => ({ login: async () => "", logout: async () => undefined, me: async () => value, departments: async () => [] });
-const platform = (reply: () => Promise<{ role: "platform_owner" | "platform_viewer"; mfa: "none" | "totp" }>): PlatformApi & { calls: number } => {
+const mfa = (state: "none" | "pending" | "active", verified = false) => ({ state, verified, fresh: verified });
+const owner = (state: "none" | "pending" | "active" = "active", verified = true): PlatformMe => ({ account_id: "a1", role: "platform_owner", mfa: mfa(state, verified) });
+const platform = (reply: () => Promise<PlatformMe>): Pick<PlatformApi, "me"> & { calls: number } => {
   const api = { calls: 0, me: async () => (api.calls++, reply()) };
   return api;
 };
@@ -16,8 +18,8 @@ const platform = (reply: () => Promise<{ role: "platform_owner" | "platform_view
 test.describe("homeFor", () => {
   const identity = (overrides: Partial<Identity>): Identity => ({ account: me().account, platform: null, orgs: [], ...overrides });
   test("a platform role wins, even for someone who also administers a company", () => {
-    expect(homeFor(identity({ platform: { role: "platform_owner", mfaLevel: "totp" } }))).toBe("platform");
-    expect(homeFor(identity({ platform: { role: "platform_viewer", mfaLevel: "none" }, orgs: [org("a", ["organization_admin"])] }))).toBe("platform");
+    expect(homeFor(identity({ platform: { role: "platform_owner", mfa: mfa("active", true) } }))).toBe("platform");
+    expect(homeFor(identity({ platform: { role: "platform_owner", mfa: mfa("none") }, orgs: [org("a", ["organization_admin"])] }))).toBe("platform");
   });
   test("an organization administrator lands on the company area", () => {
     expect(homeFor(identity({ orgs: [org("a", ["member"]), org("b", ["organization_admin", "member"])] }))).toBe("company");
@@ -30,9 +32,9 @@ test.describe("homeFor", () => {
 
 test.describe("loadIdentity", () => {
   test("combines the account with the platform role", async () => {
-    const api = platform(async () => ({ role: "platform_owner", mfa: "totp" }));
+    const api = platform(async () => owner());
     const identity = await loadIdentity({ account: account(me(org("a", ["organization_admin"]))), platform: api });
-    expect(identity.platform).toEqual({ role: "platform_owner", mfaLevel: "totp" });
+    expect(identity.platform).toEqual({ role: "platform_owner", mfa: mfa("active", true) });
     expect(identity.orgs.map((item) => item.id)).toEqual(["a"]);
     expect(identity.account.display_name).toBe("Ada");
   });
@@ -50,7 +52,7 @@ test.describe("loadIdentity", () => {
     }
   });
   test("without a platform area the probe is never made", async () => {
-    const api = platform(async () => ({ role: "platform_owner", mfa: "none" }));
+    const api = platform(async () => owner("none", false));
     const identity = await loadIdentity({ account: account(me()), platform: api }, { probePlatform: false });
     expect(identity.platform).toBeNull();
     expect(api.calls).toBe(0);

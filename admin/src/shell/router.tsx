@@ -6,6 +6,8 @@ import { IdentityBoundary } from "./IdentityBoundary";
 import { NotFoundPage } from "./NotFoundPage";
 import { RequireSession } from "./RequireSession";
 
+type PlatformRoutes = typeof import("../areas/platform/routes");
+const platform = (name: keyof PlatformRoutes) => async () => ({ Component: (await import("../areas/platform/routes"))[name] });
 type CompanyRoutes = typeof import("../areas/company/routes");
 const company = (name: keyof CompanyRoutes) => async () => ({ Component: (await import("../areas/company/routes"))[name] });
 
@@ -38,7 +40,19 @@ export const routes: RouteObject[] = [
           },
         ],
       },
-      { path: "platform/*", element: <AreaGate area={AREAS.platform} /> },
+      {
+        path: "platform",
+        element: <AreaGate area={AREAS.platform} />,
+        children: [
+          {
+            lazy: async () => ({ Component: (await import("../areas/platform/PlatformShell")).PlatformShell }),
+            children: [
+              { index: true, lazy: platform("OverviewRoute") },
+              { path: "*", element: <NotFound /> },
+            ],
+          },
+        ],
+      },
       { path: "portal/*", element: <AreaGate area={AREAS.portal} /> },
       { path: "*", element: <NotFoundPage /> },
     ],
