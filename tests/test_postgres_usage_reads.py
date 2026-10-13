@@ -67,7 +67,11 @@ class ReadsWorld(UsageWorld):
         self.build(db)
         add_owner(db.admin)
         self.token, self.digest = sign_in(db, mfa=True)
-        self.first_a, self.second_a = self.members[self.org_a]
+        def membership(account):
+            return db.admin.execute('SELECT m.id FROM forge.memberships m JOIN forge.owned_accounts a ON a.id=m.identity_id '
+                                    'WHERE a.canonical_email=%s AND m.organization_id=%s', (account.email, self.org_a)).fetchone()[0]
+        # first = the company administrator, second = the plain member (membership ids are random, so never rely on their order)
+        self.first_a, self.second_a = (membership(account) for account in self.results[0].accounts)
         self.first_b = self.members[self.org_b][0]
         price = db.admin.execute("INSERT INTO forge.model_prices(upstream_id,version,input_micros,output_micros,effective_from,set_by) "
                                  "SELECT 'up/model-a',1,1000000,2000000,now()-interval '30 days',account_id FROM forge.platform_roles RETURNING id").fetchone()[0]
