@@ -91,6 +91,14 @@ class PostgresDirectoryStore:
             cursor.execute('SELECT * FROM forge.directory_members(%s,%s)', (digest, organization_id))
             return [_member(row) for row in cursor.fetchall()]
 
+    def assign_department(self, digest, organization_id, member_id, department_id):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.directory_member_department(%s,%s,%s,%s)', (digest, organization_id, member_id, department_id))
+            row = cursor.fetchone()
+            if row is None:
+                raise DirectoryUnavailable()
+            return _member(row)
+
     def set_member_status(self, digest, organization_id, member_id, status):
         with self.connection.cursor() as cursor:
             cursor.execute('SELECT * FROM forge.directory_member_status(%s,%s,%s,%s)',

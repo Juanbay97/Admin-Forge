@@ -89,6 +89,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.capability_service import Capabilities
     from forge.capability_store import PostgresCapabilityStore
     from forge.directory import DirectoryDenied, DirectoryService, DirectorySuspended
+    from forge.directory_api import mount_member_department
     from forge.directory_store import PostgresDirectoryStore
     from forge.gateway_catalog import GatewayCatalog
     from forge.gateway_catalog_adapter import HttpxModelsAdapter
@@ -132,6 +133,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy, verify=verify),
                                            usage=PostgresUsageStore(gateway)),
         directory=directory)
+    mount_member_department(app, directory=directory, sessions=sessions, readiness=readiness)
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
     capabilities = Capabilities(PostgresCapabilityStore(capability))
     # The connector broker: its own sealing key, its own pool, its own egress guard. Without the key every connector route answers 503.

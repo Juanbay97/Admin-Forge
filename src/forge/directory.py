@@ -92,6 +92,7 @@ class DirectoryStore(Protocol):
     def create_department(self, digest: str, organization_id: UUID, name: str) -> Department: ...
     def members(self, digest: str, organization_id: UUID) -> list[Member]: ...
     def set_member_status(self, digest: str, organization_id: UUID, member_id: UUID, status: str) -> Member: ...
+    def assign_department(self, digest: str, organization_id: UUID, member_id: UUID, department_id: UUID) -> Member: ...
 
 
 class DirectoryService:
@@ -144,3 +145,10 @@ class DirectoryService:
         if type(member_id) is not UUID:
             raise ValueError('Invalid member.')
         return self._store.set_member_status(capability_digest(token), organization_id, member_id, status)
+
+    def assign_department(self, token: str, organization_id: UUID, member_id: UUID, department_id: UUID) -> Member:
+        """Make ``department_id`` the member's one department (the database checks the administrator, the member and the department)."""
+        self._organization(organization_id)
+        if type(member_id) is not UUID or type(department_id) is not UUID:
+            raise ValueError('Invalid department assignment.')
+        return self._store.assign_department(capability_digest(token), organization_id, member_id, department_id)
