@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 import type { Company } from "../../../api/platform";
+import { BrandingTab } from "./BrandingTab";
+import { KeysTab } from "./KeysTab";
+import { ModelsTab } from "./ModelsTab";
 
 export interface CompanyTab {
   id: string;
@@ -7,7 +10,12 @@ export interface CompanyTab {
   render: () => ReactNode;
 }
 
-/** The tabs after Overview; each later slice (branding, keys, models, usage) adds its own here. */
-export function companyTabs(_company: Company): CompanyTab[] {
-  return [];
+/** The tabs after Overview. A suspended company's tabs are read-only: reactivating is the only way to change anything. */
+export function companyTabs(company: Company): CompanyTab[] {
+  const readOnly = !company.active;
+  return [
+    { id: "branding", label: "Branding", render: () => <BrandingTab company={company} readOnly={readOnly} /> },
+    { id: "keys", label: "Keys", render: () => <KeysTab company={company} readOnly={readOnly} /> },
+    { id: "models", label: "Models", render: () => <ModelsTab company={company} readOnly={readOnly} /> },
+  ];
 }

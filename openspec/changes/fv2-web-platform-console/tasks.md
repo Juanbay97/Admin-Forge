@@ -65,9 +65,9 @@ Chain strategy: stacked-to-main
 - [x] 5.5 e2e: create company on real stack, invitation `.eml` recorded (path from stack)
 
 ## Phase 6 — Detail tabs I (PR 6)
-- [ ] 6.1 Branding tab (ThemeEditor + publish), isolation test
-- [ ] 6.2 Keys tab (assign/unassign, last-4, last-key warning)
-- [ ] 6.3 Models tab (allow-list, ceiling, price display); UI + e2e for assign flow
+- [x] 6.1 Branding tab (ThemeEditor + publish), isolation test
+- [x] 6.2 Keys tab (assign/unassign, last-4, last-key warning)
+- [x] 6.3 Models tab (allow-list, ceiling, price display); UI + e2e for assign flow
 
 ## Phase 7 — Detail tabs II (PR 7)
 - [ ] 7.1 Usage tab (range, AreaChart, StackedBars by model, BarChart top members; a11y tables)

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ensureCatalogue, meteredChat, seededOrg, tokenFor } from "./support/api";
-import { mailTo, shot, signInOwner, writeCompany } from "./support/stack";
+import { mailTo, readCompany, shot, signInOwner, writeCompany } from "./support/stack";
 
 // The platform console against the real stack, after 10-platform-owner created the owner. Each journey signs in with a password
 // and the next TOTP step; usage comes from real metered chats through the fake gateway.
@@ -99,4 +99,31 @@ test("the wizard creates a company, applies keys and models and mails the first 
   await expect(page.getByRole("region", { name: "Setup" }).getByText("2 allowed")).toBeVisible();
   await expect(page.getByRole("region", { name: "Setup" }).getByText("1 assigned")).toBeVisible();
   await expect(page.getByText("Finish setup")).toHaveCount(0);
+});
+test("branding, keys and models tabs apply to the company and the public branding follows", async ({ page, request }) => {
+  const company = readCompany();
+  await signInOwner(page, `/admin/platform/companies/${company.id}?tab=branding`);
+  await expect(page.getByRole("tab", { name: "Branding", selected: true })).toBeVisible();
+  await page.getByLabel("Product name").fill("Initech Platform");
+  await page.getByRole("button", { name: "Save branding" }).click();
+  await expect(page.getByText(/Branding saved \(revision \d+\)/)).toBeVisible();
+  await shot(page, "console", "40-company-branding");
+  const publicBranding = await request.get(`/forge/v1/branding?org=${company.slug}`);
+  expect(publicBranding.ok()).toBe(true);
+  expect(((await publicBranding.json()) as { name: string }).name).toBe("Initech Platform");
+
+  await page.getByRole("tab", { name: "Keys" }).click();
+  const keys = page.getByRole("list", { name: "Assigned keys" });
+  await expect(keys.getByRole("listitem")).toHaveCount(1);
+  await expect(keys.getByText(/^••••/)).toBeVisible();
+  await shot(page, "console", "41-company-keys");
+
+  await page.getByRole("tab", { name: "Models" }).click();
+  await page.getByLabel("Add a model").fill("fake-nousage");
+  await page.getByRole("button", { name: "Add model" }).click();
+  await page.getByRole("button", { name: "Save models" }).click();
+  await expect(page.getByText("Allowed models saved")).toBeVisible();
+  await shot(page, "console", "42-company-models");
+  await page.getByRole("tab", { name: "Overview" }).click();
+  await expect(page.getByRole("region", { name: "Setup" }).getByText("3 allowed")).toBeVisible();
 });
