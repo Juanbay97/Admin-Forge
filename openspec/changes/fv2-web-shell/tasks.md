@@ -39,9 +39,9 @@ Chain strategy: stacked-to-main
 - [x] 1.6 `lib/cn.ts`, `lib/format.ts` (+ unit)
 
 ## Phase 2 — Kit core (PR 2)
-- [ ] 2.1 RED: gallery spec (variants, disabled, loading, focus ring, 40px targets, axe) → GREEN: Button, Input, Textarea, Select, Checkbox, Switch, RadioGroup, Label
-- [ ] 2.2 RED: Field/Form (aria-invalid/describedby/live) → GREEN: Field, `useZodForm`, FormError
-- [ ] 2.3 Card, Badge, Alert, Separator, Skeleton, Spinner, EmptyState (+ kit gallery route `?kit` in test build only via `VITE_KIT`)
+- [x] 2.1 RED: gallery spec (variants, disabled, loading, focus ring, 40px targets, axe) → GREEN: Button, Input, Textarea, Select, Checkbox, Switch, RadioGroup, Label
+- [x] 2.2 RED: Field/Form (aria-invalid/describedby/live) → GREEN: Field, `useZodForm`, FormError
+- [x] 2.3 Card, Badge, Alert, Separator, Skeleton, Spinner, EmptyState (+ kit gallery route `?kit` in test build only via `VITE_KIT`)
 
 ## Phase 3 — Kit overlays & data (PR 3)
 - [ ] 3.1 RED: dialog a11y (focus trap/Esc/return focus) → GREEN: Dialog, AlertDialog, Sheet on native `<dialog>`
