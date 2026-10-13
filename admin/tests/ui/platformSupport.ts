@@ -114,7 +114,12 @@ type Reply = (route: Route, status: number, body?: unknown) => Promise<boolean>;
 async function handlers(key: string, url: URL, body: Json | undefined, world: World, reply: Reply, route: Route): Promise<boolean> {
   let match: RegExpMatchArray | null;
   if (key === "GET /companies") return reply(route, 200, { companies: world.companies, next_after: null });
-  if (key === "GET /audit") return reply(route, 200, { entries: world.audit, next_before: null });
+  if (key === "GET /audit") {
+    const before = Number(url.searchParams.get("before") ?? Infinity);
+    const page = Number(url.searchParams.get("page") ?? 50);
+    const found = [...world.audit].sort((a, b) => (b.id as number) - (a.id as number)).filter((entry) => (entry.id as number) < before).slice(0, page);
+    return reply(route, 200, { entries: found, next_before: found.length === page ? found.at(-1)!.id : null });
+  }
   if (key === "GET /gateway-keys") return reply(route, 200, { keys: world.keys, allowed_origins: ["https://gateway.example.test"] });
   if (key === "GET /prices") {
     const only = url.searchParams.get("upstream_id");

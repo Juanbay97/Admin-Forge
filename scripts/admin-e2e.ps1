@@ -7,7 +7,7 @@
 param(
     [int]$BuildTimeoutSeconds = 180,
     [int]$StartTimeoutSeconds = 240,
-    [int]$TestTimeoutSeconds = 300,
+    [int]$TestTimeoutSeconds = 1500,
     [int]$StopTimeoutSeconds = 90,
     # Optional Playwright file filter (e.g. "platform-"), so one area can be re-run against a fresh stack.
     [string]$Spec = ''

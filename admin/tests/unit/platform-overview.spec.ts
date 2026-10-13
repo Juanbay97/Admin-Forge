@@ -1,5 +1,5 @@
-﻿import { expect, test } from "@playwright/test";
-import { describeAction } from "../../src/platform/audit";
+import { expect, test } from "@playwright/test";
+import { describeAction, filterEntries, relativeTime } from "../../src/platform/audit";
 import { changeOf, parseDays, previousWindow, windowFor } from "../../src/platform/range";
 import { requestsOf, tokensOf } from "../../src/platform/usage";
 
@@ -53,5 +53,36 @@ test.describe("audit labels", () => {
     expect(describeAction("owner.mfa_enrolled")).toBe("Second factor enrolled");
     expect(describeAction("owner.mfa_recovery_used")).toBe("Recovery code used");
     expect(describeAction("something.new")).toBe("something.new");
+  });
+});
+
+test.describe("audit filters and times", () => {
+  const entry = (id: number, action: string, organization_id: string | null, recorded_at: string) => ({ id, actor_id: "a", action, organization_id, recorded_at });
+  const entries = [
+    entry(4, "company.suspended", "org-1", "2026-10-12T10:00:00Z"),
+    entry(3, "gateway_key.created", null, "2026-10-11T10:00:00Z"),
+    entry(2, "company.created", "org-2", "2026-10-10T10:00:00Z"),
+    entry(1, "owner.mfa_enrolled", null, "2026-10-09T10:00:00Z"),
+  ];
+  test("no filter keeps everything, newest first as received", () => {
+    expect(filterEntries(entries, { action: "", company: "", from: "", to: "" }).map((item) => item.id)).toEqual([4, 3, 2, 1]);
+  });
+  test("action and company narrow the list; a company filter excludes platform-wide events", () => {
+    expect(filterEntries(entries, { action: "company.created", company: "", from: "", to: "" }).map((item) => item.id)).toEqual([2]);
+    expect(filterEntries(entries, { action: "", company: "org-1", from: "", to: "" }).map((item) => item.id)).toEqual([4]);
+  });
+  test("the date range is inclusive of both UTC days", () => {
+    expect(filterEntries(entries, { action: "", company: "", from: "2026-10-10", to: "2026-10-11" }).map((item) => item.id)).toEqual([3, 2]);
+    expect(filterEntries(entries, { action: "", company: "", from: "2026-10-12", to: "" }).map((item) => item.id)).toEqual([4]);
+  });
+  test("relative times read naturally and fall back to the date for old events", () => {
+    const now = new Date("2026-10-12T12:00:00Z");
+    expect(relativeTime("2026-10-12T11:59:40Z", now)).toBe("just now");
+    expect(relativeTime("2026-10-12T11:30:00Z", now)).toBe("30 minutes ago");
+    expect(relativeTime("2026-10-12T09:00:00Z", now)).toBe("3 hours ago");
+    expect(relativeTime("2026-10-11T12:00:00Z", now)).toBe("yesterday");
+    expect(relativeTime("2026-10-08T12:00:00Z", now)).toBe("4 days ago");
+    expect(relativeTime("2026-08-01T12:00:00Z", now)).toBe("Aug 1, 2026");
+    expect(relativeTime("not a date", now)).toBe("—");
   });
 });

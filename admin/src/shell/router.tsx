@@ -54,6 +54,7 @@ export const routes: RouteObject[] = [
               { path: "companies", lazy: platform("CompaniesRoute") },
               { path: "keys", lazy: platform("KeysRoute") },
               { path: "prices", lazy: platform("PricesRoute") },
+              { path: "audit", lazy: platform("AuditRoute") },
               { path: "companies/new", lazy: platform("NewCompanyRoute") },
               { path: "companies/:id", lazy: platform("CompanyRoute") },
               { path: "*", element: <NotFound /> },

@@ -5,6 +5,12 @@ import { mailTo, readCompany, shot, signInOwner, writeCompany } from "./support/
 // The platform console against the real stack, after 10-platform-owner created the owner. Each journey signs in with a password
 // and the next TOTP step; usage comes from real metered chats through the fake gateway.
 test.describe.configure({ mode: "serial" });
+// The platform allows eight live sessions per account: leave none behind, so the journeys can sign in as often as they need.
+test.afterEach(async ({ page }) => {
+  await page.keyboard.press("Escape").catch(() => undefined); // an open dialog would intercept the click
+  const signOut = page.getByRole("button", { name: "Sign out" });
+  if (await signOut.isVisible().catch(() => false)) await signOut.click({ timeout: 10_000 });
+});
 
 test("the overview shows real metered usage, the key pool and the audit trail", async ({ page, request }) => {
   const orgA = seededOrg("org-a");
@@ -171,4 +177,24 @@ test("the key pool takes a write-only key and the price list round-trips an edit
   await shot(page, "console", "52-prices");
   await priced.getByRole("button", { name: "History fake-fast" }).click();
   await expect(page.getByRole("dialog", { name: /Price history/ }).getByRole("row", { name: /v1/ })).toBeVisible();
+});
+test("the audit log records the whole journey and the palette jumps to a company", async ({ page }) => {
+  await signInOwner(page, "/admin/platform/audit");
+  const table = page.getByRole("table", { name: "Audit log" });
+  for (const action of ["Second factor enrolled", "Company created", "Company suspended", "Company reactivated", "Branding saved", "Gateway keys assigned", "Model access set", "Gateway key added", "Gateway key enabled or disabled", "Model price set"]) {
+    await expect(table.getByRole("row", { name: new RegExp(action) }).first(), action).toBeVisible();
+  }
+  await shot(page, "console", "60-audit");
+  await page.getByLabel("Action").selectOption("company.suspended");
+  await expect(page).toHaveURL(/action=company.suspended/);
+  await expect(table.getByRole("row", { name: /Company created/ })).toHaveCount(0);
+  await expect(table.getByRole("row", { name: /Organization B/ })).toBeVisible();
+
+  await page.waitForLoadState("networkidle");
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await palette.getByRole("combobox").fill("e2e-initech");
+  await shot(page, "console", "61-palette");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1, name: "E2E Initech" })).toBeVisible();
 });

@@ -1,4 +1,5 @@
 import { Wizard } from "./companies/wizard/Wizard";
+import { AuditLog } from "./audit/AuditLog";
 import { KeyPool } from "./keys/KeyPool";
 import { Prices } from "./prices/Prices";
 import { CompanyDetail } from "./companies/CompanyDetail";
@@ -10,4 +11,5 @@ export const CompaniesRoute = () => <CompanyList />;
 export const NewCompanyRoute = () => <Wizard />;
 export const KeysRoute = () => <KeyPool />;
 export const PricesRoute = () => <Prices />;
+export const AuditRoute = () => <AuditLog />;
 export const CompanyRoute = () => <CompanyDetail />;

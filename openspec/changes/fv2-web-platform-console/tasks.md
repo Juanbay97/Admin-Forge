@@ -71,7 +71,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 7 — Detail tabs II (PR 7)
 - [x] 7.1 Usage tab (range, AreaChart, StackedBars by model, BarChart top members; a11y tables)
-- [ ] 7.2 Members tab read-only DataTable; no keys/PII beyond contract
+- [ ] 7.2 Members tab read-only DataTable; no keys/PII beyond contract (NOT DELIVERED: the platform API has no company-members endpoint, PC10 absent; see docs/platform-console.md)
 - [x] 7.3 UI + e2e with metered usage seeded by the stack's fake gateway
 
 ## Phase 8 — Key pool & prices (PR 8)
@@ -80,8 +80,23 @@ Chain strategy: stacked-to-main
 - [x] 8.3 UI + e2e (add key, price edit round-trip)
 
 ## Phase 9 — Audit, palette, sweep, closeout (PR 9)
-- [ ] 9.1 Audit table + filters + load more (URL-synced)
-- [ ] 9.2 Command palette entries (pages + company search via cached list)
-- [ ] 9.3 `ui/platform-sweep.spec.ts` (all routes × light/dark × 375/768/1280: axe + CSP + no horizontal scroll)
-- [ ] 9.4 e2e `platform-journey.spec.ts` full owner journey; assert audit shows the actions
-- [ ] 9.5 README/section in `docs/`: console guide, contract table, threat notes
+- [x] 9.1 Audit table + filters + load more (URL-synced)
+- [x] 9.2 Command palette entries (pages + company search via cached list)
+- [x] 9.3 `ui/platform-sweep.spec.ts` (all routes × light/dark × 375/768/1280: axe + CSP + no horizontal scroll)
+- [x] 9.4 e2e `platform-journey.spec.ts` full owner journey; assert audit shows the actions
+- [x] 9.5 README/section in `docs/`: console guide, contract table, threat notes
+
+
+## Apply notes (Track B, real-contract reconciliation)
+
+Strict TDD; stacked local branches `feat/fv2-web-platform-console-s1..s9` on the rebased web-shell stack. Size `exception` accepted by the
+orchestrator for the test-heavy slices.
+
+- Task 1.6 reconciled against the real `src/forge/platform_*_api.py`, `platform_keys_api.py`, `platform_usage_api.py`, `usage_api.py`; the diff is
+  recorded in `docs/platform-console.md` ("Differences from the original plan"). Fixtures in `admin/tests/fixtures/platform/` are the real shapes.
+- Not delivered because the server has no endpoint: Members tab (7.2), `GET /overview` (composed from usage totals/companies/models), per-day series
+  (no area chart), code-availability check (local check + `COMPANY_CONFLICT`), audit server filters (client-side over loaded entries), key retire/rename.
+- 5.5 e2e reads the first-admin invitation from the local mailbox and moves its origin onto the control plane (the stack mails the client UI origin).
+- 8.x prices use `POST /prices` (not `PUT /models/{id}/price`), key "retire" is enable/disable, rotate replaces the key text.
+- e2e: the platform allows 8 live sessions per account, so journeys sign out after each test; one TOTP step is accepted once, so each owner sign-in
+  waits at most ~30 s (`e2e/support/totp.ts`).

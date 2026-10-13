@@ -1,15 +1,13 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router";
 import { applyBrandIdentity } from "../../brand/theme";
 import { applyPlatformTheme, platformTheme } from "../../brand/platformTheme";
-import { AREAS } from "../../shell/areas";
-import { AppShell } from "../../shell/AppShell";
 import { createIdleTimer } from "../../shell/idle";
 import { IDLE_NOTICE, signOutWithNotice } from "../../shell/session";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { MfaGate } from "./mfa/MfaGate";
+import { PlatformFrame } from "./PlatformFrame";
 
 /**
  * The platform console. It always wears the fixed Prometheon theme (company branding is overwritten on entry and never applied
@@ -51,9 +49,7 @@ export function PlatformLayout() {
   );
   return (
     <MfaGate>
-      <AppShell area={AREAS.platform} brand={platformTheme} switcher={switcher}>
-        <Outlet />
-      </AppShell>
+      <PlatformFrame switcher={switcher} />
     </MfaGate>
   );
 }

@@ -6,7 +6,7 @@ import { Button } from "../ui/Button";
 import { Sheet } from "../ui/overlay/Dialog";
 import { navFor, type AreaManifest } from "./areas";
 import { Breadcrumbs } from "./Breadcrumbs";
-import { CommandPalette } from "./CommandPalette";
+import { CommandPalette, type PaletteCommand } from "./CommandPalette";
 import { useIdentity } from "./IdentityBoundary";
 import { useServices } from "./services";
 import { signOut } from "./session";
@@ -18,6 +18,8 @@ interface AppShellProps {
   brand: Pick<BrandTheme, "name" | "assets">;
   /** Extra topbar controls, e.g. the company switcher. */
   switcher?: ReactNode;
+  /** Extra palette destinations (the platform console lists its companies). */
+  commands?: PaletteCommand[];
   children: ReactNode;
 }
 
@@ -25,7 +27,7 @@ interface AppShellProps {
  * The chrome every area shares: skip link, sidebar (collapsible from 1024px, a drawer below), topbar with breadcrumbs,
  * command palette and user menu, and the `<main id="main">` landmark.
  */
-export function AppShell({ area, brand, switcher, children }: AppShellProps) {
+export function AppShell({ area, brand, switcher, commands, children }: AppShellProps) {
   const identity = useIdentity();
   const services = useServices();
   const nav = navFor(area, identity);
@@ -88,7 +90,7 @@ export function AppShell({ area, brand, switcher, children }: AppShellProps) {
       <Sheet open={drawer} onOpenChange={setDrawer} title="Navigation" side="left" hideTitle bare className="bg-nav text-on-nav">
         <SidebarContent brand={brand} nav={nav} onNavigate={() => setDrawer(false)} />
       </Sheet>
-      <CommandPalette open={palette} onOpenChange={setPalette} nav={nav} />
+      <CommandPalette open={palette} onOpenChange={setPalette} nav={nav} commands={commands} />
     </div>
   );
 }

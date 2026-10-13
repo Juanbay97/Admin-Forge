@@ -16,6 +16,7 @@ import { EmptyState } from "../../../ui/EmptyState";
 import { PageHeader } from "../../../ui/PageHeader";
 import { Skeleton } from "../../../ui/Skeleton";
 import { Stat } from "../../../ui/Stat";
+import { loadAllCompanies } from "../companies/data";
 import { Delta } from "../Delta";
 import { RangePicker } from "../RangePicker";
 import { useDays } from "../useDays";
@@ -29,11 +30,11 @@ export function Overview() {
   const previous = useQuery({ queryKey: ["platform", "usage", "totals", before], queryFn: () => platform.usageTotals(before) });
   const byCompany = useQuery({ queryKey: ["platform", "usage", "companies", current], queryFn: () => platform.usageByCompany(current) });
   const byModel = useQuery({ queryKey: ["platform", "usage", "models", current], queryFn: () => platform.usageByModel(current) });
-  const companies = useQuery({ queryKey: ["platform", "companies", "all"], queryFn: () => platform.companies({ page: 100 }) });
+  const companies = useQuery({ queryKey: ["platform", "companies", "all"], queryFn: () => loadAllCompanies(platform) });
   const keys = useQuery({ queryKey: ["platform", "keys"], queryFn: () => platform.keys() });
   const audit = useQuery({ queryKey: ["platform", "audit", "tail"], queryFn: () => platform.audit({ page: 5 }) });
 
-  const list = companies.data?.companies ?? [];
+  const list = companies.data ?? [];
   const active = list.filter((company) => company.active).length;
   const empty = companies.isSuccess && list.length === 0;
   if (empty) {
