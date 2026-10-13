@@ -97,7 +97,15 @@ export async function installPortal(page: Page, world: PortalWorld = newPortalWo
       if (!world.roles.includes("organization_admin")) return reply(route, 404, envelope("NOT_FOUND"));
       return reply(route, 200, { members: world.members, next_after: null });
     }
-    if (path === `/forge/v1/orgs/${ORG}/departments`) return reply(route, 200, { departments: world.departments });
+    if (path === `/forge/v1/orgs/${ORG}/departments`) {
+      if (method === "POST") {
+        const created = { id: `d-${world.departments.length + 1}`, name: (body as { name: string }).name };
+        if (world.departments.some((department) => department.name === created.name)) return reply(route, 409, envelope("CONFLICT"));
+        world.departments.push(created);
+        return reply(route, 201, created);
+      }
+      return reply(route, 200, { departments: world.departments });
+    }
     if (path === `/forge/v1/orgs/${ORG}/members`) return reply(route, 200, { members: world.memberList });
     return reply(route, 404, envelope("NOT_FOUND"));
   });

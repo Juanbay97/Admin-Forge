@@ -9,6 +9,8 @@ import { applyUpdate, describeFailure, visiblePending, type PendingInvite } from
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { PageHeader } from "../ui/PageHeader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/Tabs";
+import { DepartmentsPanel } from "../components/DepartmentsPanel";
 import { AlertDialog } from "../ui/overlay/Dialog";
 
 interface MembersProps {
@@ -83,14 +85,32 @@ export function Members({ api, membersApi, organization }: MembersProps) {
       {failure && <Alert tone="destructive">{failure}</Alert>}
       {load.status === "error" && <Alert tone="destructive">{describeFailure(null, "load")}</Alert>}
       {load.status !== "error" && (
-        <MemberTable
-          loading={load.status === "loading"}
-          members={ready?.members ?? []}
-          pending={ready ? visiblePending(pending, ready.members) : []}
-          busyId={busyId}
-          onChange={(member, action) => (action === "suspend" ? setSuspending(member) : void change(member, action))}
-          onInvite={() => setInviting(true)}
-        />
+        <Tabs defaultValue="people">
+          <TabsList aria-label="Members sections">
+            <TabsTrigger value="people">People</TabsTrigger>
+            <TabsTrigger value="departments">Departments</TabsTrigger>
+          </TabsList>
+          <TabsContent value="people">
+            <MemberTable
+              loading={load.status === "loading"}
+              members={ready?.members ?? []}
+              pending={ready ? visiblePending(pending, ready.members) : []}
+              busyId={busyId}
+              departments={ready?.departments}
+              onChange={(member, action) => (action === "suspend" ? setSuspending(member) : void change(member, action))}
+              onInvite={() => setInviting(true)}
+            />
+          </TabsContent>
+          <TabsContent value="departments">
+            <DepartmentsPanel
+              departments={ready?.departments ?? []}
+              onCreate={async (name) => {
+                const created = await api.createDepartment(orgId, name);
+                setLoad((state) => (state.status === "ready" ? { ...state, departments: [...state.departments, created] } : state));
+              }}
+            />
+          </TabsContent>
+        </Tabs>
       )}
       <InviteDialog open={inviting} departments={ready?.departments ?? []} onSubmit={invite} onClose={() => setInviting(false)} />
       <AlertDialog

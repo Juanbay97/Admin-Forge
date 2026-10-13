@@ -19,26 +19,15 @@ async function everyViewport(page: Page, options = {}) {
 }
 
 test.describe("gateway", () => {
-  test("summarises the state and keeps the key write-only", async ({ page, adminUrl }) => {
+  test("summarises the state read-only: the key belongs to the platform, so there is nothing to enter", async ({ page, adminUrl }) => {
     await installBackend(page, ADMIN_BACKEND);
     await open(page, adminUrl, "Gateway");
     const summary = page.getByRole("region", { name: "Gateway status" });
     await expect(summary).toContainText("Not configured");
-    await expect(summary).toContainText("Revision 0");
-    await expect(page.getByText("Write-only: it is never shown again once saved.")).toBeVisible();
-    await expect(page.getByLabel("API key")).toHaveAttribute("type", "password");
-    await expect(page.getByLabel("API key")).toHaveAttribute("autocomplete", "off");
-  });
-
-  test("a conflict is explained inline on the field group and offers a reload", async ({ page, adminUrl }) => {
-    const api = await installBackend(page, ADMIN_BACKEND);
-    await open(page, adminUrl, "Gateway");
-    api.bumpGateway(ORG_A);
-    await page.getByLabel("API key").fill("sk-test-key");
-    await page.getByRole("button", { name: "Save key" }).click();
-    await expect(page.getByRole("alert")).toContainText("changed by someone else");
-    await expect(page.getByRole("button", { name: "Reload" })).toBeVisible();
-    await expect(page.getByLabel("API key")).toHaveValue("");
+    await expect(summary).toContainText("Usable platform keys");
+    await expect(page.getByText("The gateway key is managed by the platform.")).toBeVisible();
+    await expect(page.locator("input[type=password]")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Save key" })).toHaveCount(0);
   });
 
   test("is accessible at every viewport", async ({ page, adminUrl }) => {

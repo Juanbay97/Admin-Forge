@@ -4,11 +4,17 @@ import { Gateway } from "../../pages/Gateway";
 import { Members } from "../../pages/Members";
 import { Overview } from "../../pages/Overview";
 import { useCompany } from "./CompanyLayout";
+import { UsageSection } from "./dashboard/UsageSection";
 
 // The existing pages, mounted unchanged: each is keyed by the organization so a switch discards everything it held.
 export function OverviewRoute() {
   const { services, organization } = useCompany();
-  return <Overview key={organization.id} api={services.account} organization={organization} />;
+  return (
+    <div className="flex flex-col gap-8" key={organization.id}>
+      <Overview api={services.account} organization={organization} />
+      <UsageSection services={services} organization={organization} />
+    </div>
+  );
 }
 
 export function MembersRoute() {

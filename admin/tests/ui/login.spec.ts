@@ -15,22 +15,29 @@ test.describe("login and per-company partition", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Org A" })).toBeVisible();
     await expect(page.getByRole("listitem").filter({ hasText: "Legal" })).toBeVisible();
     await expect(page.getByLabel("Organization")).toHaveCount(0);
-    expect(api.requests.map((r) => `${r.method} ${r.path}`)).toEqual([
-      "POST /forge/v1/accounts/login",
-      "GET /forge/v1/accounts/me",
-      "GET /forge/v1/orgs/11111111-1111-4111-8111-111111111111/branding",
-      "GET /forge/v1/orgs/11111111-1111-4111-8111-111111111111/departments",
-    ]);
+    // The identity probe, the company branding and departments, and the dashboard's usage and roster reads; their order is concurrent.
+    const org = "/forge/v1/orgs/11111111-1111-4111-8111-111111111111";
+    expect(api.requests.map((r) => `${r.method} ${r.path}`).sort()).toEqual(
+      [
+        "POST /forge/v1/accounts/login",
+        "GET /forge/v1/accounts/me",
+        "GET /forge/v1/platform/me",
+        `GET ${org}/branding`,
+        `GET ${org}/departments`,
+        `GET ${org}/members`,
+        `GET ${org}/usage/members`,
+        `GET ${org}/usage/members`,
+      ].sort(),
+    );
   });
 
-  test("a plain member is denied and no administration data is requested", async ({ page, adminUrl }) => {
+  test("a plain member lands in the portal and no administration data is requested", async ({ page, adminUrl }) => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await page.goto(adminUrl);
     await signIn(page, "member@example.com");
-    await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
-    await expect(page.getByText("This console is for organization administrators.")).toBeVisible();
-    expect(api.requests.filter((r) => r.path.includes("/orgs/"))).toEqual([]);
-    expect(api.requests.map((r) => r.path)).toEqual(["/forge/v1/accounts/login", "/forge/v1/accounts/me"]);
+    await expect(page.getByRole("heading", { level: 1, name: /Welcome/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Access denied" })).toHaveCount(0);
+    expect(api.requests.filter((r) => /\/(members|departments|gateway|models|usage\/members)/.test(r.path))).toEqual([]);
   });
 
   test("wrong credentials show a generic error and clear the password", async ({ page, adminUrl }) => {

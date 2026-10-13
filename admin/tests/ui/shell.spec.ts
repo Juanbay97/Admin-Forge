@@ -41,15 +41,15 @@ test.describe("router and guards", () => {
     expect(pathOf(page)).toBe("/admin/company/gateway");
   });
 
-  test("an unregistered area is not found inside the shell and makes no platform call", async ({ page, origin }) => {
+  test("a company administrator opening the platform area is denied and makes no platform call beyond the identity probe", async ({ page, origin }) => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await page.goto(`${origin}/admin/company`);
     await signIn(page);
     await expect(page.getByRole("heading", { level: 1, name: "Org A" })).toBeVisible();
     await page.goto(`${origin}/admin/platform`);
     await signIn(page);
-    await expect(page.getByRole("heading", { level: 1, name: "Not found" })).toBeVisible();
-    expect(api.requests.filter((request) => request.path.includes("/platform"))).toEqual([]);
+    await expect(page.getByRole("heading", { name: "Access denied" })).toBeVisible();
+    expect(api.requests.filter((request) => request.path.includes("/platform") && !request.path.endsWith("/platform/me"))).toEqual([]);
   });
 
   test("an unknown path under the shell renders Not found inside the chrome", async ({ page, origin }) => {

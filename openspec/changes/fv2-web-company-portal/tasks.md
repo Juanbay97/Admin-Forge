@@ -54,10 +54,10 @@ Chain strategy: stacked-to-main
 - [x] 4.4 UI specs: gating redirects, own-data-only, axe/CSP
 
 ## Phase 5 — Company dashboard (PR 5)
-- [ ] 5.1 Dashboard (KPIs, daily chart, model share, `PersonTable` sortable/filterable, top-5 bar); URL-synced range/sort
-- [ ] 5.2 Members: department filter + Departments tab (create; assign if PC-9 exists)
-- [ ] 5.3 Gateway read-only status (remove key form; assert no password inputs); keep existing members/gateway/catalog/branding specs green
-- [ ] 5.4 UI specs: states, multi-org re-key, sorting, axe/CSP/viewports
+- [x] 5.1 Dashboard (KPIs, daily chart, model share, `PersonTable` sortable/filterable, top-5 bar); URL-synced range/sort
+- [x] 5.2 Members: department filter + Departments tab (create; assign if PC-9 exists)
+- [x] 5.3 Gateway read-only status (remove key form; assert no password inputs); keep existing members/gateway/catalog/branding specs green
+- [x] 5.4 UI specs: states, multi-org re-key, sorting, axe/CSP/viewports
 
 ## Phase 6 — Journeys & closeout (PR 6)
 - [ ] 6.1 e2e `portal-journey.spec.ts`: admin invites → read link from recorded .eml → branded join → password → download page (company code, installer link) → my usage
