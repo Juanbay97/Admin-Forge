@@ -74,7 +74,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.authorization_store import PostgresAuthorizationReader
     from forge.branding_api import mount_branding
     from forge.branding_store import PostgresBrandingStore
-    from forge.capability_api import mount_company_capabilities, mount_effective
+    from forge.capability_api import mount_company_capabilities, mount_effective, mount_invocation_audit
+    from forge.capability_audit import InvocationLog
     from forge.capability_effective import EffectivePolicy
     from forge.capability_signing import load_signer
     from forge.capability_service import Capabilities
@@ -128,8 +129,9 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
                    usage=PlatformUsage(PostgresPlatformUsageStore(platform)), capabilities=capabilities)
     mount_company_capabilities(app, capabilities=capabilities, sessions=sessions, readiness=readiness)
     signer = None if policy_key is None else load_signer(policy_key)  # absent: the effective-policy routes answer 503
-    mount_effective(app, policy=EffectivePolicy(PostgresCapabilityStore(capability), signer), sessions=sessions, readiness=readiness,
-                    organizations=lambda token: [item.id for item in directory.me(token).organizations if item.status == 'active'])
+    companies = lambda token: [item.id for item in directory.me(token).organizations if item.status == 'active']
+    mount_effective(app, policy=EffectivePolicy(PostgresCapabilityStore(capability), signer), sessions=sessions, readiness=readiness, organizations=companies)
+    mount_invocation_audit(app, log=InvocationLog(PostgresCapabilityStore(capability)), sessions=sessions, readiness=readiness, organizations=companies)
     mount_company_usage(app, usage=CompanyUsage(PostgresCompanyUsageStore(gateway)), sessions=sessions,
                         authorization_reader=PostgresAuthorizationReader(bootstrap), readiness=readiness)
     return app

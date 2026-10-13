@@ -128,5 +128,8 @@ class PostgresCapabilityStore:
         return [AuditRecord(row[0], row[1], org, row[2], row[3], row[4], row[5], row[6], row[7])
                 for row in self._rows('SELECT * FROM forge.cap_org_audit_page(%s,%s,%s,%s)', (digest, org, before, page))]
 
+    def ingest(self, digest, org, events):
+        return self._rows('SELECT forge.cap_invocation_ingest(%s,%s,%s::jsonb)', (digest, org, json.dumps(events)))[0][0]
+
     def platform_audit(self, digest, before, page):
         return [AuditRecord(*row) for row in self._rows('SELECT * FROM forge.cap_platform_audit_page(%s,%s,%s)', (digest, before, page))]

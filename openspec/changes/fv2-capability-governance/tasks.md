@@ -51,8 +51,8 @@ Chain strategy: stacked-to-main
 - [x] 4.3 `contract/forge-capability-policy.v1.json` + tamper/expiry/epoch tests
 
 ## S5 Invocation log
-- [ ] 5.1 Migration + ingest fn (dedupe event_id)
-- [ ] 5.2 `POST /capabilities/audit` strict allow-list; 422 on content fields; ≤100 batch
+- [x] 5.1 Migration + ingest fn (dedupe event_id)
+- [x] 5.2 `POST /capabilities/audit` strict allow-list; 422 on content fields; ≤100 batch
 
 ## S6 Seed/ops
 - [ ] 6.1 `capability_seed.py` JSONL (compact) + idempotent sync CLI; count test vs inventory

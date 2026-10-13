@@ -191,6 +191,25 @@ def mount_company_capabilities(app: FastAPI, *, capabilities, sessions, readines
 _LEVEL = re.compile(r'(0|[1-4])')
 
 
+async def _session_company(request, token, organizations, blocking):
+    """The member's company: the one the session belongs to, or the named ``org`` when it is one of several (else 404/422)."""
+    named = request.query_params.get('org')
+    try:
+        named = None if named is None else UUID(named)
+    except ValueError:
+        raise _invalid() from None
+    companies = await blocking(organizations, token)
+    if named is not None:
+        if named not in companies:
+            raise _Refusal(_envelope(404, *_NOT_FOUND))
+        return named
+    if len(companies) == 1:
+        return companies[0]
+    if not companies:
+        raise _Refusal(_envelope(404, *_NOT_FOUND))
+    raise _invalid()  # several companies: the member must say which
+
+
 def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations):
     """``GET /forge/v1/capabilities/effective`` (a member session, ``sandbox_level`` 0..4 optional, ``org`` optional when the
     session has exactly one company) and the public ``GET /forge/v1/capabilities/keys``. Both are 503 without a signing key."""
@@ -212,22 +231,7 @@ def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations)
             level = request.query_params.get('sandbox_level')
             if level is not None and not _LEVEL.fullmatch(level):
                 raise _invalid()
-            named = request.query_params.get('org')
-            try:
-                named = None if named is None else UUID(named)
-            except ValueError:
-                raise _invalid() from None
-            companies = await blocking(organizations, token)
-            if named is not None:
-                if named not in companies:
-                    raise _Refusal(_envelope(404, *_NOT_FOUND))
-                org = named
-            elif len(companies) == 1:
-                org = companies[0]
-            elif not companies:
-                raise _Refusal(_envelope(404, *_NOT_FOUND))
-            else:
-                raise _invalid()  # several companies: the member must say which
+            org = await _session_company(request, token, organizations, blocking)
             document = await blocking(policy.document, token, org, None if level is None else int(level))
             return JSONResponse(document, headers=headers)
         except _Refusal as refusal:
@@ -239,5 +243,34 @@ def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations)
     async def keys():
         try:
             return JSONResponse(policy.keys(), headers={'Cache-Control': 'public, max-age=300'})
+        except Exception as error:
+            return company_failure(error)
+
+
+AUDIT_LIMIT = 65536
+
+
+def mount_invocation_audit(app: FastAPI, *, log, sessions, readiness, organizations):
+    """``POST /forge/v1/capabilities/audit``: a member's batch of tool-invocation metadata (allow-listed fields only, at most 100)."""
+    def blocking(function, *arguments):
+        return run_sync(lambda: function(*arguments), abandon_on_cancel=False)
+
+    authenticate = bearer_guard(sessions, readiness, blocking)
+
+    @app.post('/forge/v1/capabilities/audit', include_in_schema=False)
+    async def ingest(request: Request):
+        try:
+            token = await authenticate(request)
+            keys = [key for key, _ in request.query_params.multi_items()]
+            if len(keys) != len(set(keys)) or set(keys) - {'org'}:
+                raise _invalid()
+            document = await _document(request, AUDIT_LIMIT)
+            if set(document) != {'events'} or type(document['events']) is not list:
+                raise _invalid()
+            org = await _session_company(request, token, organizations, blocking)
+            stored = await blocking(log.record, token, org, document['events'])
+            return JSONResponse({'received': len(document['events']), 'stored': stored}, status_code=202)
+        except _Refusal as refusal:
+            return refusal.response
         except Exception as error:
             return company_failure(error)

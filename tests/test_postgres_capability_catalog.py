@@ -64,8 +64,10 @@ class CatalogSchemaTests(unittest.TestCase):
         with mvp_database(migrations=(*MIGRATIONS, *MVP_ADDITIONS[:at(CAPABILITY_CATALOG_MIGRATION) + 1])) as db:
             rows = db.admin.execute("SELECT rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolreplication,rolbypassrls,rolcanlogin "
                                     "FROM pg_roles WHERE rolname LIKE 'forge_capability_%' ORDER BY 1").fetchall()
-            self.assertEqual(rows, [('forge_capability_authority', False, False, False, False, False, False, False),
-                                    ('forge_capability_service', False, False, False, False, False, False, False)])
+            # The authority never logs in; the service logs in only once the harness (like the operator) gives it a password.
+            self.assertEqual([row[:7] for row in rows], [('forge_capability_authority', False, False, False, False, False, False),
+                                                         ('forge_capability_service', False, False, False, False, False, False)])
+            self.assertEqual(rows[0][7], False)
 
     def test_tables_are_forced_rls_and_only_the_authority_holds_privileges(self):
         with mvp_database(migrations=(*MIGRATIONS, *MVP_ADDITIONS[:at(CAPABILITY_CATALOG_MIGRATION) + 1])) as db:

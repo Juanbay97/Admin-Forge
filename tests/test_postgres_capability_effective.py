@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import time
 import unittest
+from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 sys.path.insert(0, str(ROOT/'tests'))
@@ -11,6 +12,7 @@ from test_postgres_capability_http import PLATFORM, owner
 from test_postgres_mvp_local import login, stack
 
 EFFECTIVE = '/forge/v1/capabilities/effective'
+AUDIT = '/forge/v1/capabilities/audit'
 SKILL = {'version': '1.0.0', 'risk': 'low', 'is_base': True, 'default_state': 'on', 'min_sandbox_level': 0, 'credential_locus': 'none'}
 EXEC = {**SKILL, 'risk': 'high', 'is_base': False, 'min_sandbox_level': 3}
 SHELL = {**EXEC, 'min_sandbox_level': 4}
@@ -88,6 +90,20 @@ class PostgresEffectivePolicyTests(unittest.TestCase):
             foreign = client.get(EFFECTIVE + '?org=%s' % results[1].organization_id, headers=member_a)
             self.assertEqual((foreign.status_code, foreign.json()['error']['code']), (404, 'NOT_FOUND'))
             self.assertEqual(client.get(EFFECTIVE).status_code, 401)
+
+    def test_a_member_reports_invocation_metadata_once_and_content_is_refused(self):
+        with stack() as (db, client, results, root, secrets):
+            member = login(client, results[0].accounts[1])
+            batch = [{'event_id': str(uuid4()), 'capability_id': 'tool:code_execute', 'at': '2026-10-12T12:00:00Z', 'outcome': 'ok', 'duration_ms': 80, 'sandbox_level': 3}]
+            accepted = client.post(AUDIT, headers=member, json={'events': batch})
+            self.assertEqual((accepted.status_code, accepted.json()), (202, {'received': 1, 'stored': 1}))
+            self.assertEqual(client.post(AUDIT, headers=member, json={'events': batch}).json(), {'received': 1, 'stored': 0}, 'a replay stores nothing')
+            leaked = client.post(AUDIT, headers=member, json={'events': [{**batch[0], 'event_id': str(uuid4()), 'arguments': {'command': 'dir'}}]})
+            self.assertEqual((leaked.status_code, leaked.json()['error']['code']), (422, 'INVALID_REQUEST'))
+            self.assertEqual(db.admin.execute('SELECT count(*),min(source) FROM forge.tool_invocation_log').fetchone(), (1, 'client'))
+            self.assertEqual(client.post(AUDIT, json={'events': batch}).status_code, 401)
+            foreign = client.post(AUDIT + '?org=%s' % results[1].organization_id, headers=member, json={'events': batch})
+            self.assertEqual(foreign.status_code, 404)
 
     def test_the_key_set_is_served_and_the_document_is_not_cacheable(self):
         with stack() as (db, client, results, root, secrets):
