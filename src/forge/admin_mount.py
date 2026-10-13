@@ -9,7 +9,7 @@ Origin is not allow-listed. Bearer tokens, not cookies, authenticate calls.
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from starlette.middleware.cors import CORSMiddleware
 
@@ -58,6 +58,16 @@ def mount_admin(app: FastAPI, directory, *, required: bool):
     if not built and required:
         raise AdminBuildMissing()
     root = root.resolve() if built else root
+
+    # The links the control plane mails (onboarding, owner set-password) name the public origin without /admin; the query
+    # is kept (it carries only the public company code) and the fragment, which never reaches a server, survives a 307.
+    def entry(target):
+        def redirect(request: Request):
+            query = request.url.query
+            return RedirectResponse(target + ('?' + query if query else ''), status_code=307, headers={'Cache-Control': 'no-store'})
+        return redirect
+    for source, target in (('/join', '/admin/join'), ('/onboarding', '/admin/join'), ('/reset-password', '/admin/reset-password')):
+        app.get(source, include_in_schema=False)(entry(target))
 
     @app.get('/admin', include_in_schema=False)
     def admin_redirect():

@@ -4,6 +4,7 @@ Disposable by design: the container is tmpfs-backed and removed (ID read back) o
 private workspace holding the config, secrets and credentials is deleted with it. Ports are
 prechecked before any resource exists; no other process is adopted, stopped or touched.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,10 +19,24 @@ from forge.mvp_local import ConfigError, MVP_PORTS, ROLES, reserve_loopback_port
 from forge.capability_signing import b64u
 from forge.fake_gateway import MODELS as FAKE_MODELS
 from forge.mvp_profile import MVP_ADDITIONS, MVP_PROFILE
+from forge.platform_cli import bootstrap_owner, write_private_file
 from forge.pool_seed import seed_gateway_pool
 from forge.provisioning import MULTIUSER_SEED as MVP_SEED, provision, write_credentials
 
 DATABASE = 'forge_dev'
+OWNER_EMAIL, OWNER_NAME = 'owner@platform.test', 'Platform Owner'
+INSTALLER = 'Forge-Setup-0.0.0-local.exe'
+
+
+def stage_downloads(directory):
+    """The local stack's installer hosting: a tiny stand-in file and the manifest a real release publishes (see forge.downloads_mount)."""
+    directory = Path(directory)
+    directory.mkdir()
+    payload = b'MZ forge local installer stand-in\n'
+    (directory/INSTALLER).write_bytes(payload)
+    manifest = {'version': '0.0.0-local', 'released_at': '2026-01-01T00:00:00Z', 'platforms': {'windows': {
+        'url': '/downloads/' + INSTALLER, 'sha256': hashlib.sha256(payload).hexdigest(), 'size_bytes': len(payload)}}}
+    (directory/'latest.json').write_text(json.dumps(manifest), encoding='utf-8')
 ADMIN_BUILD = ROOT/'src'/'forge'/'web'/'admin'
 
 
@@ -84,6 +99,11 @@ def up(stopping, *, require_admin_build=False, emit=None):
             # A company's key is the platform's: seed it the way the platform would assign it (see forge.pool_seed).
             seed_gateway_pool(connection, gateway_secret, fake_origin, seeded, FAKE_MODELS)
         (workspace.directory/'mailbox').mkdir()
+        stage_downloads(workspace.directory/'downloads')
+        owner_link = workspace.directory/'owner-link.txt'
+        with psycopg.connect(**postgres.settings()) as connection:  # the platform owner's one-time set-password link, as the CLI issues it
+            bootstrap_owner(connection, email=OWNER_EMAIL, name=OWNER_NAME, origin='http://127.0.0.1:%d' % MVP_PORTS['control_plane'],
+                            ttl_seconds=3600, write_link=lambda link: write_private_file(owner_link, link))
         config_path = runtime_files(
             workspace.directory, database={'host': '127.0.0.1', 'port': postgres.port, 'dbname': DATABASE},
             passwords=passwords, delivery_key=Fernet.generate_key().decode('ascii'),
@@ -105,7 +125,7 @@ def up(stopping, *, require_admin_build=False, emit=None):
                 'admin_build': 'ready' if (ADMIN_BUILD/'index.html').is_file() else 'missing',
                 'fake_gateway_origin': 'http://127.0.0.1:%d' % MVP_PORTS['fake_gateway'],
                 'client_origin': config.client_origin, 'workspace': str(workspace.directory),
-                'credentials_file': str(credentials), 'config_file': config_path, 'container_id': postgres.container_id}))
+                'credentials_file': str(credentials), 'owner_link_file': str(owner_link), 'config_file': config_path, 'container_id': postgres.container_id}))
         finally:
             stopping.set()
             gateway.join(10)

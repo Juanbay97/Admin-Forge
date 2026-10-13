@@ -179,6 +179,10 @@ def assemble(app, config, readiness):
         mount_admin(app, config.admin_dir, required=config.require_admin_build)
     except AdminBuildMissing:
         raise ConfigError('ADMIN_BUILD_MISSING') from None
+    downloads = Path(config.mailbox_dir).with_name('downloads')  # staged by forge.mvp_up next to the mailbox; absent otherwise
+    if downloads.is_dir():
+        from forge.downloads_mount import mount_downloads
+        mount_downloads(app, downloads)
     apply_guard(app, host=config.host, origins=(config.admin_origin, *config.cors_origins), cors_origins=config.cors_origins)
     return app
 

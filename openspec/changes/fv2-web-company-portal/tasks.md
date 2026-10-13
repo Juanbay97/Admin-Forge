@@ -30,9 +30,9 @@ Chain strategy: stacked-to-main
 | 6 | Real-stack journeys, sweeps, responsive/a11y, docs | PR 6 (~650) | needs all |
 
 ## Phase 1 — Control-plane hosting (PR 1)
-- [ ] 1.1 RED pytest: `/downloads` traversal (`..`, encoded, backslash, symlink), headers, 404; `/join` 307 keeps query; accept returns `account_email`
-- [ ] 1.2 GREEN: `downloads_mount.py`, `admin_mount.py` redirect, `account_api.py` additive field; run contract pin tests (must stay green)
-- [ ] 1.3 Composition: optional downloads dir in `mvp_local.py`; fixture installer + `latest.json` created by `scripts/admin-e2e.ps1`
+- [x] 1.1 RED pytest: `/downloads` traversal (`..`, encoded, backslash, symlink), headers, 404; `/join` 307 keeps query; accept returns `account_email`
+- [x] 1.2 GREEN: `downloads_mount.py`, `admin_mount.py` redirect, `account_api.py` additive field; run contract pin tests (must stay green)
+- [x] 1.3 Composition: optional downloads dir in `mvp_local.py`; fixture installer + `latest.json` created by `scripts/admin-e2e.ps1`
 - [ ] 1.4 Contract reconcile: confirm link format with smtp-delivery, usage shapes with usage-metering, gateway read fields with gateway-keys (update fixtures/PC table)
 
 ## Phase 2 — Join / onboarding (PR 2)
