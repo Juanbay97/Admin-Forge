@@ -20,7 +20,7 @@ from forge.api import ErrorDetail, ErrorEnvelope
 from forge.branding import BrandingInvalid, parse, public_view
 from forge.branding_api import _MESSAGES as BRANDING_MESSAGES
 from forge.invitations import capability_digest
-from forge.platform import (COMPANY_CODE, MAX_PAGE, MAX_REVISION, CompanyConflict, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired,
+from forge.platform import (COMPANY_CODE, MAX_PAGE, MAX_REVISION, CompanyConflict, KeyConflict, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired,
                             PlatformDenied, PlatformInvalid, PlatformNotFound, RevisionConflict)
 
 PREFIX = '/forge/v1/platform'
@@ -28,7 +28,8 @@ JSON_LIMIT = 1024
 LOCK_SECONDS = 900
 _UNAVAILABLE = ('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable.')
 _FAILURES = ((PlatformDenied, 403, 'PLATFORM_DENIED', 'Platform access denied.'),
-             (RevisionConflict, 409, 'REVISION_CONFLICT', 'The branding revision changed.'),
+             (RevisionConflict, 409, 'REVISION_CONFLICT', 'The revision changed.'),
+             (KeyConflict, 409, 'KEY_CONFLICT', 'A gateway key with this label already exists.'),
              (CompanyConflict, 409, 'COMPANY_CONFLICT', 'A company with this code already exists.'),
              (MfaRequired, 403, 'MFA_REQUIRED', 'A verified second factor is required.'),
              (MfaInvalid, 403, 'MFA_INVALID', 'The verification code was not accepted.'),
@@ -63,7 +64,7 @@ def _unique(pairs):
     return dict(pairs)
 
 
-async def _document(request):
+async def _document(request, limit=JSON_LIMIT):
     """A small JSON object (the caller checks its keys and values)."""
     media = request.headers.get('content-type', '').split(';')[0].strip().lower()
     if media != 'application/json':
@@ -71,12 +72,12 @@ async def _document(request):
     declared = request.headers.get('content-length')
     if declared is not None and (not declared.isascii() or not declared.isdigit()):
         raise _invalid()
-    if declared is not None and int(declared) > JSON_LIMIT:
+    if declared is not None and int(declared) > limit:
         raise _Refusal(_envelope(413, 'PAYLOAD_TOO_LARGE', 'The request body is too large.'))
     data = bytearray()
     async for piece in request.stream():
         data.extend(piece)
-        if len(data) > JSON_LIMIT:
+        if len(data) > limit:
             raise _Refusal(_envelope(413, 'PAYLOAD_TOO_LARGE', 'The request body is too large.'))
     try:
         document = json.loads(bytes(data).decode('utf-8'), object_pairs_hook=_unique)
@@ -137,7 +138,7 @@ def _company(company):
     return {'id': str(company.organization_id), 'slug': company.slug, 'display_name': company.display_name, 'active': company.active}
 
 
-def mount_platform(app: FastAPI, *, service, sessions, readiness=None):
+def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None):
     """Add the platform routes (all ``include_in_schema=False``, so the contract pin is unchanged)."""
     def blocking(function, *arguments, **keywords):
         return run_sync(lambda: function(*arguments, **keywords), abandon_on_cancel=False)
@@ -281,3 +282,7 @@ def mount_platform(app: FastAPI, *, service, sessions, readiness=None):
                         'recorded_at': entry.recorded_at.isoformat()} for entry in found]
             return JSONResponse({'entries': entries, 'next_before': found[-1].id if len(found) == arguments['page'] else None})
         return await guarded(request, operation)
+
+    if keys is not None:
+        from forge.platform_keys_api import mount_keys
+        mount_keys(app, keys=keys, guarded=guarded, blocking=blocking)

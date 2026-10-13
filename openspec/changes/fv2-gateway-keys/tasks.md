@@ -34,7 +34,7 @@ Chain strategy: stacked-to-main
 ## Phase 2: Keys
 - [x] 2.1 RED cipher v1/v2 tamper tests; GREEN `gateway_configuration.py` dispatch
 - [x] 2.2 RED/GREEN `gateway_keys.py` + `gateway_keys_store.py` (create/rotate/disable, last4, no key echo)
-- [ ] 2.3 RED/GREEN `platform_keys_api.py` hidden routes, assignment/priority, audit rows; company-admin denial
+- [x] 2.3 RED/GREEN `platform_keys_api.py` hidden routes, assignment/priority, audit rows; company-admin denial
 ## Phase 3: Routing
 - [ ] 3.1 RED adapter `RetryableUpstream` table tests; GREEN `gateway_inference_adapter.py`
 - [ ] 3.2 RED failover/pre-byte/all-down in `test_gateway_inference.py`; GREEN `gateway_inference.py` candidates

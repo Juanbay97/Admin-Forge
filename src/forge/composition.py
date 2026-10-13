@@ -82,6 +82,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.gateway_inference import GatewayInference
     from forge.gateway_inference_adapter import HttpxTextAdapter
     from forge.gateway_inference_store import PostgresGatewayInferenceStore
+    from forge.gateway_keys import GatewayKeys
+    from forge.gateway_keys_store import PostgresGatewayKeyStore
     from forge.invitation_delivery import DeliveryCoordinator, PostgresDeliveryStore
     from forge.invitation_store import PostgresInvitationStore
     from forge.invitations import InvitationService
@@ -106,5 +108,5 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         directory=DirectoryService(PostgresDirectoryStore(gateway)))
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
     mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),
-                   sessions=sessions, readiness=readiness)
+                   sessions=sessions, readiness=readiness, keys=GatewayKeys(PostgresGatewayKeyStore(platform), cipher))
     return app
