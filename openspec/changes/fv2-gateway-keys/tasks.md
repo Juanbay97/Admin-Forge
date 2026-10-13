@@ -29,8 +29,8 @@ Chain strategy: stacked-to-main
 | S5 | ceiling + admin read-only (0033, F33) + SPA tweak | PR 5 | on S4 |
 
 ## Phase 1: Foundation
-- [ ] 1.1 RED `tests/test_postgres_gateway_keys_schema.py`; GREEN `0031_gateway_key_pool.sql` (keys, assignment, profile, backfill)
-- [ ] 1.2 F31 pin + readiness/up/profile ripple + `mvp_support` previous-profile test
+- [x] 1.1 RED `tests/test_postgres_gateway_keys_schema.py`; GREEN `0031_gateway_key_pool.sql` (keys, assignment, profile, backfill)
+- [x] 1.2 F31 pin + readiness/up/profile ripple + `mvp_support` previous-profile test
 ## Phase 2: Keys
 - [ ] 2.1 RED cipher v1/v2 tamper tests; GREEN `gateway_configuration.py` dispatch
 - [ ] 2.2 RED/GREEN `gateway_keys.py` + `gateway_keys_store.py` (create/rotate/disable, last4, no key echo)

@@ -15,7 +15,7 @@ from forge.platform import MfaRequired, PlatformDenied, PlatformInvalid, Platfor
 from forge.platform_store import PostgresPlatformStore
 from forge.platform_totp import SecretSealer
 from forge.provisioning import SEED, provision
-from mvp_support import mvp_database
+from mvp_support import at, mvp_database
 from platform_support import add_owner, call, refusal, sign_in
 from test_postgres_gateway_origin import migration_text, separate_database
 from test_postgres_platform_schema import drop_platform_roles
@@ -27,8 +27,8 @@ THEME = {'name': 'Acme Labs', 'loginCopy': 'Welcome to Acme.', 'assets': {},
 class OperationsProfileTests(unittest.TestCase):
     def test_0031_follows_0030_with_its_own_pinned_checkpoint(self):
         self.assertEqual(PLATFORM_OPERATIONS_MIGRATION, '0031_platform_company_operations.sql')
-        self.assertEqual(MVP_ADDITIONS[-2:], ('0030_company_lifecycle.sql', PLATFORM_OPERATIONS_MIGRATION))
-        self.assertEqual(MVP_CHECKPOINTS[-2:], (F30, F31))
+        self.assertEqual(MVP_ADDITIONS[at(PLATFORM_OPERATIONS_MIGRATION) - 1:at(PLATFORM_OPERATIONS_MIGRATION) + 1], ('0030_company_lifecycle.sql', PLATFORM_OPERATIONS_MIGRATION))
+        self.assertEqual(MVP_CHECKPOINTS[at(PLATFORM_OPERATIONS_MIGRATION):at(PLATFORM_OPERATIONS_MIGRATION) + 2], (F30, F31))
         self.assertRegex(F31 or '', r'^[0-9a-f]{64}$', 'F31 must be pinned')
         self.assertNotEqual(F31, F30)
         self.assertEqual(len(MVP_CHECKPOINTS), len(MVP_ADDITIONS) + 1)
@@ -42,7 +42,7 @@ class OperationsFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0030_share_the_pinned_fingerprint(self):
-        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-1])
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:at(PLATFORM_OPERATIONS_MIGRATION)])
         with separate_database() as conn:
             for name in (*previous, PLATFORM_OPERATIONS_MIGRATION):
                 conn.execute(migration_text(name))

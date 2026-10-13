@@ -10,7 +10,7 @@ from forge.account_readiness import catalog_fingerprint
 from forge.dev_accounts import MIGRATIONS
 from forge.mvp_profile import F27, F28, MVP_ADDITIONS, MVP_CHECKPOINTS, MVP_PROFILE, PLATFORM_SCOPE_MIGRATION
 from forge.provisioning import SEED, provision
-from mvp_support import mvp_database
+from mvp_support import at, mvp_database
 from platform_support import PLATFORM_ROLES, add_account, add_owner, call, refusal, sign_in
 from postgres_support import connect
 from test_postgres_gateway_origin import migration_text, separate_database
@@ -19,10 +19,22 @@ SERVICE_FUNCTIONS = ('forge.platform_me(text)', 'forge.platform_company_list(tex
                      'forge.platform_company_get(text,uuid)', 'forge.platform_audit_page(text,bigint,integer)',
                      'forge.platform_company_create(text,uuid,uuid,uuid,uuid,text,text,text,text,text,text,integer)',
                      'forge.platform_company_set_active(text,uuid,boolean)', 'forge.platform_company_branding_read(text,uuid)',
-                     'forge.platform_company_branding_save(text,uuid,bigint,text,text,text,text,text,text,text,text,text,text,text)')
+                     'forge.platform_company_branding_save(text,uuid,bigint,text,text,text,text,text,text,text,text,text,text,text)',
+                     # 0032: the gateway key pool and the per-company assignment and model ceiling
+                     'forge.platform_gateway_key_create(text,uuid,text,text,text,text)', 'forge.platform_gateway_key_list(text)',
+                     'forge.platform_gateway_key_rotate(text,uuid,bigint,text,text)',
+                     'forge.platform_gateway_key_set_status(text,uuid,boolean)', 'forge.platform_company_gateway_get(text,uuid)',
+                     'forge.platform_company_gateway_set(text,uuid,jsonb)', 'forge.platform_company_model_access_get(text,uuid)',
+                     'forge.platform_company_model_access_set(text,uuid,text[])')
 INTERNAL_FUNCTIONS = ('forge.platform_lock_owner(text,boolean)', 'forge.platform_audit_write(uuid,text,uuid)',
+                      'forge.platform_audit_write(uuid,text,uuid,uuid)', 'forge.platform_gateway_key_meta(uuid)',
                       'forge.platform_owner_exists(uuid)')
-AUTHORITY_GRANTS = {('organizations', 'SELECT'), ('memberships', 'SELECT'), ('identities', 'SELECT'),
+AUTHORITY_GRANTS = {('gateway_keys', 'SELECT'), ('gateway_keys', 'INSERT'), ('gateway_keys', 'UPDATE'),
+                    ('organization_gateway_profiles', 'SELECT'), ('organization_gateway_profiles', 'INSERT'),
+                    ('organization_gateway_profiles', 'UPDATE'), ('organization_gateway_keys', 'SELECT'),
+                    ('organization_gateway_keys', 'INSERT'), ('organization_gateway_keys', 'UPDATE'),
+                    ('organization_gateway_keys', 'DELETE'),  # 0032: the key pool
+                    ('organizations', 'SELECT'), ('memberships', 'SELECT'), ('identities', 'SELECT'),
                     ('platform_roles', 'SELECT'), ('platform_audit_log', 'SELECT'), ('platform_audit_log', 'INSERT'),
                     # 0029: the second factor's own tables (nothing else is added to the authority)
                     ('platform_totp', 'SELECT'), ('platform_totp', 'INSERT'), ('platform_totp', 'UPDATE'),
@@ -45,8 +57,8 @@ class PlatformProfileTests(unittest.TestCase):
     """No database: the profile appends 0028 and its own pinned checkpoint after 0027."""
     def test_0028_follows_0027_with_its_own_pinned_checkpoint(self):
         self.assertEqual(PLATFORM_SCOPE_MIGRATION, '0028_platform_scope.sql')
-        self.assertEqual(MVP_ADDITIONS[-5:-3], ('0027_gateway_origin_config.sql', PLATFORM_SCOPE_MIGRATION))
-        self.assertEqual(MVP_CHECKPOINTS[-5:-3], (F27, F28))
+        self.assertEqual(MVP_ADDITIONS[at(PLATFORM_SCOPE_MIGRATION) - 1:at(PLATFORM_SCOPE_MIGRATION) + 1], ('0027_gateway_origin_config.sql', PLATFORM_SCOPE_MIGRATION))
+        self.assertEqual(MVP_CHECKPOINTS[at(PLATFORM_SCOPE_MIGRATION):at(PLATFORM_SCOPE_MIGRATION) + 2], (F27, F28))
         self.assertRegex(F28 or '', r'^[0-9a-f]{64}$', 'F28 must be pinned')
         self.assertNotEqual(F28, F27)
         self.assertEqual(len(MVP_CHECKPOINTS), len(MVP_ADDITIONS) + 1)
@@ -60,7 +72,7 @@ class PlatformFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0027_share_the_pinned_fingerprint(self):
-        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-4])
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:at(PLATFORM_SCOPE_MIGRATION)])
         with separate_database() as conn:
             for name in (*previous, PLATFORM_SCOPE_MIGRATION):
                 conn.execute(migration_text(name))
@@ -259,7 +271,7 @@ class PlatformAuditTests(unittest.TestCase):
         with mvp_database() as db:
             columns = db.admin.execute("SELECT column_name FROM information_schema.columns WHERE table_schema='forge' "
                                        "AND table_name='platform_audit_log' ORDER BY ordinal_position").fetchall()
-            self.assertEqual([name for (name,) in columns], ['id', 'actor_id', 'action', 'organization_id', 'recorded_at'])
+            self.assertEqual([name for (name,) in columns], ['id', 'actor_id', 'action', 'organization_id', 'recorded_at', 'subject_id'])
             owner = add_owner(db.admin)
             for action in ('company.created', 'company.suspended', 'company.reactivated', 'company.branding_saved',
                            'owner.mfa_enrolled', 'owner.mfa_recovery_used'):

@@ -15,7 +15,7 @@ from forge.platform import (MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, Pla
 from forge.platform_store import PostgresPlatformStore
 from forge.platform_totp import SecretSealer, hash_recovery_code, totp
 from forge.provisioning import SEED, provision
-from mvp_support import mvp_database
+from mvp_support import at, mvp_database
 from platform_support import add_owner, call, refusal, sign_in
 from test_postgres_gateway_origin import migration_text, separate_database
 from test_postgres_platform_schema import drop_platform_roles
@@ -29,8 +29,8 @@ TABLES = ('platform_totp', 'platform_recovery_codes', 'platform_mfa_sessions')
 class MfaProfileTests(unittest.TestCase):
     def test_0029_follows_0028_with_its_own_pinned_checkpoint(self):
         self.assertEqual(PLATFORM_MFA_MIGRATION, '0029_platform_mfa.sql')
-        self.assertEqual(MVP_ADDITIONS[-4:-2], ('0028_platform_scope.sql', PLATFORM_MFA_MIGRATION))
-        self.assertEqual(MVP_CHECKPOINTS[-4:-2], (F28, F29))
+        self.assertEqual(MVP_ADDITIONS[at(PLATFORM_MFA_MIGRATION) - 1:at(PLATFORM_MFA_MIGRATION) + 1], ('0028_platform_scope.sql', PLATFORM_MFA_MIGRATION))
+        self.assertEqual(MVP_CHECKPOINTS[at(PLATFORM_MFA_MIGRATION):at(PLATFORM_MFA_MIGRATION) + 2], (F28, F29))
         self.assertRegex(F29 or '', r'^[0-9a-f]{64}$', 'F29 must be pinned')
         self.assertNotEqual(F29, F28)
         self.assertEqual(len(MVP_CHECKPOINTS), len(MVP_ADDITIONS) + 1)
@@ -44,7 +44,7 @@ class MfaFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0028_share_the_pinned_fingerprint(self):
-        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-3])
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:at(PLATFORM_MFA_MIGRATION)])
         with separate_database() as conn:
             for name in (*previous, PLATFORM_MFA_MIGRATION):
                 conn.execute(migration_text(name))

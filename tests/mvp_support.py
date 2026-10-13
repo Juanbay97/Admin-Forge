@@ -14,6 +14,11 @@ from forge.mvp_profile import MVP_ADDITIONS
 from postgres_support import connect, settings
 from test_postgres_gateway_origin import migration_text, separate_database
 
+def at(name):
+    """Position of a migration in the profile, so tail pins never shift when a later migration is appended."""
+    return MVP_ADDITIONS.index(name)
+
+
 LOGIN_ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service',
                'forge_branding_service', 'forge_platform_service')
 
