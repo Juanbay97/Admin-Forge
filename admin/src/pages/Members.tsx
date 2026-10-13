@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { AccountApi, Department, Organization } from "../api/account";
 import { ApiError } from "../api/client";
 import type { InviteInput, Member, MembersApi } from "../api/members";
+import { AssignDepartmentDialog } from "../components/AssignDepartmentDialog";
 import { InviteDialog } from "../components/InviteDialog";
 import { MemberTable } from "../components/MemberTable";
 import { NotFound } from "../components/NotFound";
@@ -32,6 +33,7 @@ export function Members({ api, membersApi, organization }: MembersProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
   const [suspending, setSuspending] = useState<Member | null>(null);
+  const [assigning, setAssigning] = useState<Member | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -58,6 +60,13 @@ export function Members({ api, membersApi, organization }: MembersProps) {
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function assign(departmentId: string) {
+    if (!assigning) return;
+    const updated = await membersApi.assignDepartment(orgId, assigning.id, departmentId);
+    setLoad((state) => (state.status === "ready" ? { ...state, members: applyUpdate(state.members, updated) } : state));
+    setAssigning(null);
   }
 
   async function invite(input: InviteInput) {
@@ -99,6 +108,7 @@ export function Members({ api, membersApi, organization }: MembersProps) {
               departments={ready?.departments}
               onChange={(member, action) => (action === "suspend" ? setSuspending(member) : void change(member, action))}
               onInvite={() => setInviting(true)}
+              onAssign={setAssigning}
             />
           </TabsContent>
           <TabsContent value="departments">
@@ -112,6 +122,7 @@ export function Members({ api, membersApi, organization }: MembersProps) {
           </TabsContent>
         </Tabs>
       )}
+      <AssignDepartmentDialog member={assigning} departments={ready?.departments ?? []} onSubmit={assign} onClose={() => setAssigning(null)} />
       <InviteDialog open={inviting} departments={ready?.departments ?? []} onSubmit={invite} onClose={() => setInviting(false)} />
       <AlertDialog
         open={suspending !== null}

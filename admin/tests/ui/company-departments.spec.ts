@@ -37,6 +37,33 @@ test.describe("members and departments", () => {
     await expect(table.getByRole("row").nth(1)).toContainText("Pat Member");
   });
 
+  test("an administrator moves a person to another department and the list shows it at once", async ({ page, adminUrl }) => {
+    const { requests } = await open(page, adminUrl);
+    const table = page.getByRole("table", { name: "Members" });
+    await table.getByRole("row", { name: /Pat Member/ }).getByRole("button", { name: /Change department/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Change department" });
+    await expect(dialog.getByLabel("Department")).toHaveValue("d-fin"); // starts on the current department
+    await dialog.getByLabel("Department").selectOption("Legal");
+    await dialog.getByRole("button", { name: "Save department" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(table.getByRole("row", { name: /Pat Member/ })).toContainText("Legal");
+    await expect(table.getByRole("row", { name: /Pat Member/ })).not.toContainText("Finance");
+    expect(requests.find((request) => request.method === "PUT" && request.path.endsWith("/members/m2/department"))?.body).toEqual({ department_id: "d-legal" });
+  });
+
+  test("a refused assignment is said in words and leaves the person where they were", async ({ page, adminUrl }) => {
+    const { world: state } = await open(page, adminUrl);
+    state.departments = state.departments.filter((department) => department.id !== "d-legal"); // gone on the server since the page loaded
+    const table = page.getByRole("table", { name: "Members" });
+    await table.getByRole("row", { name: /Pat Member/ }).getByRole("button", { name: /Change department/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Change department" });
+    await dialog.getByLabel("Department").selectOption("Legal");
+    await dialog.getByRole("button", { name: "Save department" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("could not be changed");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(table.getByRole("row", { name: /Pat Member/ })).toContainText("Finance");
+  });
+
   test("the Departments tab lists them and creates one that appears in the filter without a reload", async ({ page, adminUrl }) => {
     const { requests } = await open(page, adminUrl);
     await page.getByRole("tab", { name: "Departments" }).click();

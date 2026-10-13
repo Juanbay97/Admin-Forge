@@ -31,6 +31,13 @@ test.describe("members api", () => {
     expect(calls).toEqual([{ method: "GET", path: "/forge/v1/orgs/org%2F1/members", body: undefined }]);
   });
 
+  test("assigns a department with one PUT that carries only the department id and returns the updated member", async () => {
+    const { api, calls } = recorder({ ...PAT, departments: [{ id: "d2", name: "Support" }] });
+    const updated = await api.assignDepartment("o1", "m 1", "d2");
+    expect(updated.departments).toEqual([{ id: "d2", name: "Support" }]);
+    expect(calls).toEqual([{ method: "PUT", path: "/forge/v1/orgs/o1/members/m%201/department", body: { department_id: "d2" } }]);
+  });
+
   test("suspends and reactivates by member id", async () => {
     const { api, calls } = recorder({ ...PAT, status: "suspended" });
     expect((await api.suspend("o1", "m 1")).status).toBe("suspended");

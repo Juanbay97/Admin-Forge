@@ -27,6 +27,8 @@ export interface MembersApi {
   list(orgId: string): Promise<Member[]>;
   suspend(orgId: string, memberId: string): Promise<Member>;
   reactivate(orgId: string, memberId: string): Promise<Member>;
+  /** Makes `departmentId` the member's one department; the server answers with the updated member. */
+  assignDepartment(orgId: string, memberId: string, departmentId: string): Promise<Member>;
   invite(orgId: string, input: InviteInput): Promise<InvitationReceipt>;
 }
 
@@ -40,6 +42,8 @@ export function createMembersApi(client: ApiClient): MembersApi {
     },
     suspend: change("suspend"),
     reactivate: change("reactivate"),
+    assignDepartment: (orgId, memberId, departmentId) =>
+      client.request<Member>("PUT", `${base(orgId)}/${encodeURIComponent(memberId)}/department`, { department_id: departmentId }),
     invite: (orgId, { email, name, departmentId }) =>
       client.request<InvitationReceipt>("POST", "/forge/v1/accounts/invitations", {
         organization_id: orgId,

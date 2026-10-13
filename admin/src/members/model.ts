@@ -9,7 +9,7 @@ export interface PendingInvite {
   departmentName: string;
 }
 
-export type Action = "load" | "suspend" | "reactivate" | "invite";
+export type Action = "load" | "suspend" | "reactivate" | "invite" | "assign";
 
 export const roleLabel = (roles: string[]) => (roles.includes(ADMIN_ROLE) ? "Administrator" : "Member");
 
@@ -30,6 +30,7 @@ export function describeFailure(failure: unknown, action: Action): string {
   if (error?.status === 404 && (action === "suspend" || action === "reactivate")) {
     return "This member is no longer available. Reload the list.";
   }
+  if (action === "assign") return "The department could not be changed. It may no longer exist; reload the page and try again.";
   if (action === "invite") return "The invitation could not be sent. Check the name and email, then try again.";
   if (action === "load") return "The members could not be loaded. Try again.";
   return "The change could not be saved. Try again.";

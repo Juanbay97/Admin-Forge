@@ -121,6 +121,16 @@ test("the administrator's dashboard shows that person's real usage", async ({ pa
   await expect(row.getByText("Support").or(row.getByText("General"))).toBeVisible();
   await expect(usage.getByRole("region", { name: "Key figures" }).getByText(/^1 of \d+$/)).toBeVisible();
   await shot(page, "portal", "30-company-dashboard");
+  // The administrator moves the person to the Support department (the live assignment route) and the list shows it.
+  await page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: "Members" }).click();
+  const people = page.getByRole("table", { name: "Members" });
+  await people.getByRole("row", { name: new RegExp(MEMBER.name) }).getByRole("button", { name: /Change department/ }).click();
+  const move = page.getByRole("dialog", { name: "Change department" });
+  await move.getByLabel("Department").selectOption({ label: "Support" });
+  await move.getByRole("button", { name: "Save department" }).click();
+  await expect(move).toBeHidden();
+  await expect(people.getByRole("row", { name: new RegExp(MEMBER.name) })).toContainText("Support");
+  await shot(page, "portal", "32-department-assigned");
   // The Gateway page is read-only: no key can be entered by a company administrator.
   await page.getByRole("navigation", { name: "Sections" }).getByRole("button", { name: "Gateway" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Gateway" })).toBeVisible();

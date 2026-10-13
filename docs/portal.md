@@ -40,7 +40,7 @@ step. A signed-in visitor is not auto-accepted; they are offered to sign out fir
 | PC-6 | gateway read fields with last-4, models, ceiling | The company gateway read returns `status`, `revision` (the number of usable platform keys) and the endpoint. The Gateway page shows exactly that, read-only; there is no key list for company administrators. |
 | PC-7 | `/downloads/latest.json` + file | Served by Caddy in production and by `downloads_mount.py` locally (`mvp_up` stages a manifest and a stand-in installer). The SPA requires the installer URL to be `/downloads/<file>` (same origin) and the hash to be 64 hex characters. |
 | PC-8 | `accounts/me` for plain members | As planned: the portal uses the member's organizations and roles. |
-| PC-9 | department assignment endpoint | Absent. Departments are listed and created (`POST /orgs/{id}/departments`); the member list can be filtered by department; assignment is not offered. |
+| PC-9 | department assignment endpoint | **Live** (`fv2-gap-closure` G4, migration 0045): `PUT /orgs/{id}/members/{member}/department` with `{department_id}` (administrators only, hidden from OpenAPI) makes that the member's one department and answers with the updated member. The Members page offers "Change department" on each person. A foreign or unknown member or department, a member asking and a stale session are the same 404. Renaming and removing departments are still not offered. |
 
 ## Company dashboard
 

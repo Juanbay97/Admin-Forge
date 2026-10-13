@@ -21,6 +21,8 @@ interface MemberTableProps {
   onInvite: () => void;
   /** When given, a department filter is offered next to the search. */
   departments?: Department[];
+  /** When given (and there are departments), each member row offers "Change department". */
+  onAssign?: (member: Member) => void;
 }
 
 type Row = { key: string; member: Member } | { key: string; invite: PendingInvite };
@@ -31,7 +33,7 @@ const role = (row: Row) => ("member" in row ? roleLabel(row.member.roles) : "Mem
 const status = (row: Row) => ("member" in row ? (row.member.status === "active" ? "Active" : "Suspended") : "Invited");
 const TONE = { Active: "success", Suspended: "warning", Invited: "info" } as const;
 
-export function MemberTable({ members, pending, busyId, loading = false, onChange, onInvite, departments = [] }: MemberTableProps) {
+export function MemberTable({ members, pending, busyId, loading = false, onChange, onInvite, departments = [], onAssign }: MemberTableProps) {
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("");
   const all: Row[] = useMemo(
@@ -69,15 +71,23 @@ export function MemberTable({ members, pending, busyId, loading = false, onChang
       align: "right",
       cell: (row) =>
         "member" in row ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busyId === row.member.id}
-            onClick={() => onChange(row.member, row.member.status === "active" ? "suspend" : "reactivate")}
-          >
-            {row.member.status === "active" ? "Suspend" : "Reactivate"}
-            <span className="sr-only"> {row.member.display_name}</span>
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            {onAssign && departments.length > 0 && (
+              <Button variant="outline" size="sm" disabled={busyId === row.member.id} onClick={() => onAssign(row.member)}>
+                Change department
+                <span className="sr-only"> of {row.member.display_name}</span>
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busyId === row.member.id}
+              onClick={() => onChange(row.member, row.member.status === "active" ? "suspend" : "reactivate")}
+            >
+              {row.member.status === "active" ? "Suspend" : "Reactivate"}
+              <span className="sr-only"> {row.member.display_name}</span>
+            </Button>
+          </div>
         ) : null,
     },
   ];

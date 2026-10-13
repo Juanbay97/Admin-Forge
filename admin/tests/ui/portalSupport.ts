@@ -107,6 +107,14 @@ export async function installPortal(page: Page, world: PortalWorld = newPortalWo
       return reply(route, 200, { departments: world.departments });
     }
     if (path === `/forge/v1/orgs/${ORG}/members`) return reply(route, 200, { members: world.memberList });
+    const assignment = path.match(new RegExp(`^/forge/v1/orgs/${ORG}/members/([^/]+)/department$`));
+    if (assignment && method === "PUT") {
+      const member = world.memberList.find((item) => item.id === assignment[1]);
+      const department = world.departments.find((item) => item.id === (body as { department_id: string }).department_id);
+      if (!world.roles.includes("organization_admin") || !member || !department) return reply(route, 404, envelope("NOT_FOUND"));
+      member.departments = [department];
+      return reply(route, 200, member);
+    }
     return reply(route, 404, envelope("NOT_FOUND"));
   });
   return { requests, world };

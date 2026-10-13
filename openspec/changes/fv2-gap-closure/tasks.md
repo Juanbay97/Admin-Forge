@@ -33,8 +33,8 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 - [x] 3.2 RED/GREEN: console overview charts on real data
 
 ## G4 Department assignment (migration 0045)
-- [ ] 4.1 RED/GREEN: `directory_member_department` function + route
-- [ ] 4.2 RED/GREEN: company Members UI assignment
+- [x] 4.1 RED/GREEN: `directory_member_department` function + route
+- [x] 4.2 RED/GREEN: company Members UI assignment
 
 ## G5 Invitations (migration 0046)
 - [ ] 5.1 RED/GREEN: admin invitations mail `?c=<code>`
