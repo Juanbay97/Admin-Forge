@@ -32,6 +32,13 @@ class FailingPool(FakePool):
         super().open(wait, timeout)
 
 
+# A request that finds both connections of its role busy waits up to the 1 s pool timeout for one. A handful of members opening
+# workspaces or sending prompts at once is a burst of well over the former 4 waiters, and every one beyond them was refused at
+# once with a 503 (the client then showed "Models unavailable" and prompts got no reply). A short transaction takes tens of
+# milliseconds, so a queue this deep drains well inside the timeout and the pool stays bounded in time and in connections.
+BURST_QUEUE = 32
+
+
 class OpenPoolsTests(unittest.TestCase):
     def setUp(self):
         FakePool.created = []
@@ -46,7 +53,14 @@ class OpenPoolsTests(unittest.TestCase):
                           pools.gateway.kwargs['user'], pools.branding.kwargs['user'], pools.platform.kwargs['user'], pools.capability.kwargs['user'], pools.broker.kwargs['user']), ROLES)
         for pool in owned:
             self.assertEqual((pool.conninfo, pool.opened), ('', (True, 5)))
-            self.assertEqual(pool.options, dict(min_size=1, max_size=2, timeout=1, max_waiting=4, reconnect_timeout=1, open=False))
+            self.assertEqual(pool.options, dict(min_size=1, max_size=2, timeout=1, max_waiting=BURST_QUEUE, reconnect_timeout=1, open=False))
+
+    def test_a_burst_of_concurrent_requests_queues_for_a_connection_instead_of_being_refused(self):
+        owned = []
+        open_pools(lambda role: {'user': role}, owned, pool_factory=FakePool)
+        for pool in owned:
+            self.assertGreaterEqual(pool.options['max_waiting'], 16)  # not the 4 that refused a burst of six members' requests
+            self.assertEqual((pool.options['max_size'], pool.options['timeout']), (2, 1))  # still two connections, still one second
 
     def test_a_failure_leaves_every_pool_created_so_far_with_the_caller_to_close(self):
         owned = []

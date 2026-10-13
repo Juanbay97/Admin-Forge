@@ -26,6 +26,12 @@ class RolePools(NamedTuple):
     broker: object
 
 
+# Two connections per role and a one second wait, as before. What changed is how many callers may wait: a burst of members
+# (several workspaces opening or prompts sent at once) used to be refused at once beyond four waiters. A transaction takes tens of
+# milliseconds, so this queue drains well inside the one second timeout, which still bounds every wait.
+BURST_QUEUE = 32
+
+
 def open_pools(settings_for, owned, *, pool_factory=None):
     """Open one bounded pool per service role, in ``ROLES`` order.
 
@@ -36,7 +42,7 @@ def open_pools(settings_for, owned, *, pool_factory=None):
         from psycopg_pool import ConnectionPool as pool_factory
     created = []
     for role in ROLES:
-        pool = pool_factory('', kwargs=settings_for(role), min_size=1, max_size=2, timeout=1, max_waiting=4,
+        pool = pool_factory('', kwargs=settings_for(role), min_size=1, max_size=2, timeout=1, max_waiting=BURST_QUEUE,
                             reconnect_timeout=1, open=False)
         owned.append(pool)
         created.append(pool)
