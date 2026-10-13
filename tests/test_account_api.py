@@ -182,6 +182,28 @@ class AccountApiTests(unittest.TestCase):
             self.assertEqual(invited.status_code,201)
             self.assertEqual(delivery.queue_invitation.call_args.args[2:],(None,),repr(odd))
 
+    def test_the_preview_route_is_hidden_names_the_invited_person_and_every_unusable_link_is_one_404(self):
+        from forge import contract
+        from forge.invitations import InvitationDenied, InvitationPreview
+        invitations=MagicMock()
+        invitations.preview.return_value=InvitationPreview('new@example.com','New Person')
+        body={'invitation_id':str(uuid4()),'capability':secrets.token_urlsafe(32)}
+        with self.configured(invitations=invitations) as client:
+            app=client.app
+            self.assertEqual(contract.canonical_sha256(contract.build(app)),contract.canonical_sha256(__import__('json').loads(contract.COMMITTED_PATH.read_text('utf-8'))))
+            seen=client.post('/forge/v1/accounts/invitations/preview',json=body)
+            self.assertEqual((seen.status_code,seen.json(),seen.headers['cache-control']),(200,{'account_email':'new@example.com','display_name':'New Person'},'no-store'))
+            self.assertEqual(invitations.preview.call_args.args,(UUID(body['invitation_id']),body['capability']))
+            for bad in ({},{**body,'capability':'short'},{**body,'invitation_id':'nope'},{**body,'extra':1}):
+                self.assertEqual(client.post('/forge/v1/accounts/invitations/preview',json=bad).status_code,422)
+            invitations.preview.side_effect=InvitationDenied()
+            denied=client.post('/forge/v1/accounts/invitations/preview',json=body)
+            self.assertEqual((denied.status_code,denied.json()['error']['code']),(404,'NOT_FOUND'))
+            invitations.preview.side_effect=RuntimeError('boom')
+            self.assertEqual(client.post('/forge/v1/accounts/invitations/preview',json=body).status_code,503)
+        with self.configured() as client:
+            self.assertEqual(client.post('/forge/v1/accounts/invitations/preview',json=body).status_code,503)
+
     def test_without_the_port_the_invitation_has_no_company_code(self):
         invited,delivery,_,_=self.invite_with(None)
         self.assertEqual(invited.status_code,201)

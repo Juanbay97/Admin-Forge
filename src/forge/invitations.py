@@ -43,6 +43,13 @@ class IssuedInvitation:
     expires_at: datetime
 
 
+@dataclass(frozen=True, repr=False)
+class InvitationPreview:
+    """Who an unused invitation is for: the address and display name it was issued to (known only to the holder of its link)."""
+    account_email: str
+    display_name: str
+
+
 class InvitationStore(Protocol):
     def issue(self, identity: AuthenticatedIdentity, request: InvitationRequest,
               invitation_id: UUID, membership_id: UUID, digest: str) -> datetime: ...
@@ -53,6 +60,7 @@ class InvitationStore(Protocol):
 
 class EnrollmentStore(Protocol):
     def accept(self, invitation_id: UUID, digest: str, encoded: str) -> Enrollment: ...
+    def preview(self, invitation_id: UUID, digest: str) -> InvitationPreview: ...
 
 
 def capability_digest(capability: str) -> str:
@@ -95,6 +103,12 @@ class InvitationService:
         digest = capability_digest(capability)
         encoded = self.hasher.hash(password)
         return self.enrollment.accept(invitation_id, digest, encoded)
+
+    def preview(self, invitation_id: UUID, capability: str) -> InvitationPreview:
+        """Read-only: ``InvitationDenied`` for anything that is not a pending, unexpired invitation of an active company."""
+        if type(invitation_id) is not UUID:
+            raise ValueError("Invalid invitation identifier.")
+        return self.enrollment.preview(invitation_id, capability_digest(capability))
 
     def revoke(self, identity: AuthenticatedIdentity, organization_id: UUID,
                administrator_membership_id: UUID, invitation_id: UUID) -> bool:

@@ -8,7 +8,7 @@ from psycopg.pq import TransactionStatus
 from psycopg.rows import tuple_row
 
 from forge.accounts import Enrollment, password_record
-from forge.invitations import InvitationDenied, InvitationUnavailable, ExistingAccountAuthenticationRequired
+from forge.invitations import InvitationDenied, InvitationPreview, InvitationUnavailable, ExistingAccountAuthenticationRequired
 
 _ROLE = """
 SELECT current_user='forge_enrollment' AND session_user=current_user
@@ -79,3 +79,14 @@ class PostgresEnrollmentStore:
             if row is None or len(row)!=4 or row[0]!=account_id or any(type(v) is not UUID for v in row):
                 raise InvitationUnavailable()
             return Enrollment(*row)
+
+    def preview(self, invitation_id: UUID, digest: str) -> InvitationPreview:
+        if (type(invitation_id) is not UUID or type(digest) is not str
+                or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+            raise ValueError("Invalid enrollment input.")
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM forge.account_invitation_preview(%s,%s)", (invitation_id, digest))
+            row = cursor.fetchone()
+            if row is None or len(row)!=2 or any(type(v) is not str for v in row):
+                raise InvitationUnavailable()
+            return InvitationPreview(*row)

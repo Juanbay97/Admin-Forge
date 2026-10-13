@@ -188,6 +188,11 @@ class AcceptBody(InputModel):
     password: Annotated[str,Field(strict=True,min_length=15,max_length=1024,repr=False)]
 
 
+class PreviewBody(InputModel):
+    invitation_id: UUID
+    capability: Annotated[str,Field(strict=True,min_length=43,max_length=43,repr=False)]
+
+
 class InviteBody(InputModel):
     organization_id: UUID
     department_id: UUID
@@ -607,6 +612,15 @@ def create_account_app(*,sessions: SessionService | None=None,
         state=invoke(delivery.dispatch,message)
         return invoke(lambda: {'invitation_id':str(issued.invitation_id),'expires_at':issued.expires_at.isoformat(),
                 'delivery_state':state.value,'delivery_channel':delivery.channel})
+
+    @app.post('/forge/v1/accounts/invitations/preview',include_in_schema=False)
+    def preview(body: PreviewBody,_: Annotated[None,Depends(ready)]):
+        # Hidden and outside the pinned contract on purpose: the pinned accept response cannot carry the address. The holder of the
+        # private link learns who the invitation is for; every unusable invitation is the same 404.
+        if invitations is None:
+            raise ApiFailure(503,'SERVICE_UNAVAILABLE')
+        result=invoke(invitations.preview,body.invitation_id,body.capability)
+        return JSONResponse({'account_email':result.account_email,'display_name':result.display_name})
 
     @app.post('/forge/v1/accounts/invitations/accept',status_code=201,response_model=EnrollmentResponse)
     def accept(body: AcceptBody,_: Annotated[None,Depends(ready)]):
