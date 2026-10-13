@@ -29,12 +29,12 @@ TABLES = ('platform_totp', 'platform_recovery_codes', 'platform_mfa_sessions')
 class MfaProfileTests(unittest.TestCase):
     def test_0029_follows_0028_with_its_own_pinned_checkpoint(self):
         self.assertEqual(PLATFORM_MFA_MIGRATION, '0029_platform_mfa.sql')
-        self.assertEqual(MVP_ADDITIONS[-2:], ('0028_platform_scope.sql', PLATFORM_MFA_MIGRATION))
-        self.assertEqual(MVP_CHECKPOINTS[-2:], (F28, F29))
+        self.assertEqual(MVP_ADDITIONS[-3:-1], ('0028_platform_scope.sql', PLATFORM_MFA_MIGRATION))
+        self.assertEqual(MVP_CHECKPOINTS[-3:-1], (F28, F29))
         self.assertRegex(F29 or '', r'^[0-9a-f]{64}$', 'F29 must be pinned')
         self.assertNotEqual(F29, F28)
         self.assertEqual(len(MVP_CHECKPOINTS), len(MVP_ADDITIONS) + 1)
-        self.assertTrue(MVP_PROFILE.startswith('0001-0005+0010-0029/'))
+        self.assertTrue(MVP_PROFILE.startswith('0001-0005+0010-00'))
 
 
 class MfaFingerprintGateTests(unittest.TestCase):
@@ -44,7 +44,7 @@ class MfaFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0028_share_the_pinned_fingerprint(self):
-        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-1])
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-2])
         with separate_database() as conn:
             for name in (*previous, PLATFORM_MFA_MIGRATION):
                 conn.execute(migration_text(name))

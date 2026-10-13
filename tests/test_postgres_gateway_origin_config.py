@@ -39,13 +39,13 @@ class ProfileTests(unittest.TestCase):
     """No database: the profile appends exactly 0027 and its pinned checkpoint."""
     def test_0027_is_the_last_migration_with_its_own_pinned_checkpoint(self):
         self.assertEqual(GATEWAY_ORIGIN_CONFIG_MIGRATION, '0027_gateway_origin_config.sql')
-        self.assertEqual(MVP_ADDITIONS[-3], GATEWAY_ORIGIN_CONFIG_MIGRATION)
-        self.assertEqual(MVP_ADDITIONS[-4], '0026_branding_member_code.sql')
-        self.assertEqual(MVP_CHECKPOINTS[-4:-2], (F26, F27))
+        self.assertEqual(MVP_ADDITIONS[-4], GATEWAY_ORIGIN_CONFIG_MIGRATION)
+        self.assertEqual(MVP_ADDITIONS[-5], '0026_branding_member_code.sql')
+        self.assertEqual(MVP_CHECKPOINTS[-5:-3], (F26, F27))
         self.assertRegex(F27 or '', r'^[0-9a-f]{64}$', 'F27 must be pinned')
         self.assertNotEqual(F27, F26)
         self.assertEqual(len(MVP_CHECKPOINTS), len(MVP_ADDITIONS) + 1)
-        self.assertEqual(CANONICAL_ORDER[-3], GATEWAY_ORIGIN_CONFIG_MIGRATION)
+        self.assertEqual(CANONICAL_ORDER[-4], GATEWAY_ORIGIN_CONFIG_MIGRATION)
         self.assertTrue(MVP_PROFILE.startswith('0001-0005+0010-00'))
 
     def test_the_migration_keeps_the_application_allow_list_as_the_authority(self):
@@ -62,7 +62,7 @@ class FingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0026_share_the_pinned_fingerprint(self):
-        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-3])
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-4])
         with fresh_database() as conn:
             for name in (*previous, GATEWAY_ORIGIN_CONFIG_MIGRATION):
                 conn.execute(migration_text(name))
@@ -163,16 +163,16 @@ class OriginConfigTests(unittest.TestCase):
 class RunnerUpgradeTests(unittest.TestCase):
     def test_the_runner_upgrades_a_database_adopted_at_f26_by_applying_exactly_0027(self):
         with fresh_database() as admin:
-            for name in (*MIGRATIONS, *MVP_ADDITIONS[:-3]):
+            for name in (*MIGRATIONS, *MVP_ADDITIONS[:-4]):
                 admin.execute(migration_text(name))
             with admin.cursor() as cursor:
                 self.assertEqual(catalog_fingerprint(cursor), F26)
             known = {role: password for role, password in passwords().items() if role != 'forge_platform_service'}  # not created before 0028
-            applied = migrate(admin, DIRECTORY, known, order=CANONICAL_ORDER[:-2], checkpoints=MVP_CHECKPOINTS[:-2])
+            applied = migrate(admin, DIRECTORY, known, order=CANONICAL_ORDER[:-3], checkpoints=MVP_CHECKPOINTS[:-3])
             self.assertEqual(applied, [GATEWAY_ORIGIN_CONFIG_MIGRATION])
             with admin.cursor() as cursor:
                 self.assertEqual(catalog_fingerprint(cursor), F27)
-            self.assertEqual(admin.execute('SELECT count(*) FROM forge_ops.schema_migrations').fetchone(), (len(CANONICAL_ORDER) - 2,))
+            self.assertEqual(admin.execute('SELECT count(*) FROM forge_ops.schema_migrations').fetchone(), (len(CANONICAL_ORDER) - 3,))
 
 
 if __name__ == '__main__':

@@ -112,6 +112,67 @@ class PostgresPlatformHttpTests(unittest.TestCase):
                 self.assertEqual((denied.status_code, denied.json()['error']['code']), (403, 'PLATFORM_DENIED'))
             self.assertEqual(db.admin.execute('SELECT count(*) FROM forge.platform_totp').fetchone(), (0,))
 
+    def verified_owner(self, db, client):
+        headers = self.owner(db, client)
+        enrollment = self.enrolled(client, headers)
+        self.assertEqual(client.post(BASE + '/login/mfa', headers=headers, json={'code': code_for(enrollment['secret'])}).status_code, 200)
+        return headers
+
+    def emailed_link(self, root):
+        import email
+        from email import policy
+        from urllib.parse import parse_qs, urlsplit
+        (path,) = sorted((root/'mailbox').glob('*.eml'))
+        message = email.message_from_bytes(path.read_bytes(), policy=policy.default)
+        link = next(line for line in message.get_body(('plain',)).get_content().splitlines() if line.startswith('http'))
+        fragment = parse_qs(urlsplit(link).fragment)
+        return link, fragment['invitation_id'][0], fragment['capability'][0]
+
+    def test_a_company_created_by_the_owner_gets_its_first_admin_through_the_emailed_invitation(self):
+        with stack() as (db, client, results, root, secrets):
+            headers = self.verified_owner(db, client)
+            body = {'slug': 'acme', 'display_name': 'Acme Corporation', 'department': 'Operations',
+                    'admin_email': 'first.admin@acme.test', 'admin_name': 'First Admin'}
+            created = client.post(BASE + '/companies', headers=headers, json=body)
+            self.assertEqual(created.status_code, 201, created.text)
+            document = created.json()
+            self.assertEqual((document['slug'], document['active'], document['invitation']['delivery_state'],
+                              document['invitation']['delivery_channel']), ('acme', True, 'delivered', 'local_test_mailbox'))
+            link, invitation, capability = self.emailed_link(root)
+            self.assertIn('c=acme', link)
+            self.assertNotIn(capability, created.text + client.get(BASE + '/audit', headers=headers).text)
+            self.assertEqual(client.post(BASE + '/companies', headers=headers, json=body).status_code, 409)
+            self.assertEqual([c['slug'] for c in client.get(BASE + '/companies', headers=headers).json()['companies']], ['acme', 'org-a', 'org-b'])
+            accepted = client.post('/forge/v1/accounts/invitations/accept',
+                                   json={'invitation_id': invitation, 'capability': capability, 'password': 'first-admin-passphrase'})
+            self.assertEqual(accepted.status_code, 201, accepted.text)
+            admin = login(client, Person('first.admin@acme.test', 'first-admin-passphrase'))
+            members = client.get('/forge/v1/orgs/%s/members' % document['id'], headers=admin)
+            self.assertEqual(members.status_code, 200, members.text)
+            (listed,) = members.json()['members']
+            self.assertEqual((listed['roles'], listed['status']), (['organization_admin'], 'active'))
+            self.assertEqual(client.get('/forge/v1/orgs/%s/members' % results[0].organization_id, headers=admin).status_code, 404)
+            self.assertEqual(client.get(BASE + '/me', headers=admin).status_code, 403, 'a company admin is not a platform identity')
+            actions = [e['action'] for e in client.get(BASE + '/audit', headers=headers).json()['entries']]
+            self.assertEqual(actions, ['company.created', 'owner.mfa_enrolled'])
+
+    def test_creating_a_company_needs_the_owner_a_verified_session_and_a_valid_body(self):
+        with stack() as (db, client, results, root, secrets):
+            headers = self.owner(db, client)
+            body = {'slug': 'acme', 'display_name': 'Acme', 'department': 'Ops', 'admin_email': 'a@acme.test', 'admin_name': 'A'}
+            self.assertEqual(client.post(BASE + '/companies', headers=headers, json=body).json()['error']['code'], 'MFA_REQUIRED')
+            admin = login(client, results[0].accounts[0])
+            self.assertEqual(client.post(BASE + '/companies', headers=admin, json=body).json()['error']['code'], 'PLATFORM_DENIED')
+            verified = self.verified_owner_after(db, client, headers)
+            for bad in ({**body, 'slug': 'BAD CODE'}, {**body, 'admin_email': 'nope'}, {**body, 'display_name': ''}):
+                self.assertEqual(client.post(BASE + '/companies', headers=verified, json=bad).status_code, 422)
+            self.assertEqual(db.admin.execute('SELECT count(*) FROM forge.organizations').fetchone(), (2,), 'only the seeded companies exist')
+
+    def verified_owner_after(self, db, client, headers):
+        enrollment = client.post(BASE + '/mfa/enroll', headers=headers).json()
+        client.post(BASE + '/login/mfa', headers=headers, json={'code': code_for(enrollment['secret'])})
+        return headers
+
     def test_the_contract_pin_served_by_the_composed_app_is_unchanged_and_no_platform_path_is_published(self):
         with stack() as (db, client, results, root, secrets):
             served = client.get('/forge/v1/contract').json()

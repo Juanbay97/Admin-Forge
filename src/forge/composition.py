@@ -93,17 +93,18 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     accounts, enrollment, bootstrap, gateway, branding, platform = pools
     cipher = GatewayCipher(gateway_key, policy=gateway_policy)
     sessions = SessionService(PostgresSessionStore(accounts))
+    delivery = DeliveryCoordinator(PostgresDeliveryStore(accounts), delivery_adapter, origin=onboarding_origin,
+                                   encryption_key=delivery_key)  # one coordinator: member invitations, resets and first admins
     app = create_account_app(
         sessions=sessions,
         invitations=InvitationService(PostgresInvitationStore(enrollment), PostgresEnrollmentStore(enrollment)),
-        delivery=DeliveryCoordinator(PostgresDeliveryStore(accounts), delivery_adapter,
-                                     origin=onboarding_origin, encryption_key=delivery_key),
+        delivery=delivery,
         bootstrap_reader=PostgresBootstrapReader(bootstrap), authorization_reader=PostgresAuthorizationReader(bootstrap),
         readiness=readiness, gateway_configuration=GatewayConfiguration(PostgresGatewayStore(gateway), cipher),
         gateway_catalog=GatewayCatalog(PostgresGatewayCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy)),
         gateway_inference=GatewayInference(PostgresGatewayInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy)),
         directory=DirectoryService(PostgresDirectoryStore(gateway)))
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
-    mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key)), sessions=sessions,
-                   readiness=readiness)
+    mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),
+                   sessions=sessions, readiness=readiness)
     return app

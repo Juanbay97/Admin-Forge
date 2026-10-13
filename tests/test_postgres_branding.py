@@ -43,8 +43,8 @@ class BrandingProfileTests(unittest.TestCase):
     def test_profile_appends_the_branding_migrations_and_checkpoints(self):
         self.assertEqual(ORG_BRANDING_MIGRATION, '0025_org_branding.sql')
         self.assertEqual(ORG_BRANDING_CODE_MIGRATION, '0026_branding_member_code.sql')
-        self.assertEqual(MVP_ADDITIONS[-5:-3], (ORG_BRANDING_MIGRATION, ORG_BRANDING_CODE_MIGRATION))
-        self.assertEqual(MVP_CHECKPOINTS[-6:-3], (F24, F25, F26))
+        self.assertEqual(MVP_ADDITIONS[-6:-4], (ORG_BRANDING_MIGRATION, ORG_BRANDING_CODE_MIGRATION))
+        self.assertEqual(MVP_CHECKPOINTS[-7:-4], (F24, F25, F26))
         for pinned in (F25, F26):
             self.assertRegex(pinned or '', r'^[0-9a-f]{64}$', 'checkpoints must be pinned')
         self.assertNotEqual(F25, F24)
@@ -61,7 +61,7 @@ class BrandingFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0024_share_the_pinned_fingerprint(self):
-        prefix = (*MIGRATIONS, *MVP_ADDITIONS[:-5])
+        prefix = (*MIGRATIONS, *MVP_ADDITIONS[:-6])
         with separate_database() as conn:
             for name in (*prefix, ORG_BRANDING_MIGRATION):
                 conn.execute(migration_text(name))
@@ -101,7 +101,7 @@ class BrandingCodeFingerprintGateTests(unittest.TestCase):
             return catalog_fingerprint(cursor)
 
     def test_fresh_apply_and_upgrade_from_0025_share_the_pinned_fingerprint(self):
-        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-4])
+        previous = (*MIGRATIONS, *MVP_ADDITIONS[:-5])
         with separate_database() as conn:
             for name in (*previous, ORG_BRANDING_CODE_MIGRATION):
                 conn.execute(migration_text(name))
