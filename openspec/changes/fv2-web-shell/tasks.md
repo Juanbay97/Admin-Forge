@@ -44,10 +44,10 @@ Chain strategy: stacked-to-main
 - [x] 2.3 Card, Badge, Alert, Separator, Skeleton, Spinner, EmptyState (+ kit gallery route `?kit` in test build only via `VITE_KIT`)
 
 ## Phase 3 — Kit overlays & data (PR 3)
-- [ ] 3.1 RED: dialog a11y (focus trap/Esc/return focus) → GREEN: Dialog, AlertDialog, Sheet on native `<dialog>`
-- [ ] 3.2 Toast store (unit) + region (`aria-live`), Tabs, Tooltip, DropdownMenu (non-modal)
-- [ ] 3.3 DataTable (sort, filter slot, pagination, sticky header, empty/skeleton), Pagination, CopyButton, KeyField (write-only, last-4)
-- [ ] 3.4 Gallery opens every overlay under `expectNoCspViolations`
+- [x] 3.1 RED: dialog a11y (focus trap/Esc/return focus) → GREEN: Dialog, AlertDialog, Sheet on native `<dialog>`
+- [x] 3.2 Toast store (unit) + region (`aria-live`), Tabs, Tooltip, DropdownMenu (non-modal)
+- [x] 3.3 DataTable (sort, filter slot, pagination, sticky header, empty/skeleton), Pagination, CopyButton, KeyField (write-only, last-4)
+- [x] 3.4 Gallery opens every overlay under `expectNoCspViolations`
 
 ## Phase 4 — Charts (PR 4)
 - [ ] 4.1 RED→GREEN unit: `niceTicks`, `linearScale`, `timeTicks`, `buildLinePath`, formatters (zero/flat/NaN cases)
