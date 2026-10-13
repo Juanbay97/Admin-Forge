@@ -1,11 +1,14 @@
 import { createHash } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { ensureCatalogue, meteredChat, tokenFor } from "./support/api";
+import { ensureCatalogue, meteredChat, releaseTokens, tokenFor } from "./support/api";
 import { mailTo, readCompany, shot } from "./support/stack";
 
 // The invitation-to-usage journey on the real stack. The company comes from 20-platform-console (the wizard created it and mailed its
 // first administrator); everything here is what that administrator and the people they invite actually do.
 test.describe.configure({ mode: "serial" });
+
+// A journey that opened API sessions gives them back (the account keeps at most eight live ones).
+test.afterEach(async ({ request }) => releaseTokens(request));
 
 const ADMIN_PASSWORD = "initech-admin-password-2026";
 const MEMBER = { email: "nina@e2e-initech.test", name: "Nina Newhire", password: "nina-member-password-2026" };

@@ -52,3 +52,19 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 
 ## G9 Verification
 - [x] 9.1 admin unit/ui, admin-e2e full, mvp-smoke, deploy-smoke, branding-smoke; apply-progress
+
+## H1 Real OmniRoute usage compatibility
+- [x] H1.1 RED/GREEN: the streaming adapter tolerates the OpenAI usage and chunk extras (details, cost, `usage: null`, obfuscation, refusal/logprobs null) with exact counters, bounded details, seeded fuzz and golden SSE fixtures
+- [x] H1.2 RED/GREEN: fake gateway `openai_realistic` mode (`--openai-realistic`), used by the dev overlay of the deploy smoke
+
+## H2 Effective policy on an empty catalog
+- [x] H2.1 RED/GREEN: an empty catalog is a signed empty policy (epochs 1), never a 503; PG proof
+- [x] H2.2 RED/GREEN: `forge.migrate` seeds the catalog idempotently (`--no-seed`, `SEED_FAILED`, `FORGE_MIGRATE_SEED=0` for a restore), the local stack seeds it too; smoke adjusted (restore round trip)
+
+## H3 Policy key distribution
+- [x] H3.1 RED/GREEN: rotation statements (`forge.policy-key-rotation.v1`, signed by the OLD key), `GET /forge/v1/capabilities/pinning`, `FORGE_POLICY_ROTATIONS[_FILE]`, signing CLI, contract vectors, runbook
+- [x] H3.2 RED/GREEN: `GET /forge/v1/capabilities/installer-config` (`forge.installer-config.v1`) and the portal "Download configuration"; smoke proof
+
+## H4 Smoke stability
+- [x] H4.1 RED/GREEN: e2e API sessions reused per account and released after each journey (production limits untouched)
+- [ ] H4.2 BLOCKED (not ours): `forge-multiuser-flow` fails identically at the baseline 10b5509 (org-B chat gets no reply, composer says "Models unavailable"); client side to diagnose

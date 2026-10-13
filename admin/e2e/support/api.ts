@@ -16,10 +16,26 @@ export function seededOrg(slug: "org-a" | "org-b") {
   };
 }
 
+// The control plane keeps at most eight live sessions per account (and five failed sign-ins per window): one session per account is
+// reused for the whole run, and `releaseTokens` gives every one back when a journey is done, so nothing accumulates.
+const sessions = new Map<string, string>();
+
 export async function tokenFor(request: APIRequestContext, account: Account): Promise<string> {
+  const key = `${account.email}\n${account.password}`;
+  const known = sessions.get(key);
+  if (known) return known;
   const login = await request.post("/forge/v1/accounts/login", { data: { email: account.email, password: account.password } });
   expect(login.ok(), "login").toBe(true);
-  return ((await login.json()) as { access_token: string }).access_token;
+  const token = ((await login.json()) as { access_token: string }).access_token;
+  sessions.set(key, token);
+  return token;
+}
+
+/** Signs out every session `tokenFor` opened; a session the server already ended is not an error. */
+export async function releaseTokens(request: APIRequestContext): Promise<void> {
+  const open = [...sessions.values()];
+  sessions.clear();
+  for (const token of open) await request.post("/forge/v1/accounts/logout", { headers: { Authorization: `Bearer ${token}` } });
 }
 
 /** Publishes a catalogue for the organization when it has none, then returns the alias a member can chat with. */

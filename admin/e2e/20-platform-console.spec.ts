@@ -1,10 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { ensureCatalogue, meteredChat, seededOrg, tokenFor } from "./support/api";
+import { ensureCatalogue, meteredChat, seededOrg, releaseTokens, tokenFor } from "./support/api";
 import { mailTo, readCompany, shot, signInOwner, writeCompany } from "./support/stack";
 
 // The platform console against the real stack, after 10-platform-owner created the owner. Each journey signs in with a password
 // and the next TOTP step; usage comes from real metered chats through the fake gateway.
 test.describe.configure({ mode: "serial" });
+
+// A journey that opened API sessions gives them back (the account keeps at most eight live ones).
+test.afterEach(async ({ request }) => releaseTokens(request));
 // The platform allows eight live sessions per account: leave none behind, so the journeys can sign in as often as they need.
 test.afterEach(async ({ page }) => {
   await page.keyboard.press("Escape").catch(() => undefined); // an open dialog would intercept the click
