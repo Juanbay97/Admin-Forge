@@ -14,6 +14,8 @@ test.describe("formatTokens", () => {
     expect(formatTokens(1_234_567)).toBe("1.2M");
     expect(formatTokens(1_234)).toBe("1.2K");
     expect(formatTokens(3_400_000_000)).toBe("3.4B");
+    expect(formatTokens(98_000)).toBe("98K");
+    expect(formatTokens(2_000_000)).toBe("2M");
   });
   test("keeps small numbers exact and survives zero and NaN", () => {
     expect(formatTokens(999)).toBe("999");

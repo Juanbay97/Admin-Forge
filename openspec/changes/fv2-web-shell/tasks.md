@@ -50,10 +50,10 @@ Chain strategy: stacked-to-main
 - [x] 3.4 Gallery opens every overlay under `expectNoCspViolations`
 
 ## Phase 4 — Charts (PR 4)
-- [ ] 4.1 RED→GREEN unit: `niceTicks`, `linearScale`, `timeTicks`, `buildLinePath`, formatters (zero/flat/NaN cases)
-- [ ] 4.2 ChartFrame (ResizeObserver, a11y table, legend), Sparkline, AreaChart/LineChart (crosshair, keyboard)
-- [ ] 4.3 BarChart, StackedBars, Donut; empty/loading/error variants
-- [ ] 4.4 `ui/charts.spec.ts`: aria summary, keyboard, resize 1280→375, CSP, axe
+- [x] 4.1 RED→GREEN unit: `niceTicks`, `linearScale`, `timeTicks`, `buildLinePath`, formatters (zero/flat/NaN cases)
+- [x] 4.2 ChartFrame (ResizeObserver, a11y table, legend), Sparkline, AreaChart/LineChart (crosshair, keyboard)
+- [x] 4.3 BarChart, StackedBars, Donut; empty/loading/error variants
+- [x] 4.4 `ui/charts.spec.ts`: aria summary, keyboard, resize 1280→375, CSP, axe
 
 ## Phase 5 — Router & shell (PR 5)
 - [ ] 5.1 RED→GREEN unit: `homeFor(identity)`, error-code map, `useIdentity` tolerance of 403/404 platform/me

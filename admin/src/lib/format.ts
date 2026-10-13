@@ -14,7 +14,7 @@ export function formatTokens(count: number): string {
   if (!finite(count)) return NONE;
   const magnitude = Math.abs(count);
   for (const [size, suffix] of COMPACT) {
-    if (magnitude >= size) return `${(count / size).toFixed(1)}${suffix}`;
+    if (magnitude >= size) return `${(count / size).toFixed(1).replace(/\.0$/, "")}${suffix}`;
   }
   return String(Math.round(count));
 }
