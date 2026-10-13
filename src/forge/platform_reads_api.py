@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from forge.platform import MAX_PAGE
 from forge.platform_api import PREFIX, _DIGITS, _invalid
+from forge.platform_usage_api import _counters, _window
 
 
 def _member(item):
@@ -41,4 +42,30 @@ def mount_reads(app: FastAPI, *, reads, guarded, blocking):
             found = await blocking(reads.members, token, organization_id, after, page)
             return JSONResponse({'members': [_member(item) for item in found],
                                  'next_after': str(found[-1].id) if len(found) == page else None})
+        return await guarded(request, operation)
+
+    @app.get(PREFIX + '/overview', include_in_schema=False)
+    async def overview(request: Request):
+        async def operation(token):
+            first, last, values = _window(request, set())
+            if 'page' in values:
+                raise _invalid()
+            found = await blocking(reads.overview, token, first, last)
+            before = found.previous
+            return JSONResponse({'companies': {'active': found.companies_active, 'suspended': found.companies_suspended},
+                                 'active_users': found.active_users, **_counters(found.counters),
+                                 'previous': {'active_users': before.active_users, 'requests': before.requests,
+                                              'prompt_tokens': before.prompt_tokens, 'completion_tokens': before.completion_tokens,
+                                              'cost_micros': before.cost_micros}})
+        return await guarded(request, operation)
+
+    @app.get(PREFIX + '/usage/days', include_in_schema=False)
+    async def days(request: Request):
+        async def operation(token):
+            first, last, values = _window(request, set())
+            if 'page' in values:
+                raise _invalid()
+            found = await blocking(reads.days, token, first, last)
+            return JSONResponse({'days': [{'day': item.day.isoformat(), **_counters(item.counters), 'active_users': item.active_users}
+                                          for item in found]})
         return await guarded(request, operation)

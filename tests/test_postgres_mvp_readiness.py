@@ -1,11 +1,11 @@
-"""Owned PostgreSQL: MvpReadiness attests exactly the reviewed 0001-0043 profile (F43) and nothing else."""
+"""Owned PostgreSQL: MvpReadiness attests exactly the reviewed 0001-0044 profile (F44) and nothing else."""
 from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 from forge.account_readiness import catalog_fingerprint
 from forge.dev_accounts import MIGRATIONS
-from forge.mvp_profile import F43, MVP_ADDITIONS
+from forge.mvp_profile import F44, MVP_ADDITIONS
 from forge.mvp_readiness import MvpReadiness
 from mvp_support import at, mvp_database
 
@@ -18,7 +18,7 @@ class PostgresMvpReadinessTests(unittest.TestCase):
     def test_the_complete_profile_is_attested_and_its_fingerprint_is_the_pinned_f31(self):
         with mvp_database() as db:
             with db.admin.cursor() as cursor:
-                self.assertEqual(catalog_fingerprint(cursor), F43)
+                self.assertEqual(catalog_fingerprint(cursor), F44)
             self.assertIs(readiness(db).check(), True)
 
     def test_a_previous_profile_missing_0031_0030_0029_0028_0027_0026_or_0025_is_refused(self):
@@ -26,7 +26,7 @@ class PostgresMvpReadinessTests(unittest.TestCase):
             name = MVP_ADDITIONS[-dropped][:4]
             with self.subTest(missing=name), mvp_database(migrations=(*MIGRATIONS, *MVP_ADDITIONS[:-dropped])) as db:
                 with db.admin.cursor() as cursor:
-                    self.assertNotEqual(catalog_fingerprint(cursor), F43)
+                    self.assertNotEqual(catalog_fingerprint(cursor), F44)
                 self.assertIs(readiness(db).check(), False)
 
     def test_schema_drift_is_refused(self):

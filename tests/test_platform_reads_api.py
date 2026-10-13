@@ -1,5 +1,6 @@
 """Platform read routes over a fake service: the company members list, hidden from the contract, bearer-authenticated, bounded and
 finite. No secret column exists to leak: only the directory fields an administrator already sees."""
+from datetime import date
 import json
 from pathlib import Path
 import secrets
@@ -15,7 +16,8 @@ from forge.directory import Department
 from forge.foundation import AuthenticatedIdentity
 from forge.platform import MfaRequired, PlatformDenied, PlatformInvalid, PlatformNotFound
 from forge.platform_api import mount_platform
-from forge.platform_reads import MAX_PAGE, PlatformMember, PlatformReads
+from forge.platform_reads import MAX_PAGE, DayUsage, Overview, PlatformMember, PlatformReads, Previous
+from forge.usage_platform import Counters
 
 ORG, MEMBER, ACCOUNT = uuid4(), uuid4(), uuid4()
 TOKEN = secrets.token_urlsafe(32)
@@ -24,6 +26,12 @@ BASE = '/forge/v1/platform'
 PATH = BASE + '/companies/%s/members' % ORG
 DEPARTMENT = Department(uuid4(), 'Support')
 ROW = PlatformMember(MEMBER, 'pat@example.com', 'Pat Member', 'active', ('member',), (DEPARTMENT,))
+
+
+COUNTERS = Counters(10, 1200, 800, 1, 0, 42000, 2)
+OVERVIEW = Overview(3, 1, 7, COUNTERS, Previous(5, 6, 600, 400, 21000))
+DAYS = [DayUsage(date(2026, 10, 11), Counters(0, 0, 0, 0, 0, 0, 0), 0), DayUsage(date(2026, 10, 12), COUNTERS, 7)]
+RANGE = {'from': '2026-10-06', 'to': '2026-10-12'}
 
 
 class Ready:
@@ -45,6 +53,18 @@ class Store:
         if self.fail:
             raise self.fail
         return self.rows
+
+    def overview(self, digest, first, last):
+        self.calls.append((digest, first, last))
+        if self.fail:
+            raise self.fail
+        return OVERVIEW
+
+    def days(self, digest, first, last):
+        self.calls.append((digest, first, last))
+        if self.fail:
+            raise self.fail
+        return DAYS
 
 
 def client(store=None):
@@ -95,6 +115,58 @@ class MembersRouteTests(unittest.TestCase):
                 self.assertEqual((response.status_code, response.json()['error']['code']), (status, code))
 
 
+class OverviewRouteTests(unittest.TestCase):
+    def test_hidden_and_shaped_as_the_documented_overview(self):
+        http, app, store = client()
+        self.assertEqual(contract.canonical_sha256(contract.build(app)),
+                         contract.canonical_sha256(json.loads(contract.COMMITTED_PATH.read_text('utf-8'))))
+        self.assertTrue(any(route.path == BASE + '/overview' for route in app.routes))
+        response = http.get(BASE + '/overview', headers=HEADERS, params=RANGE)
+        self.assertEqual((response.status_code, response.json()), (200, {
+            'companies': {'active': 3, 'suspended': 1}, 'active_users': 7, 'requests': 10, 'prompt_tokens': 1200, 'completion_tokens': 800,
+            'estimated_requests': 1, 'error_requests': 0, 'cost_micros': 42000, 'unpriced_requests': 2,
+            'previous': {'active_users': 5, 'requests': 6, 'prompt_tokens': 600, 'completion_tokens': 400, 'cost_micros': 21000}}))
+        self.assertEqual(store.calls[0][1:], (date(2026, 10, 6), date(2026, 10, 12)))
+        self.assertNotEqual(store.calls[0][0], TOKEN)
+
+    def test_bad_ranges_and_extra_keys_are_refused_before_the_store(self):
+        http, _, store = client()
+        for params in ({}, {'from': '2026-10-06'}, {**RANGE, 'page': '1'}, {**RANGE, 'after': 'x'}, {'from': '2026-10-12', 'to': '2026-10-06'},
+                       {'from': '2020-01-01', 'to': '2026-10-06'}, {'from': 'nope', 'to': '2026-10-06'}):
+            with self.subTest(params=str(params)):
+                self.assertEqual(http.get(BASE + '/overview', headers=HEADERS, params=params).status_code, 422)
+        self.assertEqual(store.calls, [])
+        self.assertEqual(http.get(BASE + '/overview', params=RANGE).status_code, 401)
+
+    def test_authority_failures_are_finite(self):
+        for failure, status, code in ((PlatformDenied(), 403, 'PLATFORM_DENIED'), (MfaRequired(), 403, 'MFA_REQUIRED'),
+                                      (RuntimeError('boom'), 503, 'SERVICE_UNAVAILABLE')):
+            denied, _, _ = client(Store(failure))
+            for path in ('/overview', '/usage/days'):
+                response = denied.get(BASE + path, headers=HEADERS, params=RANGE)
+                self.assertEqual((response.status_code, response.json()['error']['code']), (status, code), path)
+
+
+class DaysRouteTests(unittest.TestCase):
+    def test_one_row_per_day_with_counters_and_active_people(self):
+        http, app, store = client()
+        self.assertTrue(any(route.path == BASE + '/usage/days' for route in app.routes))
+        response = http.get(BASE + '/usage/days', headers=HEADERS, params=RANGE)
+        self.assertEqual((response.status_code, response.json()), (200, {'days': [
+            {'day': '2026-10-11', 'requests': 0, 'prompt_tokens': 0, 'completion_tokens': 0, 'estimated_requests': 0, 'error_requests': 0,
+             'cost_micros': 0, 'unpriced_requests': 0, 'active_users': 0},
+            {'day': '2026-10-12', 'requests': 10, 'prompt_tokens': 1200, 'completion_tokens': 800, 'estimated_requests': 1, 'error_requests': 0,
+             'cost_micros': 42000, 'unpriced_requests': 2, 'active_users': 7}]}))
+        self.assertEqual(store.calls[0][1:], (date(2026, 10, 6), date(2026, 10, 12)))
+
+    def test_bad_ranges_are_refused(self):
+        http, _, store = client()
+        for params in ({}, {'from': '2026-10-06'}, {**RANGE, 'page': '1'}, {'from': '2026-10-12', 'to': '2026-10-06'}, {'from': '2020-01-01', 'to': '2026-10-06'}):
+            self.assertEqual(http.get(BASE + '/usage/days', headers=HEADERS, params=params).status_code, 422, str(params))
+        self.assertEqual(store.calls, [])
+        self.assertEqual(http.get(BASE + '/usage/days', params=RANGE).status_code, 401)
+
+
 class ServiceTests(unittest.TestCase):
     def test_arguments_are_bounded_before_the_store(self):
         store = Store()
@@ -104,6 +176,17 @@ class ServiceTests(unittest.TestCase):
                 reads.members(TOKEN, *arguments)
         self.assertEqual(store.calls, [])
         self.assertEqual(reads.members(TOKEN, ORG, None, MAX_PAGE), [ROW])
+
+    def test_ranges_are_bounded_before_the_store(self):
+        store = Store()
+        reads = PlatformReads(store)
+        for first, last in ((date(2026, 10, 12), date(2026, 10, 6)), (date(2025, 1, 1), date(2026, 10, 6)), ('2026-10-01', date(2026, 10, 6)), (None, None)):
+            for method in (reads.overview, reads.days):
+                with self.subTest(first=str(first), method=method.__name__), self.assertRaises(PlatformInvalid):
+                    method(TOKEN, first, last)
+        self.assertEqual(store.calls, [])
+        self.assertIs(reads.overview(TOKEN, date(2026, 10, 6), date(2026, 10, 12)), OVERVIEW)
+        self.assertEqual(reads.days(TOKEN, date(2026, 10, 6), date(2026, 10, 12)), DAYS)
 
 
 if __name__ == '__main__':
