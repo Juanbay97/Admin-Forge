@@ -61,9 +61,15 @@ export async function installPlatform(page: Page, world: World = newWorld()) {
         ? reply(route, 200, { access_token: OWNER.token, token_type: "Bearer", expires_at: "2099-01-01T00:00:00Z" })
         : reply(route, 401, envelope("UNAUTHENTICATED"));
     }
+    if (path === "/forge/v1/accounts/password-reset/consume") {
+      const reset = body as { capability: string; password: string };
+      if (reset.capability !== "A".repeat(43)) return reply(route, 404, envelope("NOT_FOUND"));
+      return reset.password.length < 15 ? reply(route, 422, envelope("INVALID_REQUEST")) : reply(route, 204);
+    }
     if (request.headers()["authorization"] !== `Bearer ${OWNER.token}`) return reply(route, 401, envelope("UNAUTHENTICATED"));
     if (path === "/forge/v1/accounts/logout") return reply(route, 204);
-    if (path === "/forge/v1/accounts/me") return reply(route, 200, { account: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", email: OWNER.email, display_name: "Platform Owner" }, organizations: [] });
+    // A platform owner has no membership, so the real directory answers accounts/me with 404.
+    if (path === "/forge/v1/accounts/me") return reply(route, 404, envelope("NOT_FOUND"));
     const key = `${method} ${path.replace("/forge/v1/platform", "")}`;
     const failure = Object.keys(world.failOnce).find((pattern) => key.startsWith(pattern));
     if (failure) {

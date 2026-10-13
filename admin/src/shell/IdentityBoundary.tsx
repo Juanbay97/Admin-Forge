@@ -6,7 +6,7 @@ import { Spinner } from "../ui/Spinner";
 import { AREAS } from "./areas";
 import { loadIdentity, type Identity } from "./identity";
 import { useServices } from "./services";
-import { signOut } from "./session";
+import { hint, signOut } from "./session";
 
 const IdentityContext = createContext<Identity | null>(null);
 
@@ -21,7 +21,7 @@ export function IdentityBoundary() {
   const services = useServices();
   const query = useQuery({
     queryKey: ["shell", "identity"],
-    queryFn: () => loadIdentity(services, { probePlatform: AREAS.platform.enabled }),
+    queryFn: () => loadIdentity(services, { probePlatform: AREAS.platform.enabled, emailHint: hint.email }),
     staleTime: Infinity,
     retry: false,
   });

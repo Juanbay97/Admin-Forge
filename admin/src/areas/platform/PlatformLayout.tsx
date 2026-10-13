@@ -9,12 +9,14 @@ import { createIdleTimer } from "../../shell/idle";
 import { IDLE_NOTICE, signOutWithNotice } from "../../shell/session";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
+import { MfaGate } from "./mfa/MfaGate";
 
 /**
- * The platform console chrome. It always wears the fixed Prometheon theme (company branding is overwritten on entry and never
- * applied here), offers dark mode, shows who is signed in with a persistent badge and signs the owner out after 30 idle minutes.
+ * The platform console. It always wears the fixed Prometheon theme (company branding is overwritten on entry and never applied
+ * here), offers dark mode, shows a persistent badge, signs the owner out after 30 idle minutes and shows nothing but the second
+ * factor until this session has passed it.
  */
-export function PlatformShell() {
+export function PlatformLayout() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -48,8 +50,10 @@ export function PlatformShell() {
     </>
   );
   return (
-    <AppShell area={AREAS.platform} brand={platformTheme} switcher={switcher}>
-      <Outlet />
-    </AppShell>
+    <MfaGate>
+      <AppShell area={AREAS.platform} brand={platformTheme} switcher={switcher}>
+        <Outlet />
+      </AppShell>
+    </MfaGate>
   );
 }

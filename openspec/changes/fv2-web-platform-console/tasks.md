@@ -41,11 +41,11 @@ Chain strategy: stacked-to-main
 - [x] 1.6 Contract reconcile task: diff fixtures vs sibling specs (platform-core, gateway-keys, usage-metering) → update PC table + fixtures
 
 ## Phase 2 — TOTP (PR 2)
-- [ ] 2.1 RED unit: `e2e/support/totp.ts` RFC 6238 vectors; QR matrix → path builder
-- [ ] 2.2 `MfaStep` (code + recovery alt, lockout), `Enroll` (QR SVG, manual secret, confirm), `RecoveryCodes` (once, copy/download, gate)
-- [ ] 2.3 Redirect logic: owner unenrolled → Enroll; enrolled/none → MfaStep; `MFA_REQUIRED` → MfaStep(return URL)
-- [ ] 2.4 UI: secret hygiene (not in DOM after Continue, not in URL/storage), axe, CSP
-- [ ] 2.5 e2e: bootstrap link → password → enroll → logout → login with computed code (real stack; extend `admin-e2e.ps1` seeding)
+- [x] 2.1 RED unit: `e2e/support/totp.ts` RFC 6238 vectors; QR matrix → path builder
+- [x] 2.2 `MfaStep` (code + recovery alt, lockout), `Enroll` (QR SVG, manual secret, confirm), `RecoveryCodes` (once, copy/download, gate)
+- [x] 2.3 Redirect logic: owner unenrolled → Enroll; enrolled/none → MfaStep; `MFA_REQUIRED` → MfaStep(return URL)
+- [x] 2.4 UI: secret hygiene (not in DOM after Continue, not in URL/storage), axe, CSP
+- [x] 2.5 e2e: bootstrap link → password → enroll → logout → login with computed code (real stack; extend `admin-e2e.ps1` seeding)
 
 ## Phase 3 — Overview (PR 3)
 - [ ] 3.1 RED→GREEN unit: range parser, delta calc, KPI formatting

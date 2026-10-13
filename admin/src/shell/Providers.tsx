@@ -4,6 +4,7 @@ import { services as runtimeServices } from "../api/runtime";
 import type { Services } from "../api/services";
 import { ApiError } from "../api/client";
 import { session } from "../auth/session";
+import { PLATFORM_ME } from "../areas/platform/queries";
 import { ToastProvider } from "../ui/toast/Toast";
 import { ServicesProvider } from "./services";
 
@@ -13,14 +14,17 @@ const isClientError = (error: unknown) => error instanceof ApiError && error.sta
 export function createQueryClient(onUnauthorized: () => void = () => session.clear()): QueryClient {
   const handle = (error: unknown) => {
     if (error instanceof ApiError && error.status === 401) onUnauthorized();
+    // A platform call refused for want of a (fresh) second factor: re-read the platform identity so the console shows the code step.
+    if (error instanceof ApiError && error.code === "MFA_REQUIRED") void client.invalidateQueries({ queryKey: PLATFORM_ME });
   };
-  return new QueryClient({
+  const client: QueryClient = new QueryClient({
     queryCache: new QueryCache({ onError: handle }),
     mutationCache: new MutationCache({ onError: handle }),
     defaultOptions: {
       queries: { staleTime: 30_000, retry: (count, error) => !isClientError(error) && count < 1, refetchOnWindowFocus: false },
     },
   });
+  return client;
 }
 
 export function Providers({ children, services = runtimeServices }: { children: ReactNode; services?: Services }) {

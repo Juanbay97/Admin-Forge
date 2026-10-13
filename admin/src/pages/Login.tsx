@@ -23,7 +23,7 @@ const schema = z.object({
 
 interface LoginProps {
   api: AccountApi;
-  onSignedIn: (token: string) => void;
+  onSignedIn: (token: string, email: string) => void;
   /** Why the user is signing in again (an expired session), shown above the form. */
   notice?: string;
 }
@@ -37,7 +37,7 @@ export function Login({ api, onSignedIn, notice }: LoginProps) {
     setError(null);
     form.setValue("password", ""); // the secret never outlives the submit, successful or not
     try {
-      onSignedIn(await api.login(email, password));
+      onSignedIn(await api.login(email, password), email);
     } catch (failure) {
       const status = failure instanceof ApiError ? failure.status : 0;
       setError(MESSAGES[status] ?? "Sign-in is unavailable. Try again later.");

@@ -7,7 +7,7 @@ import { homeFor, loadIdentity, type Identity } from "../../src/shell/identity";
 
 const org = (id: string, roles: string[]) => ({ id, display_name: id, status: "active" as const, roles, departments: [] });
 const me = (...orgs: ReturnType<typeof org>[]): Me => ({ account: { id: "a1", email: "a@example.com", display_name: "Ada" }, organizations: orgs });
-const account = (value: Me): AccountApi => ({ login: async () => "", logout: async () => undefined, me: async () => value, departments: async () => [] });
+const account = (value: Me): AccountApi => ({ login: async () => "", logout: async () => undefined, me: async () => value, consumeReset: async () => undefined, departments: async () => [] });
 const mfa = (state: "none" | "pending" | "active", verified = false) => ({ state, verified, fresh: verified });
 const owner = (state: "none" | "pending" | "active" = "active", verified = true): PlatformMe => ({ account_id: "a1", role: "platform_owner", mfa: mfa(state, verified) });
 const platform = (reply: () => Promise<PlatformMe>): Pick<PlatformApi, "me"> & { calls: number } => {
@@ -37,6 +37,17 @@ test.describe("loadIdentity", () => {
     expect(identity.platform).toEqual({ role: "platform_owner", mfa: mfa("active", true) });
     expect(identity.orgs.map((item) => item.id)).toEqual(["a"]);
     expect(identity.account.display_name).toBe("Ada");
+  });
+  test("a platform owner has no membership, so accounts/me refuses; the identity comes from the platform role and the typed email", async () => {
+    const refusing: AccountApi = { ...account(me()), me: async () => { throw new ApiError(404, "NOT_FOUND", "no membership"); } };
+    const identity = await loadIdentity({ account: refusing, platform: platform(async () => owner()) }, { emailHint: "owner@platform.test" });
+    expect(identity.platform?.role).toBe("platform_owner");
+    expect(identity.orgs).toEqual([]);
+    expect(identity.account).toEqual({ id: "a1", email: "owner@platform.test", display_name: "Platform owner" });
+  });
+  test("an account without a membership and without a platform role is still an error", async () => {
+    const refusing: AccountApi = { ...account(me()), me: async () => { throw new ApiError(404, "NOT_FOUND", "no membership"); } };
+    await expect(loadIdentity({ account: refusing, platform: platform(async () => { throw new ApiError(403, "PLATFORM_DENIED", "no"); }) })).rejects.toBeInstanceOf(ApiError);
   });
   test("403 and 404 from platform/me mean not a platform account, never an error", async () => {
     for (const status of [403, 404]) {

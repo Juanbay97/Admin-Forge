@@ -5,6 +5,7 @@ import { AreaGate, HomeRedirect } from "./AreaGate";
 import { IdentityBoundary } from "./IdentityBoundary";
 import { NotFoundPage } from "./NotFoundPage";
 import { RequireSession } from "./RequireSession";
+import { ResetPasswordRoute } from "./publicRoutes";
 
 type PlatformRoutes = typeof import("../areas/platform/routes");
 const platform = (name: keyof PlatformRoutes) => async () => ({ Component: (await import("../areas/platform/routes"))[name] });
@@ -13,6 +14,8 @@ const company = (name: keyof CompanyRoutes) => async () => ({ Component: (await 
 
 /** Area bundles are lazy chunks; the registry (areas.ts) and this tree are the only eager parts. */
 export const routes: RouteObject[] = [
+  // Public pages live outside RequireSession: they never call an authenticated endpoint.
+  { path: "reset-password", element: <ResetPasswordRoute /> },
   {
     path: "/",
     element: (
@@ -45,7 +48,7 @@ export const routes: RouteObject[] = [
         element: <AreaGate area={AREAS.platform} />,
         children: [
           {
-            lazy: async () => ({ Component: (await import("../areas/platform/PlatformShell")).PlatformShell }),
+            lazy: async () => ({ Component: (await import("../areas/platform/PlatformLayout")).PlatformLayout }),
             children: [
               { index: true, lazy: platform("OverviewRoute") },
               { path: "*", element: <NotFound /> },

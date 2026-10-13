@@ -8,7 +8,9 @@ param(
     [int]$BuildTimeoutSeconds = 180,
     [int]$StartTimeoutSeconds = 240,
     [int]$TestTimeoutSeconds = 300,
-    [int]$StopTimeoutSeconds = 90
+    [int]$StopTimeoutSeconds = 90,
+    # Optional Playwright file filter (e.g. "platform-"), so one area can be re-run against a fresh stack.
+    [string]$Spec = ''
 )
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
@@ -80,9 +82,16 @@ try {
     Write-Output "admin-e2e: stack ready at $($ready.admin_url) (admin build: $($ready.admin_build))"
     $env:FORGE_E2E_ADMIN_URL = $ready.control_plane_origin
     $env:FORGE_E2E_CREDENTIALS = $ready.credentials_file
-    $result = Invoke-Npm @('run', 'test:e2e') $TestTimeoutSeconds
+    # The private workspace holds the owner set-password link, the local mailbox and (for the journeys) a small state file; it is
+    # deleted with the stack.
+    $env:FORGE_E2E_WORKSPACE = $ready.workspace
+    $env:FORGE_E2E_OWNER_LINK = $ready.owner_link_file
+    if (-not $env:FORGE_E2E_SHOTS) { $env:FORGE_E2E_SHOTS = Join-Path ([IO.Path]::GetTempPath()) 'opencode\forge-ui' }
+    $npmArguments = @('run', 'test:e2e')
+    if ($Spec) { $npmArguments += @('--', $Spec) }
+    $result = Invoke-Npm $npmArguments $TestTimeoutSeconds
 } finally {
-    Remove-Item Env:FORGE_E2E_ADMIN_URL, Env:FORGE_E2E_CREDENTIALS -ErrorAction SilentlyContinue
+    Remove-Item Env:FORGE_E2E_ADMIN_URL, Env:FORGE_E2E_CREDENTIALS, Env:FORGE_E2E_WORKSPACE, Env:FORGE_E2E_OWNER_LINK -ErrorAction SilentlyContinue
     if ($started -and -not $stack.HasExited) {
         $stack.StandardInput.WriteLine('stop')
         $stack.StandardInput.Close()
