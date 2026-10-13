@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Company } from "../../../api/platform";
 import { BrandingTab } from "./BrandingTab";
 import { KeysTab } from "./KeysTab";
+import { MembersTab } from "./MembersTab";
 import { ModelsTab } from "./ModelsTab";
 import { UsageTab } from "./UsageTab";
 
@@ -18,6 +19,7 @@ export function companyTabs(company: Company): CompanyTab[] {
     { id: "branding", label: "Branding", render: () => <BrandingTab company={company} readOnly={readOnly} /> },
     { id: "keys", label: "Keys", render: () => <KeysTab company={company} readOnly={readOnly} /> },
     { id: "models", label: "Models", render: () => <ModelsTab company={company} readOnly={readOnly} /> },
+    { id: "members", label: "Members", render: () => <MembersTab company={company} /> },
     { id: "usage", label: "Usage", render: () => <UsageTab company={company} /> },
   ];
 }

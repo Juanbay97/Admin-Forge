@@ -25,8 +25,8 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 - [x] 1.3 RED/GREEN: portal "My usage" live (fixtures, unit, UI), docs PC-5 closed
 
 ## G2 Platform company members (migration 0043)
-- [ ] 2.1 RED/GREEN: `platform_company_members` function + route + pin
-- [ ] 2.2 RED/GREEN: console Members tab (task 7.2) + docs
+- [x] 2.1 RED/GREEN: `platform_company_members` function + route + pin
+- [x] 2.2 RED/GREEN: console Members tab (task 7.2) + docs
 
 ## G3 Platform overview and series (migration 0044)
 - [ ] 3.1 RED/GREEN: `platform_overview` (companies, active users, tokens, cost, previous) and `platform_usage_days` + routes

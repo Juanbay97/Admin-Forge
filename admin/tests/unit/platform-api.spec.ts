@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { ApiError, type ApiClient } from "../../src/api/client";
 import { createPlatformApi, type PlatformApi } from "../../src/api/platform";
+import { loadAllMembers } from "../../src/areas/platform/companies/data";
 import { usd, microsFromUsd } from "../../src/platform/money";
 
 const fixture = (name: string): unknown => JSON.parse(readFileSync(new URL(`../fixtures/platform/${name}.json`, import.meta.url), "utf8"));
@@ -71,6 +72,29 @@ test.describe("platform contract (fixtures are the real response shapes)", () =>
     expect(calls.at(-1)?.path).toBe(`${P}/usage/totals?from=2026-10-01&to=2026-10-12`);
     expect((await platform.usageByCompany({ from: "2026-10-01", to: "2026-10-12" })).companies[0]?.slug).toBe("acme");
     expect((await platform.usageByModel({ from: "2026-10-01", to: "2026-10-12" })).models[0]?.upstream_id).toBe("gpt-4o");
+  });
+
+  test("a company's members parse as the directory shape, page by cursor and never carry a secret field", async () => {
+    const { api: platform, calls } = api({ [`GET ${P}/companies/${ORG}/members`]: fixture("company-members") });
+    const page = await platform.companyMembers(ORG, { after: "aaaaaaaa-0000-4000-8000-000000000000", page: 100 });
+    expect(page.members.map((member) => [member.display_name, member.status, member.roles])).toEqual([["Ada Admin", "active", ["organization_admin"]], ["Pat Member", "suspended", ["member"]]]);
+    expect(page.members[1]?.departments.map((department) => department.name)).toEqual(["Operations", "Support"]);
+    expect(calls[0]?.path).toBe(`${P}/companies/${ORG}/members?after=aaaaaaaa-0000-4000-8000-000000000000&page=100`);
+    const drifted = { members: [{ ...(fixture("company-members") as { members: object[] }).members[0], password_hash: "x" }], next_after: null };
+    await expect(api({ [`GET ${P}/companies/${ORG}/members`]: drifted }).api.companyMembers(ORG, {})).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  });
+
+  test("every member of a company is loaded by following the cursor, with a safety stop", async () => {
+    const one = (index: number) => ({ id: `aaaaaaaa-0000-4000-8000-${String(index).padStart(12, "0")}`, email: `p${index}@acme.test`, display_name: `P ${index}`, status: "active", roles: ["member"], departments: [] });
+    const pages: Record<string, unknown> = { "": { members: [one(1), one(2)], next_after: one(2).id }, [one(2).id]: { members: [one(3)], next_after: null } };
+    const seen: Array<string | undefined> = [];
+    const everyone = await loadAllMembers({ companyMembers: async (_id, { after }) => { seen.push(after); return pages[after ?? ""] as never; } }, ORG);
+    expect(everyone.map((member) => member.display_name)).toEqual(["P 1", "P 2", "P 3"]);
+    expect(seen).toEqual([undefined, one(2).id]);
+    const endless = { members: [one(1)], next_after: one(1).id };
+    let calls = 0;
+    await loadAllMembers({ companyMembers: async () => { calls += 1; return endless as never; } }, ORG);
+    expect(calls).toBeLessThanOrEqual(20);
   });
 
   test("drift fails at the boundary with a precise error instead of rendering undefined", async () => {

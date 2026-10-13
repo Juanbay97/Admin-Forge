@@ -71,7 +71,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 7 — Detail tabs II (PR 7)
 - [x] 7.1 Usage tab (range, AreaChart, StackedBars by model, BarChart top members; a11y tables)
-- [ ] 7.2 Members tab read-only DataTable; no keys/PII beyond contract (NOT DELIVERED: the platform API has no company-members endpoint, PC10 absent; see docs/platform-console.md)
+- [x] 7.2 Members tab read-only DataTable; no keys/PII beyond contract (delivered by fv2-gap-closure G2 on `GET /platform/companies/{id}/members`, migration 0043)
 - [x] 7.3 UI + e2e with metered usage seeded by the stack's fake gateway
 
 ## Phase 8 — Key pool & prices (PR 8)

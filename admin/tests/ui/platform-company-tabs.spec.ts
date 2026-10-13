@@ -61,6 +61,58 @@ test.describe("company branding tab", () => {
   });
 });
 
+test.describe("company members tab", () => {
+  test("lists the company's people read-only with role, departments and status", async ({ page, adminUrl }) => {
+    const { requests } = await open(page, adminUrl, `platform/companies/${ACME}?tab=members`);
+    await expect(page.getByRole("tab", { name: "Members", selected: true })).toBeVisible();
+    const table = page.getByRole("table", { name: "Company members" });
+    const ada = table.getByRole("row", { name: /Ada Admin/ });
+    await expect(ada).toContainText("ada@acme.test");
+    await expect(ada).toContainText("Administrator");
+    await expect(ada).toContainText("Operations");
+    await expect(ada).toContainText("Active");
+    const pat = table.getByRole("row", { name: /Pat Member/ });
+    await expect(pat).toContainText("Operations, Support");
+    await expect(pat).toContainText("Suspended");
+    await expect(table.locator("tbody").getByRole("button")).toHaveCount(0); // a platform owner reads; nothing here changes a member
+    expect(requests.filter((request) => request.method !== "GET" && request.path.includes("/members"))).toEqual([]);
+  });
+
+  test("search narrows the list and an empty result says so", async ({ page, adminUrl }) => {
+    await open(page, adminUrl, `platform/companies/${ACME}?tab=members`);
+    await page.getByLabel("Search members").fill("pat@");
+    await expect(page.getByRole("table", { name: "Company members" }).getByRole("row", { name: /Ada Admin/ })).toHaveCount(0);
+    await page.getByLabel("Search members").fill("nobody");
+    await expect(page.getByText("No members match")).toBeVisible();
+  });
+
+  test("a company without members says so", async ({ page, adminUrl }) => {
+    const state = world();
+    state.members[GLOBEX] = [];
+    await open(page, adminUrl, `platform/companies/${GLOBEX}?tab=members`, state);
+    await expect(page.getByText("No members yet")).toBeVisible();
+  });
+
+  test("a failing read has a message and can be retried", async ({ page, adminUrl }) => {
+    const failing = world();
+    failing.failOnce[`GET /companies/${ACME}/members`] = { status: 503, code: "SERVICE_UNAVAILABLE", times: 2 };
+    await open(page, adminUrl, `platform/companies/${ACME}?tab=members`, failing);
+    await expect(page.getByRole("alert")).toBeVisible();
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByRole("table", { name: "Company members" })).toBeVisible();
+  });
+
+  test("is accessible and fits every viewport", async ({ page, adminUrl }) => {
+    await open(page, adminUrl, `platform/companies/${ACME}?tab=members`);
+    await expect(page.getByRole("table", { name: "Company members" })).toBeVisible();
+    for (const size of Object.values(viewports)) {
+      await page.setViewportSize(size);
+      await expectNoHorizontalScroll(page);
+      await expectAccessible(page);
+    }
+  });
+});
+
 test.describe("company keys tab", () => {
   test("lists assigned keys by label and last four only, adds from the pool, reorders and saves one PUT", async ({ page, adminUrl }) => {
     const { requests } = await open(page, adminUrl, `platform/companies/${ACME}?tab=keys`);

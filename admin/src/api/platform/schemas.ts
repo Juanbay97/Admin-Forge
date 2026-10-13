@@ -19,6 +19,16 @@ export const CreatedCompany = Company.extend({
   invitation: z.strictObject({ id: Uuid, expires_at: Instant, delivery_state: z.string().min(1), delivery_channel: z.string().min(1) }),
 });
 
+export const CompanyMember = z.strictObject({
+  id: Uuid,
+  email: z.string().min(1),
+  display_name: z.string(),
+  status: z.enum(["active", "suspended"]),
+  roles: z.array(z.string()),
+  departments: z.array(z.strictObject({ id: Uuid, name: z.string() })),
+});
+export const CompanyMemberPage = z.strictObject({ members: z.array(CompanyMember), next_after: z.string().nullable() });
+
 export const AuditEntry = z.strictObject({ id: z.number().int(), actor_id: Uuid, action: z.string().min(1), organization_id: Uuid.nullable(), recorded_at: Instant });
 export const AuditPage = z.strictObject({ entries: z.array(AuditEntry), next_before: z.number().int().nullable() });
 
@@ -78,6 +88,8 @@ export type Enrollment = z.infer<typeof Enrollment>;
 export type Company = z.infer<typeof Company>;
 export type CompanyList = z.infer<typeof CompanyList>;
 export type CreatedCompany = z.infer<typeof CreatedCompany>;
+export type CompanyMember = z.infer<typeof CompanyMember>;
+export type CompanyMemberPage = z.infer<typeof CompanyMemberPage>;
 export type AuditEntry = z.infer<typeof AuditEntry>;
 export type AuditPage = z.infer<typeof AuditPage>;
 export type GatewayKey = z.infer<typeof GatewayKey>;

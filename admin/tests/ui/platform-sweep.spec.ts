@@ -12,6 +12,7 @@ const ROUTES: Array<[string, string, RegExp]> = [
   ["company branding", `platform/companies/${ACME}?tab=branding`, /Acme Corp/],
   ["company keys", `platform/companies/${ACME}?tab=keys`, /Acme Corp/],
   ["company models", `platform/companies/${ACME}?tab=models`, /Acme Corp/],
+  ["company members", `platform/companies/${ACME}?tab=members`, /Acme Corp/],
   ["company usage", `platform/companies/${ACME}?tab=usage`, /Acme Corp/],
   ["keys", "platform/keys", /Gateway keys/],
   ["prices", "platform/prices", /Model prices/],

@@ -142,6 +142,15 @@ test("a company's usage tab shows what its members really consumed", async ({ pa
   await expect(page.getByRole("figure").filter({ hasText: "Prompt and completion tokens" })).toBeVisible();
   await shot(page, "console", "43-company-usage");
 });
+test("a company's members tab lists its real people read-only", async ({ page }) => {
+  const orgB = seededOrg("org-b");
+  await signInOwner(page, `/admin/platform/companies/${orgB.id}?tab=members`);
+  const table = page.getByRole("table", { name: "Company members" });
+  await expect(table.locator("tbody").getByRole("row").first()).toBeVisible();
+  await expect(table.getByText("Administrator")).toBeVisible();
+  await expect(table.locator("tbody").getByRole("button")).toHaveCount(0);
+  await shot(page, "console", "44-company-members");
+});
 test("the key pool takes a write-only key and the price list round-trips an edit", async ({ page }) => {
   const SECRET = "sk-e2e-0123456789abcdef-WXYZ";
   await signInOwner(page, "/admin/platform/keys");

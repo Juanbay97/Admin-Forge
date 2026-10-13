@@ -4,7 +4,7 @@ import type { BrandingDocument } from "../branding";
 import { ApiError, type ApiClient } from "../client";
 import * as S from "./schemas";
 
-export type { AuditEntry, AuditPage, Company, CompanyList, CompanyUsage, CreatedCompany, Enrollment, GatewayKey, GatewayKeyList, KeyAssignment, ModelUsage, PlatformMe, Price, UsageTotals } from "./schemas";
+export type { AuditEntry, AuditPage, Company, CompanyList, CompanyMember, CompanyMemberPage, CompanyUsage, CreatedCompany, Enrollment, GatewayKey, GatewayKeyList, KeyAssignment, ModelUsage, PlatformMe, Price, UsageTotals } from "./schemas";
 
 export interface NewCompany {
   slug: string;
@@ -31,6 +31,8 @@ export interface PlatformApi {
   verify(factor: { code: string } | { recovery_code: string }): Promise<void>;
   companies(page: { after?: string; page?: number }): Promise<S.CompanyList>;
   company(id: string): Promise<S.Company>;
+  /** The people of one company (read-only, the directory shape), by membership id cursor. */
+  companyMembers(id: string, page: { after?: string; page?: number }): Promise<S.CompanyMemberPage>;
   createCompany(company: NewCompany): Promise<S.CreatedCompany>;
   suspend(id: string): Promise<S.Company>;
   reactivate(id: string): Promise<S.Company>;
@@ -87,6 +89,7 @@ export function createPlatformApi(client: ApiClient): PlatformApi {
     },
     companies: ({ after, page }) => get(S.CompanyList, `/companies${query({ after, page })}`),
     company: (id) => get(S.Company, company(id)),
+    companyMembers: (id, { after, page }) => get(S.CompanyMemberPage, `${company(id)}/members${query({ after, page })}`),
     createCompany: (value) => send("POST", S.CreatedCompany, "/companies", value),
     suspend: (id) => send("POST", S.Company, `${company(id)}/suspend`, {}),
     reactivate: (id) => send("POST", S.Company, `${company(id)}/reactivate`, {}),

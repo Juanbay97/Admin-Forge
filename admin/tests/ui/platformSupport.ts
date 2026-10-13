@@ -24,6 +24,8 @@ export interface World {
   models: Record<string, string[]>;
   prices: Json[];
   branding: Record<string, Json>;
+  /** The members of each company, by company id (the directory shape). */
+  members: Record<string, Json[]>;
   /** Fail these `METHOD /path-suffix` requests once with the given status/code. */
   failOnce: Record<string, { status: number; code: string; times?: number }>;
   /** The delivery state the create-company reply reports for the first-admin invitation. */
@@ -44,6 +46,7 @@ export const newWorld = (): World => ({
   models: { [ACME]: ["gpt-4o", "gpt-4o-mini"] },
   prices: fixture<{ prices: Json[] }>("prices").prices,
   branding: {},
+  members: { [ACME]: fixture<{ members: Json[] }>("company-members").members },
   failOnce: {},
   usage: { totals: fixture("usage-totals"), companies: fixture("usage-companies"), models: fixture("usage-models") },
 });
@@ -186,6 +189,13 @@ async function handlers(key: string, url: URL, body: Json | undefined, world: Wo
       world.branding[id] = { ...change.branding, revision: (current.revision as number) + 1, assets: {} };
     }
     return reply(route, 200, world.branding[id]);
+  }
+  if ((match = key.match(/^GET \/companies\/([^/]+)\/members$/))) {
+    if (!world.companies.some((company) => company.id === match![1])) return reply(route, 404, envelope("NOT_FOUND"));
+    const after = url.searchParams.get("after");
+    const page = Number(url.searchParams.get("page") ?? 50);
+    const found = [...(world.members[match[1]!] ?? [])].sort((a, b) => String(a.id).localeCompare(String(b.id))).filter((member) => !after || String(member.id) > after).slice(0, page);
+    return reply(route, 200, { members: found, next_after: found.length === page ? found.at(-1)!.id : null });
   }
   if ((match = key.match(/^GET \/companies\/([^/]+)$/))) {
     const found = world.companies.find((company) => company.id === match![1]);

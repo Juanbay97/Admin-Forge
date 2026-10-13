@@ -28,7 +28,7 @@ mode and shows a persistent "Platform console" badge.
 | `/platform` | Overview: companies, requests, tokens, cost for 7/30/90 days with the change against the previous period, top companies by cost, tokens by model, key pool health, recent activity. |
 | `/platform/companies` | Search, status filter (both in the URL), cost and tokens for 30 days. |
 | `/platform/companies/new` | Wizard: company, branding (optional), first administrator, keys and models, review. A resumable saga: a failed step is named and retried alone. |
-| `/platform/companies/:id` | Tabs (in the URL): Overview with the setup checklist, Branding, Keys, Models, Usage. Suspend needs the company code typed; suspended companies are read-only. |
+| `/platform/companies/:id` | Tabs (in the URL): Overview with the setup checklist, Branding, Keys, Models, Members (read-only), Usage. Suspend needs the company code typed; suspended companies are read-only. |
 | `/platform/keys` | The key pool: add (write-only), rotate, disable/enable. Only label and last four characters are ever shown. |
 | `/platform/prices` | Versioned USD-per-million-token prices with history; an edit appends a version. |
 | `/platform/audit` | Read-only audit trail with action, company and date filters and "Load more". |
@@ -46,6 +46,7 @@ mocked UI tests serve. A server-side change of shape fails a unit test with the 
 | Identity | `GET /me` | `{account_id, role, mfa:{state: none\|pending\|active, verified, fresh}}`. A platform owner has no company membership, so `GET /accounts/me` answers 404 and the console builds the identity from this plus the email typed at sign-in. |
 | Second factor | `POST /mfa/enroll`, `POST /login/mfa` | `{code}` or `{recovery_code}`; the first successful code activates a pending factor. |
 | Companies | `GET /companies?after=<slug>&page=`, `GET /companies/{id}`, `POST /companies`, `POST /companies/{id}/suspend\|reactivate` | Cursor is the company code; the server has no search or status filter, so the console loads every page and filters locally. Create takes `{slug, display_name, department, admin_email, admin_name}` and returns the invitation's `delivery_state`. |
+| Members | `GET /companies/{id}/members?after=<membership id>&page=` | Read-only list in the company directory shape `{id, email, display_name, status, roles, departments[{id,name}]}` plus `next_after`; suspended members included, no secret column exists (migration 0043). An unknown company is 404. |
 | Branding | `GET\|PUT /companies/{id}/branding`, `POST .../branding/reset` | Same body as the company's own branding; no logo upload. |
 | Keys | `GET\|POST /gateway-keys`, `POST /gateway-keys/{id}/rotate\|enable\|disable` | Key text is accepted only on create and rotate; responses carry `hint` (last four). |
 | Assignments | `GET\|PUT /companies/{id}/gateway-keys` | Ordered `{key_id, priority, active}`. |
@@ -60,7 +61,7 @@ The sibling changes landed with a smaller surface than the plan assumed, so some
 
 - No `GET /overview`: the dashboard composes `usage/totals` (twice, for the delta), `usage/companies`, `usage/models`, the key list and the
   audit tail. There is no per-day series, so no area chart; usage is bars by company and by model.
-- No company members endpoint (PC10): the Members tab is not built. There is no active-users figure either.
+- Company members (PC10) is now served (`fv2-gap-closure` G2, migration 0043): the Members tab is read-only. There is no active-users figure until the overview endpoint (G3).
 - No code-availability endpoint: availability is checked against the loaded company list, and `COMPANY_CONFLICT` covers the race.
 - No audit filters: the server pages by id only, so actor/action/company/date filters apply to the loaded entries.
 - No key "retire", "rename" or `KEY_IN_USE`: a key is disabled (companies fall back to their other keys), and rotated for new text.
