@@ -43,7 +43,7 @@ class OpenPoolsTests(unittest.TestCase):
         self.assertEqual([pool.kwargs['user'] for pool in owned], list(ROLES))
         self.assertEqual(pools, RolePools(*owned))
         self.assertEqual((pools.accounts.kwargs['user'], pools.enrollment.kwargs['user'], pools.bootstrap.kwargs['user'],
-                          pools.gateway.kwargs['user'], pools.branding.kwargs['user']), ROLES)
+                          pools.gateway.kwargs['user'], pools.branding.kwargs['user'], pools.platform.kwargs['user']), ROLES)
         for pool in owned:
             self.assertEqual((pool.conninfo, pool.opened), ('', (True, 5)))
             self.assertEqual(pool.options, dict(min_size=1, max_size=2, timeout=1, max_waiting=4, reconnect_timeout=1, open=False))

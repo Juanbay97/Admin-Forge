@@ -15,7 +15,7 @@ from postgres_support import connect, settings
 from test_postgres_gateway_origin import migration_text, separate_database
 
 LOGIN_ROLES = ('forge_account_service', 'forge_enrollment', 'forge_runtime', 'forge_gateway_service',
-               'forge_branding_service')
+               'forge_branding_service', 'forge_platform_service')
 
 
 class MvpDatabase:
@@ -52,5 +52,6 @@ def mvp_database(*, migrations=(*MIGRATIONS, *MVP_ADDITIONS)):
     finally:
         # Not in separate_database's list; created by 0020/0025 and cluster-global.
         with connect() as cleanup:
-            for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service'):
+            for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service',
+                         'forge_platform_authority', 'forge_platform_service'):
                 cleanup.execute('DROP ROLE IF EXISTS ' + role)

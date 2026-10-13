@@ -1,6 +1,6 @@
 """Wiring shared by the dev (``forge.mvp_local``) and production (``forge.serve_prod``) profiles.
 
-Only the profile-independent part lives here: five independent restricted pools, the schema
+Only the profile-independent part lives here: six independent restricted pools, the schema
 attestation that must pass before anything is served, and the account/branding/gateway
 application over them. Everything profile-specific stays with the profile: how settings are
 obtained, which delivery channel and onboarding origin are used, and the status route, admin
@@ -21,6 +21,7 @@ class RolePools(NamedTuple):
     bootstrap: object
     gateway: object
     branding: object
+    platform: object
 
 
 def open_pools(settings_for, owned, *, pool_factory=None):
@@ -84,7 +85,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.invitation_store import PostgresInvitationStore
     from forge.invitations import InvitationService
     from forge.postgres import PostgresBootstrapReader
-    accounts, enrollment, bootstrap, gateway, branding = pools
+    accounts, enrollment, bootstrap, gateway, branding, platform = pools  # platform: mounted by the platform API
     cipher = GatewayCipher(gateway_key, policy=gateway_policy)
     sessions = SessionService(PostgresSessionStore(accounts))
     app = create_account_app(

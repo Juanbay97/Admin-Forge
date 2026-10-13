@@ -1,11 +1,11 @@
-"""Owned PostgreSQL: MvpReadiness attests exactly the reviewed 0001-0027 profile (F27) and nothing else."""
+"""Owned PostgreSQL: MvpReadiness attests exactly the reviewed 0001-0028 profile (F28) and nothing else."""
 from pathlib import Path
 import sys
 import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 from forge.account_readiness import catalog_fingerprint
 from forge.dev_accounts import MIGRATIONS
-from forge.mvp_profile import F27, MVP_ADDITIONS
+from forge.mvp_profile import F28, MVP_ADDITIONS
 from forge.mvp_readiness import MvpReadiness
 from mvp_support import mvp_database
 
@@ -15,17 +15,17 @@ def readiness(db):
 
 
 class PostgresMvpReadinessTests(unittest.TestCase):
-    def test_the_complete_profile_is_attested_and_its_fingerprint_is_the_pinned_f27(self):
+    def test_the_complete_profile_is_attested_and_its_fingerprint_is_the_pinned_f28(self):
         with mvp_database() as db:
             with db.admin.cursor() as cursor:
-                self.assertEqual(catalog_fingerprint(cursor), F27)
+                self.assertEqual(catalog_fingerprint(cursor), F28)
             self.assertIs(readiness(db).check(), True)
 
-    def test_a_previous_profile_missing_0027_0026_or_0025_is_refused(self):
-        for dropped, name in ((1, '0027'), (2, '0026'), (3, '0025')):
+    def test_a_previous_profile_missing_0028_0027_0026_or_0025_is_refused(self):
+        for dropped, name in ((1, '0028'), (2, '0027'), (3, '0026'), (4, '0025')):
             with self.subTest(missing=name), mvp_database(migrations=(*MIGRATIONS, *MVP_ADDITIONS[:-dropped])) as db:
                 with db.admin.cursor() as cursor:
-                    self.assertNotEqual(catalog_fingerprint(cursor), F27)
+                    self.assertNotEqual(catalog_fingerprint(cursor), F28)
                 self.assertIs(readiness(db).check(), False)
 
     def test_schema_drift_is_refused(self):
@@ -35,7 +35,7 @@ class PostgresMvpReadinessTests(unittest.TestCase):
             self.assertIs(readiness(db).check(), False)
 
     def test_an_authority_that_can_log_in_is_refused(self):
-        for authority in ('forge_directory_authority', 'forge_branding_authority'):
+        for authority in ('forge_directory_authority', 'forge_branding_authority', 'forge_platform_authority'):
             with self.subTest(authority=authority), mvp_database() as db:
                 self.assertIs(readiness(db).check(), True)
                 db.admin.execute('ALTER ROLE %s LOGIN' % authority)

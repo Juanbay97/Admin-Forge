@@ -34,8 +34,8 @@ Chain strategy: stacked-to-main
 Strict TDD each task: RED → GREEN → REFACTOR; module-at-a-time unittest + PG harness.
 
 ## Phase 1: Foundation (S1–S2)
-- [ ] 1.1 RED `tests/test_postgres_platform_schema.py`: roles NOLOGIN/NOBYPASSRLS, denied direct selects; GREEN `migrations/0027_platform_scope.sql`
-- [ ] 1.2 Pin F27 fresh==upgrade in `mvp_profile.py`; update `mvp_readiness.py`, `mvp_up.py`, `mvp_local.py` ROLES/secrets, `tests/mvp_support.py` (+ previous-profile test)
+- [x] 1.1 RED `tests/test_postgres_platform_schema.py`: roles NOLOGIN/NOBYPASSRLS, denied direct selects; GREEN `migrations/0027_platform_scope.sql`
+- [x] 1.2 Pin F27 fresh==upgrade in `mvp_profile.py`; update `mvp_readiness.py`, `mvp_up.py`, `mvp_local.py` ROLES/secrets, `tests/mvp_support.py` (+ previous-profile test)
 - [ ] 1.3 RED/GREEN `platform_store.py` + `platform.py`: `platform_lock_owner`, validate session; cross-org denial matrix
 ## Phase 2: Identity (S3–S4)
 - [ ] 2.1 RED/GREEN `platform_cli.py bootstrap-owner`: link file 0600, rerun no-op, link single-use

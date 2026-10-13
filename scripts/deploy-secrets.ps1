@@ -46,7 +46,7 @@ function Save-Secret([string]$Name, [scriptblock]$Generator) {
 }
 
 foreach ($name in 'pg_superuser', 'role_forge_account_service', 'role_forge_enrollment', 'role_forge_runtime',
-                  'role_forge_gateway_service', 'role_forge_branding_service', 'role_backup') {
+                  'role_forge_gateway_service', 'role_forge_branding_service', 'role_forge_platform_service', 'role_backup') {
     Save-Secret $name { New-Password }
 }
 Save-Secret 'delivery_key' { New-FernetKey }

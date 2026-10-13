@@ -91,6 +91,7 @@ services:
       - forge_runtime
       - forge_gateway_service
       - forge_branding_service
+      - forge_platform_service
       - delivery_key
       - gateway_key
     depends_on:
@@ -124,6 +125,7 @@ services:
       - forge_runtime
       - forge_gateway_service
       - forge_branding_service
+      - forge_platform_service
       - delivery_key
       - gateway_key
       - smtp_password
@@ -293,6 +295,8 @@ secrets:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_forge_gateway_service
   forge_branding_service:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_forge_branding_service
+  forge_platform_service:
+    file: ${FORGE_SECRETS_DIR:-./secrets}/role_forge_platform_service
   backup_reader:
     file: ${FORGE_SECRETS_DIR:-./secrets}/role_backup
   delivery_key:

@@ -1,4 +1,4 @@
-"""Owned PostgreSQL: the supervisor's schema installer yields the pinned F27 profile and working roles."""
+"""Owned PostgreSQL: the supervisor's schema installer yields the pinned F28 profile and working roles."""
 from pathlib import Path
 import sys
 import unittest
@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT/'src'))
 from psycopg_pool import ConnectionPool
 from forge.account_readiness import catalog_fingerprint
 from forge.mvp_local import ConfigError, ROLES
-from forge.mvp_profile import F27
+from forge.mvp_profile import F28
 from forge.mvp_readiness import MvpReadiness
 from forge.mvp_up import install_schema
 from postgres_support import connect, settings
@@ -20,9 +20,9 @@ class PostgresMvpUpTests(unittest.TestCase):
             with separate_database() as conn:
                 passwords = install_schema(conn)
                 self.assertEqual(set(passwords), set(ROLES))
-                self.assertEqual(len(set(passwords.values())), 5)
+                self.assertEqual(len(set(passwords.values())), 6)
                 with conn.cursor() as cursor:
-                    self.assertEqual(catalog_fingerprint(cursor), F27)
+                    self.assertEqual(catalog_fingerprint(cursor), F28)
                 pools = [ConnectionPool('', kwargs={**settings(), 'dbname': conn.info.dbname, 'user': role,
                                                     'password': passwords[role]}, min_size=1, max_size=2, open=False)
                          for role in ('forge_account_service', 'forge_runtime', 'forge_gateway_service')]
@@ -35,7 +35,8 @@ class PostgresMvpUpTests(unittest.TestCase):
                         pool.close(timeout=5)
         finally:
             with connect() as cleanup:
-                for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service'):
+                for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service',
+                              'forge_platform_authority', 'forge_platform_service'):
                     cleanup.execute('DROP ROLE IF EXISTS ' + role)
 
     def test_a_database_that_already_has_the_schema_is_refused_untouched(self):
@@ -51,7 +52,8 @@ class PostgresMvpUpTests(unittest.TestCase):
                                               "WHERE n.nspname='forge'").fetchone(), before)
         finally:
             with connect() as cleanup:
-                for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service'):
+                for role in ('forge_directory_authority', 'forge_branding_authority', 'forge_branding_service',
+                              'forge_platform_authority', 'forge_platform_service'):
                     cleanup.execute('DROP ROLE IF EXISTS ' + role)
 
 

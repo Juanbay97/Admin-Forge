@@ -128,7 +128,7 @@ class PostgresMvpLocalTests(unittest.TestCase):
                              ['admin-a@forge.local.test', 'member-a@forge.local.test'])
             other = client.get('/forge/v1/orgs/%s/members' % results[1].organization_id, headers=headers)
             self.assertEqual(other.status_code, 404)
-            self.assertEqual(len(LOGIN_ROLES), 5)
+            self.assertEqual(len(LOGIN_ROLES), 6)
 
 
 if __name__ == '__main__':
