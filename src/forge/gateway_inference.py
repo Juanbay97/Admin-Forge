@@ -4,11 +4,13 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 import json
 import re
+import time
 from typing import Protocol
 from uuid import UUID, uuid4
 from anyio.to_thread import run_sync
 from forge.gateway_configuration import GatewayRecord, GatewayDenied, GatewayUnavailable, RetryableUpstream
 from forge.invitations import capability_digest
+from forge.usage import AllowAll, UsageEvent, estimate_tokens
 
 MAX_MESSAGES = 16
 MAX_CONTENT = 4096
@@ -91,6 +93,7 @@ class PreparedInference:
     key: str
     # Opened keys in priority order (the first equals ``key``); empty means just ``key``.
     keys: tuple = ()
+    key_ids: tuple = ()  # parallel to ``keys``: the pool key each was opened from (None for a legacy key)
 
 
 def sse(document):
@@ -98,9 +101,27 @@ def sse(document):
             + '\n\n').encode('utf-8')
 
 
+class _Meter:
+    """Timings and counters of one stream; the key and the first byte are those of the attempt that served."""
+    def __init__(self, clock):
+        self.clock, self.started = clock, clock()
+        self.attempted, self.key_id, self.attempt, self.first_byte = False, None, None, None
+        self.usage, self.characters = None, 0
+
+    def begin(self, key_id):
+        self.attempted, self.key_id, self.attempt, self.first_byte = True, key_id, self.clock(), None
+
+    def text(self, value):
+        if self.first_byte is None:
+            self.first_byte = int((self.clock() - self.attempt) * 1000)
+        self.characters += len(value)
+
+
 class GatewayInference:
-    def __init__(self, store: InferenceStore, cipher, adapter):
+    def __init__(self, store: InferenceStore, cipher, adapter, *, usage=None, quota=None, clock=time.monotonic):
         self._store, self._cipher, self._adapter = store, cipher, adapter
+        self._usage, self._quota, self._clock = usage, AllowAll() if quota is None else quota, clock
+        self.usage_failures = 0  # finite counter: recording is best-effort and never alters a stream
 
     async def _resolve(self, digest, organization_id, alias):
         # Framework's bounded worker limiter, no abandoned thread or network-held lock.
@@ -124,19 +145,24 @@ class GatewayInference:
             raise ValueError('Invalid text request.')
         digest = capability_digest(token)
         route = await self._resolve(digest, organization_id, request.model)
-        opened = []
+        self._quota.check(organization_id, route.membership_id)  # a refusal comes before any key handling
+        opened, key_ids = [], []
         for record in route.candidates:
             try:
                 opened.append(self._cipher.open_key(organization_id, record))
+                key_ids.append(record.key_id)
             except GatewayUnavailable:
                 continue  # an unreadable key is skipped; none readable is unavailable before any outbound call
         if not opened:
             raise GatewayUnavailable()
-        return PreparedInference(digest, route, request, opened[0], tuple(opened))
+        return PreparedInference(digest, route, request, opened[0], tuple(opened), tuple(key_ids))
 
-    async def _failover(self, prepared):
+    async def _failover(self, prepared, meter):
         """Try each opened key once, in priority order; only a typed pre-first-byte failure moves on."""
-        for key in prepared.keys or (prepared.key,):
+        keys = prepared.keys or (prepared.key,)
+        ids = prepared.key_ids or (prepared.route.gateway.key_id,) * len(keys)
+        for key, key_id in zip(keys, ids):
+            meter.begin(key_id)
             stream = self._adapter.events(key, prepared.route.upstream_id, prepared.request)
             try:
                 async for event in stream:
@@ -166,6 +192,8 @@ class GatewayInference:
         pending = None
         authority = None
         producer = None
+        meter = _Meter(self._clock)
+        outcome, failure = 'cancelled', None  # a stream that ends any other way than below was cut by the client
         allowed = asyncio.Event()
         allowed.set()
 
@@ -190,7 +218,7 @@ class GatewayInference:
             if disconnected is not None and await disconnected():
                 return
             authority = asyncio.create_task(watch())
-            stream = self._failover(prepared)
+            stream = self._failover(prepared, meter)
             queue = asyncio.Queue(maxsize=1)
 
             async def produce():
@@ -243,17 +271,20 @@ class GatewayInference:
                 if disconnected is not None and await disconnected():
                     return
                 if kind == 'text':
+                    meter.text(value)
                     yield chunk(value)
                 elif kind == 'finish':
                     yield chunk(finish=value)
                 elif kind == 'usage':
-                    continue  # recorded by the metering seam; never relayed to the member
+                    meter.usage = value  # recorded below; never relayed to the member
                 else:
                     raise GatewayUnavailable()
+            outcome = 'ok'
             yield b'data: [DONE]\n\n'
         except asyncio.CancelledError:
             raise
         except Exception:
+            outcome, failure = 'error', 'INFERENCE_UNAVAILABLE'
             yield sse({'error': {'code': 'INFERENCE_UNAVAILABLE',
                 'message': 'Text generation unavailable.', 'request_id': identifier,
                 'retryable': False}})
@@ -268,3 +299,32 @@ class GatewayInference:
                         await task
             if stream is not None:
                 await stream.aclose()
+            await self._record(prepared, meter, identifier, outcome, failure)
+
+    def _event(self, prepared, meter, identifier, outcome, failure):
+        if meter.usage is not None:
+            prompt, completion, source = meter.usage['prompt_tokens'], meter.usage['completion_tokens'], 'gateway'
+        else:
+            prompt = estimate_tokens(sum(len(content) for _, content in prepared.request.messages))
+            completion, source = estimate_tokens(meter.characters), 'estimated'
+        return UsageEvent(UUID(identifier), prepared.route.organization_id, prepared.route.membership_id,
+                          prepared.request.model, prepared.route.upstream_id, meter.key_id, prompt, completion,
+                          int((self._clock() - meter.started) * 1000), meter.first_byte, outcome, failure, source)
+
+    def _settled(self, task):
+        if task.cancelled() or task.exception() is not None:
+            self.usage_failures += 1
+
+    async def _record(self, prepared, meter, identifier, outcome, failure):
+        """Once per inference that reached the gateway, shielded so a cancelled consumer cannot lose it."""
+        if self._usage is None or prepared.route.membership_id is None or not meter.attempted:
+            return
+        task = asyncio.ensure_future(run_sync(self._usage.record, self._event(prepared, meter, identifier, outcome, failure),
+                                              abandon_on_cancel=False))
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            task.add_done_callback(self._settled)  # the write finishes detached; its failure is still counted
+            raise
+        except Exception:
+            self.usage_failures += 1

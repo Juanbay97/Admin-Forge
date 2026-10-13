@@ -36,9 +36,9 @@ Chain strategy: stacked-to-main
 - [x] 2.1 RED `tests/test_postgres_usage_events.py` (record auth, rollup==sum, pool no SELECT); GREEN `0034_usage_events.sql`
 - [x] 2.2 F34 pin + readiness/up/profile ripple + previous-profile test
 ## Phase 3: Capture (S3)
-- [ ] 3.1 RED `test_gateway_inference.py`: event on success/cancel/failure/estimated; GREEN `gateway_inference.py`, `usage_store.py`
-- [ ] 3.2 RED recording-failure-doesn't-break-stream; GREEN shielded best-effort
-- [ ] 3.3 Quota port default AllowAll, called in `prepare`
+- [x] 3.1 RED `test_gateway_inference.py`: event on success/cancel/failure/estimated; GREEN `gateway_inference.py`, `usage_store.py`
+- [x] 3.2 RED recording-failure-doesn't-break-stream; GREEN shielded best-effort
+- [x] 3.3 Quota port default AllowAll, called in `prepare`
 ## Phase 4: Prices + reads (S4–S6)
 - [ ] 4.1 RED/GREEN `0035` model_prices versions, cost snapshot, audit (F35)
 - [ ] 4.2 RED/GREEN `0036` platform per-company/model/totals/range (F36), MFA gate, non-owner denied

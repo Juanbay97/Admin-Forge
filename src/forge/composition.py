@@ -83,6 +83,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
                                           PostgresPoolStatusStore)
     from forge.gateway_keys import GatewayKeys
     from forge.gateway_keys_store import PostgresGatewayKeyStore
+    from forge.usage_store import PostgresUsageStore
     from forge.invitation_delivery import DeliveryCoordinator, PostgresDeliveryStore
     from forge.invitation_store import PostgresInvitationStore
     from forge.invitations import InvitationService
@@ -103,7 +104,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         bootstrap_reader=PostgresBootstrapReader(bootstrap), authorization_reader=PostgresAuthorizationReader(bootstrap),
         readiness=readiness, gateway_configuration=PoolGatewayConfiguration(PostgresPoolStatusStore(gateway), gateway_policy.allowed),
         gateway_catalog=GatewayCatalog(PostgresPoolCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy)),
-        gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy)),
+        gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy),
+                                           usage=PostgresUsageStore(gateway)),
         directory=DirectoryService(PostgresDirectoryStore(gateway)))
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
     mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),

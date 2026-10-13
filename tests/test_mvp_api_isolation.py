@@ -92,7 +92,7 @@ class Stack:
         token = self.login(index, 0)
         # A company's key is the platform's: created, assigned and bounded by the owner, never saved by the admin.
         assign_key(self.db, self.secrets['gateway_cipher_key'], self.gateway, self.results[index].organization_id,
-                   self.keys[self.results[index].slug], ('fake-fast', 'fake-slow'))
+                   self.keys[self.results[index].slug], ('fake-fast', 'fake-slow', 'fake-nousage'))
         assert self.call('POST', self.org(index) + '/gateway/catalogue/refresh', token).status_code == 200
         published = self.call('POST', self.org(index) + '/models/publish', token, json={
             'operation_id': str(uuid4()), 'expected_catalogue_revision': 0, 'expected_gateway_revision': 1,
@@ -289,6 +289,39 @@ class ApiIsolationTests(unittest.TestCase):
             for text in (s.chat(0, member_a, 'assistant').text, s.chat(1, member_b, 'helper').text):
                 self.assertEqual(words(events(text)), REPLY)
             s.assert_no_secret()
+
+    def test_a_metered_chat_records_usage_for_the_right_company_member_and_key_and_nothing_else(self):
+        with stack(slow_delay=0.0) as s:
+            s.configure(0, {'assistant': 'fake-fast', 'quiet': 'fake-nousage'})
+            s.configure(1, {'helper': 'fake-fast'})
+            member_a, member_b = s.login(0, 1), s.login(1, 1)
+
+            def wait_for(count, org):
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    rows = s.db.admin.execute('SELECT usage_source,status,prompt_tokens,completion_tokens,upstream_id,key_id IS NOT NULL,error_code '
+                                              'FROM forge.usage_events WHERE organization_id=%s ORDER BY recorded_at', (org,)).fetchall()
+                    if len(rows) >= count:
+                        return rows
+                    time.sleep(0.1)
+                return rows
+            self.assertEqual(s.chat(0, member_a, 'assistant').status_code, 200)
+            self.assertEqual(wait_for(1, s.results[0].organization_id), [('gateway', 'ok', 2, 6, 'fake-fast', True, None)])
+            self.assertEqual(s.chat(0, member_a, 'quiet').status_code, 200)
+            rows = wait_for(2, s.results[0].organization_id)
+            self.assertEqual(rows[1], ('estimated', 'ok', 2, 8, 'fake-nousage', True, None), 'no usage chunk: estimated from characters')
+            self.assertEqual(s.chat(1, member_b, 'helper').status_code, 200)
+            self.assertEqual(len(wait_for(1, s.results[1].organization_id)), 1)
+            daily = s.db.admin.execute('SELECT organization_id,sum(requests),sum(prompt_tokens),sum(completion_tokens),sum(estimated_requests) '
+                                       'FROM forge.usage_daily GROUP BY 1 ORDER BY 2 DESC').fetchall()
+            self.assertEqual(daily, [(s.results[0].organization_id, 2, 4, 14, 1), (s.results[1].organization_id, 1, 2, 6, 0)])
+            members = {row[0] for row in s.db.admin.execute('SELECT membership_id FROM forge.usage_events WHERE organization_id=%s', (s.results[0].organization_id,))}
+            self.assertEqual(len(members), 1)
+            self.assertEqual(s.chat(0, member_a, 'fake-fast').status_code, 404, 'a refused alias reaches no gateway and records nothing')
+            time.sleep(0.3)
+            self.assertEqual(s.db.admin.execute('SELECT count(*) FROM forge.usage_events').fetchone(), (3,))
+            dump = repr(s.db.admin.execute('SELECT * FROM forge.usage_events').fetchall())
+            s.assert_no_secret(dump)
 
     def test_suspending_a_member_mid_stream_stops_the_stream_and_denies_everything_after(self):
         with stack(slow_delay=1.0) as s:
