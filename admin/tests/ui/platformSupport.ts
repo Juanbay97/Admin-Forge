@@ -23,7 +23,7 @@ export interface World {
   prices: Json[];
   branding: Record<string, Json>;
   /** Fail these `METHOD /path-suffix` requests once with the given status/code. */
-  failOnce: Record<string, { status: number; code: string }>;
+  failOnce: Record<string, { status: number; code: string; times?: number }>;
   /** Usage windows by route. */
   usage: { totals: Json; companies: Json; models: Json };
 }
@@ -73,8 +73,9 @@ export async function installPlatform(page: Page, world: World = newWorld()) {
     const key = `${method} ${path.replace("/forge/v1/platform", "")}`;
     const failure = Object.keys(world.failOnce).find((pattern) => key.startsWith(pattern));
     if (failure) {
-      const { status, code } = world.failOnce[failure]!;
-      delete world.failOnce[failure];
+      const { status, code, times = 1 } = world.failOnce[failure]!;
+      if (times <= 1) delete world.failOnce[failure];
+      else world.failOnce[failure] = { status, code, times: times - 1 };
       return reply(route, status, envelope(code));
     }
     if (key === "GET /me") return reply(route, 200, { account_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", role: "platform_owner", mfa: { ...world.mfa, fresh: world.mfa.verified } });
@@ -93,14 +94,17 @@ export async function installPlatform(page: Page, world: World = newWorld()) {
     }
     // Everything below needs a verified second factor, exactly like the server.
     if (!world.mfa.verified) return reply(route, 403, envelope("MFA_REQUIRED"));
-    const handled = await handlers(key, url, body, world, reply, route);
-    return handled ?? reply(route, 404, envelope("NOT_FOUND"));
+    const sent: Reply = async (target, status, payload) => {
+      await reply(target, status, payload);
+      return true;
+    };
+    return (await handlers(key, url, body, world, sent, route)) || reply(route, 404, envelope("NOT_FOUND"));
   });
   return { requests, world };
 }
 
-type Reply = (route: Route, status: number, body?: unknown) => Promise<void>;
-async function handlers(key: string, url: URL, body: Json | undefined, world: World, reply: Reply, route: Route): Promise<void | null> {
+type Reply = (route: Route, status: number, body?: unknown) => Promise<boolean>;
+async function handlers(key: string, _url: URL, _body: Json | undefined, world: World, reply: Reply, route: Route): Promise<boolean> {
   let match: RegExpMatchArray | null;
   if (key === "GET /companies") return reply(route, 200, { companies: world.companies, next_after: null });
   if (key === "GET /audit") return reply(route, 200, { entries: world.audit, next_before: null });
@@ -119,5 +123,5 @@ async function handlers(key: string, url: URL, body: Json | undefined, world: Wo
     found.active = match[2] === "reactivate";
     return reply(route, 200, found);
   }
-  return null;
+  return false;
 }

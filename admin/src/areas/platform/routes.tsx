@@ -1,5 +1,5 @@
-import { PageHeader } from "../../ui/PageHeader";
+﻿import { Overview } from "./overview/Overview";
 
 export function OverviewRoute() {
-  return <PageHeader title="Platform overview" description="Companies, usage and gateway health across the platform." />;
+  return <Overview />;
 }

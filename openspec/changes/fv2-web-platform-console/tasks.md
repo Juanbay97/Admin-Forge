@@ -48,9 +48,9 @@ Chain strategy: stacked-to-main
 - [x] 2.5 e2e: bootstrap link → password → enroll → logout → login with computed code (real stack; extend `admin-e2e.ps1` seeding)
 
 ## Phase 3 — Overview (PR 3)
-- [ ] 3.1 RED→GREEN unit: range parser, delta calc, KPI formatting
-- [ ] 3.2 KPI cards, AreaChart (tokens/cost), top companies BarChart, KeyPoolHealth, audit tail
-- [ ] 3.3 Skeleton/empty/error states, range URL sync; UI spec; e2e smoke with seeded usage
+- [x] 3.1 RED→GREEN unit: range parser, delta calc, KPI formatting
+- [x] 3.2 KPI cards, AreaChart (tokens/cost), top companies BarChart, KeyPoolHealth, audit tail
+- [x] 3.3 Skeleton/empty/error states, range URL sync; UI spec; e2e smoke with seeded usage
 
 ## Phase 4 — Companies list & detail frame (PR 4)
 - [ ] 4.1 RED→GREEN: URL param schema, list table (search debounce, status filter, pagination)
