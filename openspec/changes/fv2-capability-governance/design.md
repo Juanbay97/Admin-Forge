@@ -64,3 +64,15 @@ Additive. Seed via trusted CLI `python -m forge.capability_seed sync`. Numbering
 - [ ] Client key pinning/rotation rule (TOFU at join vs build-pinned) — decide with fv2c-capabilities-client.
 - [ ] Plugins default OFF confirmed? (assumed).
 - [ ] Exact platform-core function names for owner lock/audit.
+
+## Alignment with the client (decided at apply, 2026-10-12)
+
+The client (`clients/openyak`, fv2c-sandbox-runner and fv2c-superapp-host) already implements these shapes and is their source of truth; the control plane mirrors them.
+
+| Topic | Control-plane rule | Client reference |
+|---|---|---|
+| Attestation scale | 0-4, not 0-3: 0 none, 1 jail + env scrub, 2 isolated process (Job Object), 3 = 2 + egress guard + escape suite (AppContainer), 4 container runner (Docker). `min_sandbox_level` is 0-4. `code_execute` = 3; `bash`/`powershell` = 4 (shells only run in the container runner). Missing/invalid report = 0. | `backend/app/sandbox/attestation.py` (`0 <= level <= 4`, shells require `runner=docker`, `required = max(min_level, 4 if docker else 3)`) |
+| Document ids | `capabilities[].id` is the bare slug and `kind` the discriminator (catalog PK is `<kind>:<slug>`). Each item also carries `enabled` (bool) and, when not on, `reason` (`forced_off`/`blocked_attestation`). | `catalog.ts` `parseAppItems` reads `kind==='app'`, `id` (reverse-DNS), `enabled===true`, `reason`, `manifest_sha256` |
+| App manifest | keys `id, version, publisher, entry, permissions, sha256` (+ optional `signature`); `entry` is one top-level `*.html` file name; v1 permissions `ui.title`, `storage.local`; `network`, `fs`, `tools` (and dotted sub-names) are reserved and refused; same finite error codes. Wildcard network hosts are unreachable because `network` is reserved. | `forge-extensions/manifest.ts`, `validate.ts` |
+| App pin | the policy's `manifest_sha256` for an app is the manifest's `sha256` (entry-bytes hash) so the client's `policyPin !== manifest.sha256` check passes; `manifest_digest` (canonical JSON, signature excluded) is kept separately for tamper evidence. | `verifyEntry` policy pin |
+| Migrations | the live chain ends at `0037` (F37), so governance takes `0038+`. | |

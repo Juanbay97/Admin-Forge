@@ -30,9 +30,9 @@ Chain strategy: stacked-to-main
 | S6 | Seed + sync CLI + readiness/profile + runbook | PR 6 (~600) | |
 
 ## S1 Resolver (TDD)
-- [ ] 1.1 RED `tests/test_capability_policy.py`: precedence, unknown→off, force-off, gate, level default 0
-- [ ] 1.2 GREEN `src/forge/capability_policy.py` (frozen dataclasses, `resolve`)
-- [ ] 1.3 RED→GREEN `tests/test_app_manifest.py` + `src/forge/app_manifest.py` (traversal, wildcard host, unknown key, canonical sha)
+- [x] 1.1 RED `tests/test_capability_policy.py`: precedence, unknown→off, force-off, gate, level default 0
+- [x] 1.2 GREEN `src/forge/capability_policy.py` (frozen dataclasses, `resolve`)
+- [x] 1.3 RED→GREEN `tests/test_app_manifest.py` + `src/forge/app_manifest.py` (traversal, wildcard host, unknown key, canonical sha)
 
 ## S2 Schema/store
 - [ ] 2.1 Migration catalog/platform policy/epoch/roles; RLS tests (PG)
