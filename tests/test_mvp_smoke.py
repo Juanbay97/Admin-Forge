@@ -50,6 +50,11 @@ class SmokeRunnerTests(unittest.TestCase):
             '--control-plane-origin', 'playwright.forge-managed-flow.config.ts')]
         self.assertEqual(order, sorted(order))
 
+    def test_the_admin_phase_runs_only_the_journeys_that_need_nothing_but_the_credentials(self):
+        # The owner, console and portal journeys (10-, 20-, 30-) need the private workspace and the owner link: scripts/admin-e2e.ps1 owns them.
+        self.assertIn("'run test:e2e -- admin-flow branding shell'", self.text)
+        self.assertNotIn('FORGE_E2E_OWNER_LINK', self.text)
+
     def test_the_multi_user_flow_runs_in_the_same_client_run_after_the_single_member_flow(self):
         order = [self.text.index(piece) for piece in (
             'playwright.forge-managed-flow.config.ts', 'playwright.forge-multiuser.config.ts', 'Stop-Child $clientProcess')]

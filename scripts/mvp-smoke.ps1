@@ -188,7 +188,7 @@ try {
     $env:FORGE_E2E_ADMIN_URL = $ready.control_plane_origin
     $env:FORGE_E2E_CREDENTIALS = $ready.credentials_file
     Write-Output 'mvp-smoke: admin flow (sign in, invite, read-only gateway, publish) in Chrome'
-    $adminResult = Invoke-Bounded $npm 'run test:e2e' $admin $AdminTestTimeoutSeconds
+    $adminResult = Invoke-Bounded $npm 'run test:e2e -- admin-flow branding shell' $admin $AdminTestTimeoutSeconds
     Remove-Item Env:FORGE_E2E_ADMIN_URL, Env:FORGE_E2E_CREDENTIALS -ErrorAction SilentlyContinue
     if ($adminResult -ne 0) { throw 'ADMIN_FLOW_FAILED' }
 
