@@ -131,5 +131,12 @@ class PostgresCapabilityStore:
     def ingest(self, digest, org, events):
         return self._rows('SELECT forge.cap_invocation_ingest(%s,%s,%s::jsonb)', (digest, org, json.dumps(events)))[0][0]
 
+    def attest(self, digest, org, report):
+        return self._rows('SELECT forge.cap_attestation_ingest(%s,%s,%s::jsonb)', (digest, org, json.dumps(report)))[0][0] is True
+
+    def attested_level(self, digest, org):
+        """The member's latest attestation level for the company (None when there is none or it is older than 30 days)."""
+        return self._rows('SELECT forge.cap_latest_attestation(%s,%s)', (digest, org))[0][0]
+
     def platform_audit(self, digest, before, page):
         return [AuditRecord(*row) for row in self._rows('SELECT * FROM forge.cap_platform_audit_page(%s,%s,%s)', (digest, before, page))]

@@ -274,3 +274,30 @@ def mount_invocation_audit(app: FastAPI, *, log, sessions, readiness, organizati
             return refusal.response
         except Exception as error:
             return company_failure(error)
+
+
+ATTESTATION_LIMIT = 8192
+
+
+def mount_client_attestation(app: FastAPI, *, reports, sessions, readiness, organizations):
+    """``POST /forge/v1/client/attestation``: the device's sandbox attestation report (allow-listed fields only), advisory telemetry."""
+    def blocking(function, *arguments):
+        return run_sync(lambda: function(*arguments), abandon_on_cancel=False)
+
+    authenticate = bearer_guard(sessions, readiness, blocking)
+
+    @app.post('/forge/v1/client/attestation', include_in_schema=False)
+    async def report(request: Request):
+        try:
+            token = await authenticate(request)
+            keys = [key for key, _ in request.query_params.multi_items()]
+            if len(keys) != len(set(keys)) or set(keys) - {'org'}:
+                raise _invalid()
+            document = await _document(request, ATTESTATION_LIMIT)
+            org = await _session_company(request, token, organizations, blocking)
+            stored = await blocking(reports.record, token, org, document)
+            return JSONResponse({'level': document['level'], 'stored': stored}, status_code=202)
+        except _Refusal as refusal:
+            return refusal.response
+        except Exception as error:
+            return company_failure(error)

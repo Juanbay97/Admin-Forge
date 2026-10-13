@@ -75,7 +75,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.authorization_store import PostgresAuthorizationReader
     from forge.branding_api import mount_branding
     from forge.branding_store import PostgresBrandingStore
-    from forge.capability_api import mount_company_capabilities, mount_effective, mount_invocation_audit
+    from forge.capability_api import mount_client_attestation, mount_company_capabilities, mount_effective, mount_invocation_audit
+    from forge.capability_attestation import AttestationReports
     from forge.capability_audit import InvocationLog
     from forge.capability_effective import EffectivePolicy
     from forge.capability_signing import load_signer
@@ -163,6 +164,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
             return []  # a stale, suspended or unknown member has no company: the route answers the same 404
     mount_effective(app, policy=EffectivePolicy(PostgresCapabilityStore(capability), signer), sessions=sessions, readiness=readiness, organizations=companies)
     mount_invocation_audit(app, log=InvocationLog(PostgresCapabilityStore(capability)), sessions=sessions, readiness=readiness, organizations=companies)
+    mount_client_attestation(app, reports=AttestationReports(PostgresCapabilityStore(capability)), sessions=sessions, readiness=readiness, organizations=companies)
     mount_connectors(app, service=connectors, oauth=oauth, broker=broker_proxy, sessions=sessions, readiness=readiness, organizations=companies)
     mount_company_usage(app, usage=CompanyUsage(PostgresCompanyUsageStore(gateway)), sessions=sessions,
                         authorization_reader=PostgresAuthorizationReader(bootstrap), readiness=readiness)
