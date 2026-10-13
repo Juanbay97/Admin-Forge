@@ -49,6 +49,14 @@ class RuntimeFilesTests(unittest.TestCase):
                              (values['passwords'], values['gateway_key'], values['platform_key']))
             self.assertNotIn('pw-', Path(config_path).read_text('utf-8'))
 
+    def test_the_local_stack_secrets_carry_a_policy_key_and_a_connector_key_that_load(self):
+        from forge.capability_signing import b64u
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            config_path, values = files(directory, policy_key=b64u(os.urandom(32)), connector_key=Fernet.generate_key().decode())
+            secrets = load_secrets(load_config(config_path).secrets_file)
+            self.assertEqual((secrets.policy_key, secrets.connector_key), (values['policy_key'], values['connector_key'].encode()))
+
     def test_the_admin_build_requirement_is_carried_into_the_config(self):
         with tempfile.TemporaryDirectory() as directory:
             config_path, _ = files(directory, require_admin_build=True)
