@@ -17,17 +17,56 @@ MAX_OUTPUT_CHARS = 32768
 RETRYABLE_STATUS = frozenset({401, 429})  # plus every 5xx
 MAX_TOKENS = 10 ** 9
 USAGE_KEYS = frozenset({'prompt_tokens', 'completion_tokens', 'total_tokens'})
+# OpenAI and OpenAI-compatible gateways add optional metering extras next to the counters. They are validated for shape and
+# bound, then ignored: only the counters above are ever returned.
+DETAIL_KEYS = frozenset({'prompt_tokens_details', 'completion_tokens_details', 'cost_details'})
+IGNORED_USAGE_KEYS = DETAIL_KEYS | {'cost', 'is_byok'}
+DETAIL_DEPTH = 3
+DETAIL_ENTRIES = 16
+DETAIL_TEXT = 256
+DELTA_KEYS = frozenset({'role', 'content', 'refusal', 'tool_calls'})  # refusal and tool_calls only as null
+CHOICE_KEYS = frozenset({'index', 'delta', 'finish_reason', 'logprobs'})  # logprobs only as null
+
+
+def _bounded(value, depth=DETAIL_DEPTH):
+    """A plain JSON detail value: scalars, and objects/lists of at most DETAIL_ENTRIES entries nested DETAIL_DEPTH deep."""
+    if value is None or type(value) is bool or type(value) is int:
+        return True
+    if type(value) is float:
+        return value == value and abs(value) != float('inf')
+    if type(value) is str:
+        return len(value) <= DETAIL_TEXT
+    if depth <= 0 or type(value) not in (dict, list) or len(value) > DETAIL_ENTRIES:
+        return False
+    if type(value) is list:
+        return all(_bounded(item, depth - 1) for item in value)
+    return all(type(key) is str and len(key) <= DETAIL_TEXT and _bounded(item, depth - 1) for key, item in value.items())
+
+
+def _usage_extras(usage):
+    cost = usage.get('cost')
+    return (all(key in USAGE_KEYS or key in IGNORED_USAGE_KEYS for key in usage)
+            and (cost is None or (type(cost) in (int, float) and _bounded(cost) and cost >= 0))
+            and type(usage.get('is_byok', False)) is bool
+            and all(usage.get(key) is None or (type(usage[key]) is dict and _bounded(usage[key])) for key in DETAIL_KEYS))
 
 
 def parse_usage(value):
-    """The one terminal usage chunk: empty ``choices`` and exactly the token counters, as plain bounded integers."""
+    """The one terminal usage chunk: empty ``choices`` and the token counters as plain bounded integers (a total must add up).
+
+    Known optional extras (cost and the nested ``*_details`` objects) are tolerated within a bound and dropped.
+    """
     usage = value.get('usage') if type(value) is dict else None
     if (type(value) is not dict or value.get('choices') != [] or type(value.get('choices')) is not list
             or type(usage) is not dict or not {'prompt_tokens', 'completion_tokens'} <= set(usage)
-            or set(usage) - USAGE_KEYS
-            or any(type(count) is not int or not 0 <= count <= MAX_TOKENS for count in usage.values())):
+            or not _usage_extras(usage)):
         raise GatewayUnavailable()
-    return dict(usage)
+    counters = {key: usage[key] for key in USAGE_KEYS if key in usage}
+    if (any(type(count) is not int or not 0 <= count <= MAX_TOKENS for count in counters.values())
+            or counters.get('total_tokens', counters['prompt_tokens'] + counters['completion_tokens'])
+            != counters['prompt_tokens'] + counters['completion_tokens']):
+        raise GatewayUnavailable()
+    return counters
 
 
 class PrivateEchoGuard:
@@ -144,7 +183,8 @@ class HttpxTextAdapter:
                                         raise GatewayUnavailable()
                                     usage = parse_usage(value)
                                     continue
-                                if type(value) is dict and 'usage' in value:
+                                # OpenAI sends ``"usage": null`` on every chunk before the terminal one; a counter never rides a choice.
+                                if type(value) is dict and value.get('usage') is not None:
                                     raise GatewayUnavailable()
                                 choices = value.get('choices') if type(value) is dict else None
                                 if type(choices) is not list or len(choices) != 1:
@@ -152,14 +192,17 @@ class HttpxTextAdapter:
                                 choice = choices[0]
                                 if (type(choice) is not dict or choice.get('index') != 0
                                         or type(choice.get('index')) is not int
-                                        or set(choice) - {'index', 'delta', 'finish_reason'}):
+                                        or set(choice) - CHOICE_KEYS or choice.get('logprobs') is not None):
                                     raise GatewayUnavailable()
                                 delta, reason = choice.get('delta'), choice.get('finish_reason')
-                                if (type(delta) is not dict or set(delta) - {'role', 'content'}
+                                if (type(delta) is not dict or set(delta) - DELTA_KEYS
+                                        or delta.get('refusal') is not None or delta.get('tool_calls') is not None
                                         or ('role' in delta and delta['role'] != 'assistant')
                                         or reason not in (None, 'stop', 'length')):
                                     raise GatewayUnavailable()
-                                content = delta.get('content', '')
+                                content = delta.get('content')
+                                if content is None:
+                                    content = ''
                                 if type(content) is not str:
                                     raise GatewayUnavailable()
                                 output += len(content)

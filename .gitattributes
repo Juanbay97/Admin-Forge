@@ -6,3 +6,4 @@ deploy/compose*.yml text eol=lf
 deploy/.env.example text eol=lf
 deploy/postgres/initdb/*.sql text eol=lf
 deploy/.env.dev.example text eol=lf
+tests/fixtures/gateway/*.sse text eol=lf

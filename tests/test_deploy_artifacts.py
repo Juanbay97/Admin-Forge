@@ -827,6 +827,10 @@ class DevOverlayPolicy(unittest.TestCase):
         for port in FORBIDDEN_HOST_PORTS:
             self.assertNotIn(port, self.source)
 
+    def test_the_smoke_gateway_streams_the_realistic_openai_extras(self):
+        self.assertIn('"--openai-realistic"', self.services['fake-gateway'])
+        self.assertNotIn('openai-realistic', text('deploy/compose.yml'), 'the production stack never carries the fake gateway')
+
     def test_the_overlay_defaults_to_the_internal_ca_and_never_to_a_concrete_domain(self):
         self.assertIn('FORGE_TLS: ${FORGE_TLS:-internal}', self.services['caddy'])
         self.assertEqual(concrete_domains(self.source), [])

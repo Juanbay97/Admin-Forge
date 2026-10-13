@@ -224,8 +224,7 @@ class UsageTests(unittest.IsolatedAsyncioTestCase):
     async def test_every_malformed_or_misplaced_usage_fails_closed(self):
         good = {'prompt_tokens': 1, 'completion_tokens': 2}
         cases = {
-            'unknown usage key': STOP + usage_chunk({**good, 'cost': 1}) + DONE,
-            'nested details': STOP + usage_chunk({**good, 'prompt_tokens_details': {'cached_tokens': 0}}) + DONE,
+            'unknown usage key': STOP + usage_chunk({**good, 'bogus': 1}) + DONE,
             'negative': STOP + usage_chunk({'prompt_tokens': -1, 'completion_tokens': 2}) + DONE,
             'float': STOP + usage_chunk({'prompt_tokens': 1.0, 'completion_tokens': 2}) + DONE,
             'bool': STOP + usage_chunk({'prompt_tokens': True, 'completion_tokens': 2}) + DONE,
@@ -258,12 +257,14 @@ class UsageTests(unittest.IsolatedAsyncioTestCase):
         import random
         rng = random.Random(20261012)
         scalars = [0, 1, 7, 2 ** 31, 10 ** 12, -1, -(10 ** 9), 1.0, 2.5, True, False, None, '3', [], {}, [1]]
-        keys = ['prompt_tokens', 'completion_tokens', 'total_tokens', 'cost', 'prompt_tokens_details', '']
+        keys = ['prompt_tokens', 'completion_tokens', 'total_tokens', 'bogus', '']
 
         def expected(usage):
             if type(usage) is not dict or not {'prompt_tokens', 'completion_tokens'} <= set(usage) or set(usage) - {'prompt_tokens', 'completion_tokens', 'total_tokens'}:
                 return False
-            return all(type(value) is int and 0 <= value <= 10 ** 9 for value in usage.values())
+            if not all(type(value) is int and 0 <= value <= 10 ** 9 for value in usage.values()):
+                return False
+            return 'total_tokens' not in usage or usage['total_tokens'] == usage['prompt_tokens'] + usage['completion_tokens']
 
         accepted = rejected = 0
         for _ in range(240):

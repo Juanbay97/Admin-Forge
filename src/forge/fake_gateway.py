@@ -42,8 +42,13 @@ class FakeGatewayConfiguration:
     tls_cert: str | None = None
     tls_key: str | None = None
     any_interface: bool = False
+    # Stream the extra fields OpenAI and OpenAI-compatible gateways send (usage null, obfuscation, fingerprint, nested usage details,
+    # cost); the default stream stays the minimal contract.
+    openai_realistic: bool = False
 
     def __post_init__(self):
+        if type(self.openai_realistic) is not bool:
+            raise ValueError('Invalid fake gateway mode.')
         if type(self.keys) is not tuple or not 1 <= len(self.keys) <= MAX_KEYS:
             raise ValueError('Invalid fake gateway keys.')
         if any(type(key) is not str or not KEY_PATTERN.fullmatch(key) for key in self.keys):
@@ -83,16 +88,31 @@ class GatewayRecord:
         return None if self.authorization is None else hashlib.sha256(self.authorization.encode()).hexdigest()
 
 
-def _event(model: str, delta: dict, finish_reason=None) -> str:
-    chunk = {'id': 'chatcmpl-fake', 'object': 'chat.completion.chunk', 'created': 0, 'model': model,
-             'choices': [{'index': 0, 'delta': delta, 'finish_reason': finish_reason}]}
+REALISTIC_EXTRAS = {'system_fingerprint': 'fp_fake0001', 'service_tier': 'default', 'obfuscation': 'fakeObf1'}
+
+
+def _event(model: str, delta: dict, finish_reason=None, realistic=False) -> str:
+    choice = {'index': 0, 'delta': delta, 'finish_reason': finish_reason}
+    chunk = {'id': 'chatcmpl-fake', 'object': 'chat.completion.chunk', 'created': 0, 'model': model, 'choices': [choice]}
+    if realistic:
+        if delta.get('role') == 'assistant':
+            delta = choice['delta'] = {**delta, 'refusal': None}
+        choice['logprobs'] = None
+        chunk.update(REALISTIC_EXTRAS, usage=None)
     return 'data: ' + json.dumps(chunk, separators=(',', ':')) + '\n\n'
 
 
-def _usage_event(model: str, prompt_tokens: int, completion_tokens: int) -> str:
+def _usage_event(model: str, prompt_tokens: int, completion_tokens: int, realistic=False) -> str:
+    usage = {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens,
+             'total_tokens': prompt_tokens + completion_tokens}
     chunk = {'id': 'chatcmpl-fake', 'object': 'chat.completion.chunk', 'created': 0, 'model': model, 'choices': [],
-             'usage': {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens,
-                       'total_tokens': prompt_tokens + completion_tokens}}
+             'usage': usage}
+    if realistic:
+        usage.update(prompt_tokens_details={'cached_tokens': 0, 'audio_tokens': 0},
+                     completion_tokens_details={'reasoning_tokens': 0, 'audio_tokens': 0, 'accepted_prediction_tokens': 0,
+                                                'rejected_prediction_tokens': 0},
+                     cost=0.000042)
+        chunk.update(REALISTIC_EXTRAS)
     return 'data: ' + json.dumps(chunk, separators=(',', ':')) + '\n\n'
 
 
@@ -128,7 +148,8 @@ class FakeGateway:
 
     async def _stream(self, model: str, prompt_tokens=None):
         """Role chunk, word deltas, a stop chunk, then ``[DONE]``; faults are model-id driven."""
-        yield _event(model, {'role': 'assistant', 'content': ''})
+        realistic = self.configuration.openai_realistic
+        yield _event(model, {'role': 'assistant', 'content': ''}, realistic=realistic)
         words = REPLY.split(' ')
         for position, word in enumerate(words):
             if model == 'fake-slow':
@@ -136,10 +157,10 @@ class FakeGateway:
             delta = {'content': word if position == len(words) - 1 else word + ' '}
             if model == 'fake-malformed':
                 delta['function_call'] = None
-            yield _event(model, delta)
-        yield _event(model, {}, 'stop')
+            yield _event(model, delta, realistic=realistic)
+        yield _event(model, {}, 'stop', realistic=realistic)
         if prompt_tokens is not None and model != NO_USAGE_MODEL:
-            yield _usage_event(model, prompt_tokens, len(words))
+            yield _usage_event(model, prompt_tokens, len(words), realistic)
         yield 'data: [DONE]\n\n'
 
     def _build(self) -> FastAPI:
@@ -321,6 +342,7 @@ def main(argv=None, *, stopping=None):
         parser.add_argument('--tls-cert')
         parser.add_argument('--tls-key')
         parser.add_argument('--bind-all', action='store_true')
+        parser.add_argument('--openai-realistic', action='store_true')
         parser.add_argument('--make-cert', metavar='DIRECTORY')
         parser.add_argument('--name', action='append')
         arguments = parser.parse_args(sys.argv[1:] if argv is None else argv)
@@ -337,7 +359,7 @@ def main(argv=None, *, stopping=None):
         from forge.mvp_local import FORBIDDEN_PORTS
         if arguments.port in FORBIDDEN_PORTS:
             raise ValueError('PORT_FORBIDDEN')
-        options = {'tls_cert': arguments.tls_cert, 'tls_key': arguments.tls_key}
+        options = {'tls_cert': arguments.tls_cert, 'tls_key': arguments.tls_key, 'openai_realistic': arguments.openai_realistic}
         if arguments.bind_all:
             options.update(host='0.0.0.0', any_interface=True)
         configuration = FakeGatewayConfiguration(keys=read_keys(arguments.keys_file), port=arguments.port, **options)

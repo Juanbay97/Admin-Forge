@@ -268,6 +268,13 @@ at most 366 per request, `page` 1-100):
 production allow-list refuses plain http. The proof then assigns a rejected key as the primary and a good key second, chats as a member
 (the request fails over), and reads the usage as the owner and as the company administrator.
 
+The smoke gateway runs with `--openai-realistic`: it streams what OpenAI and OpenAI-compatible gateways really send (`"usage": null`
+on every content chunk, `system_fingerprint`, `service_tier`, `obfuscation`, `refusal`/`logprobs` null, and a terminal usage chunk with
+`prompt_tokens_details`, `completion_tokens_details` and `cost`). The streaming adapter keeps exact validation of what it uses (token
+counts are non-negative integers and a `total_tokens` must add up) and ignores those known optional extras, which are bounded in depth
+(3), entries (16) and text (256 characters). Output carriers stay refused: a non-null `refusal`, `tool_calls`, `logprobs`,
+`function_call` or any other delta key still fails the stream closed.
+
 ## Provision the first company
 
 Companies are normally created through the platform API above; the `provision` tool remains for the very first

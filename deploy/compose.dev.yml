@@ -41,7 +41,7 @@ services:
   fake-gateway:
     image: ${FORGE_IMAGE:-forge-control-plane:local}
     entrypoint: ["python", "-m", "forge.fake_gateway"]
-    command: ["--keys-file", "/fake/keys.txt", "--tls-cert", "/fake/gateway.crt", "--tls-key", "/fake/gateway.key", "--bind-all"]
+    command: ["--keys-file", "/fake/keys.txt", "--tls-cert", "/fake/gateway.crt", "--tls-key", "/fake/gateway.key", "--bind-all", "--openai-realistic"]
     restart: unless-stopped
     volumes:
       - ${FORGE_FAKE_GATEWAY_DIR:?set FORGE_FAKE_GATEWAY_DIR in deploy/.env.dev (see compose.dev.yml)}:/fake:ro
