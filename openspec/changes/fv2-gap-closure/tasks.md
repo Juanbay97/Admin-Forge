@@ -67,7 +67,7 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 
 ## H4 Smoke stability
 - [x] H4.1 RED/GREEN: e2e API sessions reused per account and released after each journey (production limits untouched)
-- [ ] H4.2 BLOCKED (not ours): `forge-multiuser-flow` fails identically at the baseline 10b5509 (org-B chat gets no reply, composer says "Models unavailable"); client side to diagnose
+- [x] H4.2 RESOLVED: `forge-multiuser-flow` failed at baseline 10b5509 (org-B chat got no reply, composer said "Models unavailable"); fixed by control plane `231e024` (burst requests queue for a pool connection) and client `b45a076` (retry a control plane that sheds load). Evidence: `mvp-smoke` multi-user 1/1 in three later runs.
 
 ## I Final gap closure (client slices are recorded in the client repository)
 - [x] I1.1 RED/GREEN (client, `2103dcd`, `f90bd4e`): installer configuration handoff. The NSIS hook copies `forge-install.json` (from `/CONFIG=<path>` or beside the setup) into the data directory with size and shape checks; the desktop shell validates it at first start (company code, allow-listed origin, key set) and binds the company; the worker pins its keys and rejects a hostile or foreign file; `docs/policy-key-pinning.md` updated. makensis-level, Rust and Python tests.
