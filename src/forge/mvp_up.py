@@ -15,6 +15,7 @@ from psycopg import sql
 
 from forge.dev_accounts import MIGRATIONS, ROOT, OwnedPostgres, PrivateWorkspace, validate_repository
 from forge.mvp_local import ConfigError, MVP_PORTS, ROLES, reserve_loopback_port, serve
+from forge.capability_signing import b64u
 from forge.fake_gateway import MODELS as FAKE_MODELS
 from forge.mvp_profile import MVP_ADDITIONS, MVP_PROFILE
 from forge.pool_seed import seed_gateway_pool
@@ -41,12 +42,12 @@ def install_schema(connection):
     return passwords
 
 
-def runtime_files(directory, *, database, passwords, delivery_key, gateway_key, platform_key, admin_dir, require_admin_build):
+def runtime_files(directory, *, database, passwords, delivery_key, gateway_key, platform_key, admin_dir, require_admin_build, policy_key=None):
     """Write secrets.json and config.json (exclusive create) into the private workspace; return the config path."""
     directory = Path(directory)
     client = 'http://127.0.0.1:%d' % MVP_PORTS['client_ui']
     documents = (('secrets.json', {'roles': passwords, 'delivery_key': delivery_key, 'gateway_key': gateway_key,
-                                  'platform_key': platform_key}),
+                                  'platform_key': platform_key, **({} if policy_key is None else {'policy_key': policy_key})}),
                  ('config.json', {'version': 1, 'profile': MVP_PROFILE, 'database': database,
                                   'secrets_file': str(directory/'secrets.json'), 'mailbox_dir': str(directory/'mailbox'),
                                   'admin_dir': str(admin_dir), 'require_admin_build': require_admin_build,
@@ -86,7 +87,7 @@ def up(stopping, *, require_admin_build=False, emit=None):
             workspace.directory, database={'host': '127.0.0.1', 'port': postgres.port, 'dbname': DATABASE},
             passwords=passwords, delivery_key=Fernet.generate_key().decode('ascii'),
             gateway_key=gateway_secret.decode('ascii'), platform_key=Fernet.generate_key().decode('ascii'),
-            admin_dir=ADMIN_BUILD, require_admin_build=require_admin_build)
+            policy_key=b64u(secrets.token_bytes(32)), admin_dir=ADMIN_BUILD, require_admin_build=require_admin_build)
 
         def run_gateway():
             try:

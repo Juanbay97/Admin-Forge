@@ -1,0 +1,508 @@
+{
+  "contract_version": "forge.capability-policy.v1",
+  "key_set": {
+    "keys": [
+      {
+        "alg": "Ed25519",
+        "kid": "6009a4f582e19d1e",
+        "public_key": "3egND9ljD4WvQCBi8CHsFsaJmHNneBsWiDA_-HDIfaw",
+        "status": "active"
+      }
+    ],
+    "schema": "forge.capability-keys.v1"
+  },
+  "note": "Signature vectors made with the published TEST key below; never a deployment key. Ed25519 is deterministic, so the file is reproducible.",
+  "schema": {
+    "attestation_levels": {
+      "0": "none",
+      "1": "workspace jail and environment scrub",
+      "2": "isolated process with limits",
+      "3": "level 2 plus egress guard and escape suite (code_execute)",
+      "4": "container runner (bash, powershell)"
+    },
+    "canonicalization": "json.dumps(document without sig, sort_keys=True, separators=(\",\", \":\"), ensure_ascii=True)",
+    "document": {
+      "capabilities": "array of {id (bare slug), kind, state, enabled, reason?, min_sandbox_level, version, manifest_sha256, credential_locus, granted_permissions? (apps only)}",
+      "expires_at": "issued_at + 24h",
+      "issued_at": "UTC, YYYY-MM-DDTHH:MM:SSZ",
+      "kid": "key id = first 16 hex of sha256(raw public key)",
+      "org": "organization uuid",
+      "org_epoch": "integer >= 1, monotonic",
+      "platform_epoch": "integer >= 1, monotonic",
+      "reported_level": "integer 0..4 (attestation level the client reported; missing or invalid = 0)",
+      "schema": "string = \"forge.capability-policy.v1\"",
+      "sig": "base64url (no padding) Ed25519 signature"
+    },
+    "effective_route": "GET /forge/v1/capabilities/effective?sandbox_level=N",
+    "key_set_route": "GET /forge/v1/capabilities/keys",
+    "kinds": [
+      "tool",
+      "skill",
+      "connector",
+      "plugin",
+      "app"
+    ],
+    "states": [
+      "on",
+      "off",
+      "forced_off",
+      "blocked_attestation"
+    ],
+    "verification": "known kid, then Ed25519 over the canonical bytes, then now < expires_at, then both epochs >= the highest seen"
+  },
+  "vectors": [
+    {
+      "canonical": "{\"capabilities\":[{\"credential_locus\":\"none\",\"enabled\":false,\"granted_permissions\":[\"ui.title\"],\"id\":\"acme.hello\",\"kind\":\"app\",\"manifest_sha256\":\"23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24\",\"min_sandbox_level\":0,\"state\":\"off\",\"version\":\"1.2.3\"},{\"credential_locus\":\"server\",\"enabled\":true,\"id\":\"github\",\"kind\":\"connector\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":true,\"id\":\"pdf\",\"kind\":\"skill\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"bash\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":4,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"code_execute\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":3,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"}],\"expires_at\":\"2027-01-16T08:00:00Z\",\"issued_at\":\"2027-01-15T08:00:00Z\",\"kid\":\"6009a4f582e19d1e\",\"org\":\"11111111-1111-4111-8111-111111111111\",\"org_epoch\":3,\"platform_epoch\":5,\"reported_level\":2,\"schema\":\"forge.capability-policy.v1\"}",
+      "description": "The base skills and connectors are on; code_execute is blocked_attestation below level 3 and bash below level 4.",
+      "document": {
+        "capabilities": [
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "granted_permissions": [
+              "ui.title"
+            ],
+            "id": "acme.hello",
+            "kind": "app",
+            "manifest_sha256": "23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24",
+            "min_sandbox_level": 0,
+            "state": "off",
+            "version": "1.2.3"
+          },
+          {
+            "credential_locus": "server",
+            "enabled": true,
+            "id": "github",
+            "kind": "connector",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "id": "pdf",
+            "kind": "skill",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "bash",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 4,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "code_execute",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 3,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          }
+        ],
+        "expires_at": "2027-01-16T08:00:00Z",
+        "issued_at": "2027-01-15T08:00:00Z",
+        "kid": "6009a4f582e19d1e",
+        "org": "11111111-1111-4111-8111-111111111111",
+        "org_epoch": 3,
+        "platform_epoch": 5,
+        "reported_level": 2,
+        "schema": "forge.capability-policy.v1",
+        "sig": "YsBxTXX9aQvD-LgyIAZZKSQBiBQQHmHh8hjW0b4cUyi9SJft3_CO8WbCI61GXcw00GlXc760e3DUP1-KvUgeDA"
+      },
+      "expect": "valid",
+      "name": "base_set_at_level_2",
+      "now": 1800000000
+    },
+    {
+      "canonical": "{\"capabilities\":[{\"credential_locus\":\"none\",\"enabled\":true,\"granted_permissions\":[\"ui.title\"],\"id\":\"acme.hello\",\"kind\":\"app\",\"manifest_sha256\":\"23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24\",\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.2.3\"},{\"credential_locus\":\"server\",\"enabled\":true,\"id\":\"github\",\"kind\":\"connector\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"pdf\",\"kind\":\"skill\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"reason\":\"forced_off\",\"state\":\"forced_off\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":true,\"id\":\"bash\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":4,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":true,\"id\":\"code_execute\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":3,\"state\":\"on\",\"version\":\"1.0.0\"}],\"expires_at\":\"2027-01-16T08:00:00Z\",\"issued_at\":\"2027-01-15T08:00:00Z\",\"kid\":\"6009a4f582e19d1e\",\"org\":\"11111111-1111-4111-8111-111111111111\",\"org_epoch\":4,\"platform_epoch\":5,\"reported_level\":4,\"schema\":\"forge.capability-policy.v1\"}",
+      "description": "A force-off lock wins; an enabled app lists only granted permissions with its entry pin; every exec tool is on at level 4.",
+      "document": {
+        "capabilities": [
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "granted_permissions": [
+              "ui.title"
+            ],
+            "id": "acme.hello",
+            "kind": "app",
+            "manifest_sha256": "23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24",
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.2.3"
+          },
+          {
+            "credential_locus": "server",
+            "enabled": true,
+            "id": "github",
+            "kind": "connector",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "pdf",
+            "kind": "skill",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "reason": "forced_off",
+            "state": "forced_off",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "id": "bash",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 4,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "id": "code_execute",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 3,
+            "state": "on",
+            "version": "1.0.0"
+          }
+        ],
+        "expires_at": "2027-01-16T08:00:00Z",
+        "issued_at": "2027-01-15T08:00:00Z",
+        "kid": "6009a4f582e19d1e",
+        "org": "11111111-1111-4111-8111-111111111111",
+        "org_epoch": 4,
+        "platform_epoch": 5,
+        "reported_level": 4,
+        "schema": "forge.capability-policy.v1",
+        "sig": "iF3gTj6Z1ymSfVYzGdi7Kx5AwDJT3tCbyjmDCp7Ydm5qudX_36dKSV7uL4OgQJpTz7bpAtdR9LP1NVPRXrIrBg"
+      },
+      "expect": "valid",
+      "name": "locked_and_app_at_level_4",
+      "now": 1800000000
+    },
+    {
+      "canonical": "{\"capabilities\":[{\"credential_locus\":\"none\",\"enabled\":false,\"granted_permissions\":[\"ui.title\"],\"id\":\"acme.hello\",\"kind\":\"app\",\"manifest_sha256\":\"23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24\",\"min_sandbox_level\":0,\"state\":\"off\",\"version\":\"1.2.3\"},{\"credential_locus\":\"server\",\"enabled\":true,\"id\":\"github\",\"kind\":\"connector\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":true,\"id\":\"pdf\",\"kind\":\"skill\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"bash\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":4,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":true,\"id\":\"code_execute\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":3,\"reason\":\"blocked_attestation\",\"state\":\"on\",\"version\":\"1.0.0\"}],\"expires_at\":\"2027-01-16T08:00:00Z\",\"issued_at\":\"2027-01-15T08:00:00Z\",\"kid\":\"6009a4f582e19d1e\",\"org\":\"11111111-1111-4111-8111-111111111111\",\"org_epoch\":3,\"platform_epoch\":5,\"reported_level\":2,\"schema\":\"forge.capability-policy.v1\"}",
+      "description": "A client that flips code_execute to on after signing must fail verification.",
+      "document": {
+        "capabilities": [
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "granted_permissions": [
+              "ui.title"
+            ],
+            "id": "acme.hello",
+            "kind": "app",
+            "manifest_sha256": "23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24",
+            "min_sandbox_level": 0,
+            "state": "off",
+            "version": "1.2.3"
+          },
+          {
+            "credential_locus": "server",
+            "enabled": true,
+            "id": "github",
+            "kind": "connector",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "id": "pdf",
+            "kind": "skill",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "bash",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 4,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "id": "code_execute",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 3,
+            "reason": "blocked_attestation",
+            "state": "on",
+            "version": "1.0.0"
+          }
+        ],
+        "expires_at": "2027-01-16T08:00:00Z",
+        "issued_at": "2027-01-15T08:00:00Z",
+        "kid": "6009a4f582e19d1e",
+        "org": "11111111-1111-4111-8111-111111111111",
+        "org_epoch": 3,
+        "platform_epoch": 5,
+        "reported_level": 2,
+        "schema": "forge.capability-policy.v1",
+        "sig": "YsBxTXX9aQvD-LgyIAZZKSQBiBQQHmHh8hjW0b4cUyi9SJft3_CO8WbCI61GXcw00GlXc760e3DUP1-KvUgeDA"
+      },
+      "expect": "bad_signature",
+      "name": "tampered_state",
+      "now": 1800000000
+    },
+    {
+      "canonical": "{\"capabilities\":[{\"credential_locus\":\"none\",\"enabled\":false,\"granted_permissions\":[\"ui.title\"],\"id\":\"acme.hello\",\"kind\":\"app\",\"manifest_sha256\":\"23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24\",\"min_sandbox_level\":0,\"state\":\"off\",\"version\":\"1.2.3\"},{\"credential_locus\":\"server\",\"enabled\":true,\"id\":\"github\",\"kind\":\"connector\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":true,\"id\":\"pdf\",\"kind\":\"skill\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"bash\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":4,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"code_execute\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":3,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"}],\"expires_at\":\"2027-01-16T08:00:00Z\",\"issued_at\":\"2027-01-15T08:00:00Z\",\"kid\":\"07f1d92b972ffc7b\",\"org\":\"11111111-1111-4111-8111-111111111111\",\"org_epoch\":3,\"platform_epoch\":5,\"reported_level\":2,\"schema\":\"forge.capability-policy.v1\"}",
+      "description": "A document signed by a key that is not in the published set.",
+      "document": {
+        "capabilities": [
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "granted_permissions": [
+              "ui.title"
+            ],
+            "id": "acme.hello",
+            "kind": "app",
+            "manifest_sha256": "23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24",
+            "min_sandbox_level": 0,
+            "state": "off",
+            "version": "1.2.3"
+          },
+          {
+            "credential_locus": "server",
+            "enabled": true,
+            "id": "github",
+            "kind": "connector",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "id": "pdf",
+            "kind": "skill",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "bash",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 4,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "code_execute",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 3,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          }
+        ],
+        "expires_at": "2027-01-16T08:00:00Z",
+        "issued_at": "2027-01-15T08:00:00Z",
+        "kid": "07f1d92b972ffc7b",
+        "org": "11111111-1111-4111-8111-111111111111",
+        "org_epoch": 3,
+        "platform_epoch": 5,
+        "reported_level": 2,
+        "schema": "forge.capability-policy.v1",
+        "sig": "uYMJThEooPX1T98FNJp29FhCX6hXatOsms4G_j2yyVDU0c4EkzL8ClrpJyJl5QNLuD15yTIlSmMubXhelmQBBA"
+      },
+      "expect": "unknown_key",
+      "name": "unknown_key_id",
+      "now": 1800000000
+    },
+    {
+      "canonical": "{\"capabilities\":[{\"credential_locus\":\"none\",\"enabled\":false,\"granted_permissions\":[\"ui.title\"],\"id\":\"acme.hello\",\"kind\":\"app\",\"manifest_sha256\":\"23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24\",\"min_sandbox_level\":0,\"state\":\"off\",\"version\":\"1.2.3\"},{\"credential_locus\":\"server\",\"enabled\":true,\"id\":\"github\",\"kind\":\"connector\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":true,\"id\":\"pdf\",\"kind\":\"skill\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"bash\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":4,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"code_execute\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":3,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"}],\"expires_at\":\"2027-01-16T08:00:00Z\",\"issued_at\":\"2027-01-15T08:00:00Z\",\"kid\":\"6009a4f582e19d1e\",\"org\":\"11111111-1111-4111-8111-111111111111\",\"org_epoch\":3,\"platform_epoch\":5,\"reported_level\":2,\"schema\":\"forge.capability-policy.v1\"}",
+      "description": "now is past expires_at.",
+      "document": {
+        "capabilities": [
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "granted_permissions": [
+              "ui.title"
+            ],
+            "id": "acme.hello",
+            "kind": "app",
+            "manifest_sha256": "23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24",
+            "min_sandbox_level": 0,
+            "state": "off",
+            "version": "1.2.3"
+          },
+          {
+            "credential_locus": "server",
+            "enabled": true,
+            "id": "github",
+            "kind": "connector",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "id": "pdf",
+            "kind": "skill",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "bash",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 4,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "code_execute",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 3,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          }
+        ],
+        "expires_at": "2027-01-16T08:00:00Z",
+        "issued_at": "2027-01-15T08:00:00Z",
+        "kid": "6009a4f582e19d1e",
+        "org": "11111111-1111-4111-8111-111111111111",
+        "org_epoch": 3,
+        "platform_epoch": 5,
+        "reported_level": 2,
+        "schema": "forge.capability-policy.v1",
+        "sig": "YsBxTXX9aQvD-LgyIAZZKSQBiBQQHmHh8hjW0b4cUyi9SJft3_CO8WbCI61GXcw00GlXc760e3DUP1-KvUgeDA"
+      },
+      "expect": "expired",
+      "name": "expired_document",
+      "now": 1800086401
+    },
+    {
+      "canonical": "{\"capabilities\":[{\"credential_locus\":\"none\",\"enabled\":false,\"granted_permissions\":[\"ui.title\"],\"id\":\"acme.hello\",\"kind\":\"app\",\"manifest_sha256\":\"23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24\",\"min_sandbox_level\":0,\"state\":\"off\",\"version\":\"1.2.3\"},{\"credential_locus\":\"server\",\"enabled\":true,\"id\":\"github\",\"kind\":\"connector\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":true,\"id\":\"pdf\",\"kind\":\"skill\",\"manifest_sha256\":null,\"min_sandbox_level\":0,\"state\":\"on\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"bash\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":4,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"},{\"credential_locus\":\"none\",\"enabled\":false,\"id\":\"code_execute\",\"kind\":\"tool\",\"manifest_sha256\":null,\"min_sandbox_level\":3,\"reason\":\"blocked_attestation\",\"state\":\"blocked_attestation\",\"version\":\"1.0.0\"}],\"expires_at\":\"2027-01-16T08:00:00Z\",\"issued_at\":\"2027-01-15T08:00:00Z\",\"kid\":\"6009a4f582e19d1e\",\"org\":\"11111111-1111-4111-8111-111111111111\",\"org_epoch\":3,\"platform_epoch\":5,\"reported_level\":2,\"schema\":\"forge.capability-policy.v1\"}",
+      "description": "The client already saw platform_epoch 9: an older document is rejected.",
+      "document": {
+        "capabilities": [
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "granted_permissions": [
+              "ui.title"
+            ],
+            "id": "acme.hello",
+            "kind": "app",
+            "manifest_sha256": "23be5a1c36fc179aaa2670e7360cb581b21ad6e8a7193b42f6f07ddeeb7c4b24",
+            "min_sandbox_level": 0,
+            "state": "off",
+            "version": "1.2.3"
+          },
+          {
+            "credential_locus": "server",
+            "enabled": true,
+            "id": "github",
+            "kind": "connector",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": true,
+            "id": "pdf",
+            "kind": "skill",
+            "manifest_sha256": null,
+            "min_sandbox_level": 0,
+            "state": "on",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "bash",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 4,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          },
+          {
+            "credential_locus": "none",
+            "enabled": false,
+            "id": "code_execute",
+            "kind": "tool",
+            "manifest_sha256": null,
+            "min_sandbox_level": 3,
+            "reason": "blocked_attestation",
+            "state": "blocked_attestation",
+            "version": "1.0.0"
+          }
+        ],
+        "expires_at": "2027-01-16T08:00:00Z",
+        "issued_at": "2027-01-15T08:00:00Z",
+        "kid": "6009a4f582e19d1e",
+        "org": "11111111-1111-4111-8111-111111111111",
+        "org_epoch": 3,
+        "platform_epoch": 5,
+        "reported_level": 2,
+        "schema": "forge.capability-policy.v1",
+        "sig": "YsBxTXX9aQvD-LgyIAZZKSQBiBQQHmHh8hjW0b4cUyi9SJft3_CO8WbCI61GXcw00GlXc760e3DUP1-KvUgeDA"
+      },
+      "expect": "rollback",
+      "minimum_epochs": [
+        9,
+        0
+      ],
+      "name": "epoch_rollback",
+      "now": 1800000000
+    }
+  ]
+}

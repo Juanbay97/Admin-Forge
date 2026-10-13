@@ -1,4 +1,5 @@
 """mvp_local: strict explicit config, secrets file, no environment discovery, port safety, assembly."""
+import base64
 import json
 import os
 from pathlib import Path
@@ -163,6 +164,25 @@ class SecretsTests(unittest.TestCase):
             with self.assertRaises(ConfigError) as missing:
                 load_secrets(str(w.root/'absent.json'))
             self.assertEqual(str(missing.exception), 'SECRETS_UNREADABLE')
+
+
+class PolicyKeyTests(unittest.TestCase):
+    def test_a_policy_signing_key_is_optional_and_loaded_when_present(self):
+        with Workspace() as w:
+            good = json.loads(Path(w.secrets_path).read_text('utf-8'))
+            self.assertIsNone(load_secrets(w.secrets_path).policy_key)
+            seed = base64.urlsafe_b64encode(bytes(range(32))).decode().rstrip('=')
+            self.assertEqual(load_secrets(write(w.root/'s.json', {**good, 'policy_key': seed})).policy_key, seed)
+
+    def test_an_invalid_or_shared_policy_key_is_refused_without_echo(self):
+        with Workspace() as w:
+            good = json.loads(Path(w.secrets_path).read_text('utf-8'))
+            cases = {'not base64': 'not a key SECRET!', 'short': 'AAAA', 'empty': '', 'number': 5, 'shared with the gateway key': good['gateway_key']}
+            for name, value in cases.items():
+                with self.subTest(name), self.assertRaises(ConfigError) as caught:
+                    load_secrets(write(w.root/'s.json', {**good, 'policy_key': value}))
+                self.assertEqual(str(caught.exception), 'SECRETS_INVALID')
+                self.assertNotIn('SECRET!', str(caught.exception))
 
 
 class Ready:

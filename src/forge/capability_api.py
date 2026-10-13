@@ -186,3 +186,58 @@ def mount_company_capabilities(app: FastAPI, *, capabilities, sessions, readines
             found = await blocking(capabilities.org_audit, token, organization_id, before, page)
             return JSONResponse({'entries': [_audit(record) for record in found], 'next_before': found[-1].id if len(found) == page else None})
         return await guarded(request, operation)
+
+
+_LEVEL = re.compile(r'(0|[1-4])')
+
+
+def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations):
+    """``GET /forge/v1/capabilities/effective`` (a member session, ``sandbox_level`` 0..4 optional, ``org`` optional when the
+    session has exactly one company) and the public ``GET /forge/v1/capabilities/keys``. Both are 503 without a signing key."""
+    def blocking(function, *arguments):
+        return run_sync(lambda: function(*arguments), abandon_on_cancel=False)
+
+    authenticate = bearer_guard(sessions, readiness, blocking)
+    headers = {'Cache-Control': 'no-store'}
+
+    @app.get('/forge/v1/capabilities/effective', include_in_schema=False)
+    async def effective(request: Request):
+        try:
+            token = await authenticate(request)
+            if not policy.configured:
+                raise _Refusal(_envelope(503, *_UNAVAILABLE))
+            keys = [key for key, _ in request.query_params.multi_items()]
+            if len(keys) != len(set(keys)) or set(keys) - {'sandbox_level', 'org'}:
+                raise _invalid()
+            level = request.query_params.get('sandbox_level')
+            if level is not None and not _LEVEL.fullmatch(level):
+                raise _invalid()
+            named = request.query_params.get('org')
+            try:
+                named = None if named is None else UUID(named)
+            except ValueError:
+                raise _invalid() from None
+            companies = await blocking(organizations, token)
+            if named is not None:
+                if named not in companies:
+                    raise _Refusal(_envelope(404, *_NOT_FOUND))
+                org = named
+            elif len(companies) == 1:
+                org = companies[0]
+            elif not companies:
+                raise _Refusal(_envelope(404, *_NOT_FOUND))
+            else:
+                raise _invalid()  # several companies: the member must say which
+            document = await blocking(policy.document, token, org, None if level is None else int(level))
+            return JSONResponse(document, headers=headers)
+        except _Refusal as refusal:
+            return refusal.response
+        except Exception as error:
+            return company_failure(error)
+
+    @app.get('/forge/v1/capabilities/keys', include_in_schema=False)
+    async def keys():
+        try:
+            return JSONResponse(policy.keys(), headers={'Cache-Control': 'public, max-age=300'})
+        except Exception as error:
+            return company_failure(error)

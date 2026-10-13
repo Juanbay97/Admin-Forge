@@ -66,7 +66,7 @@ def add_status(app, readiness, admin_dir):
 
 
 def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery_key, gateway_key, platform_key,
-              gateway_policy, gateway_ca_file=None):
+              gateway_policy, gateway_ca_file=None, policy_key=None):
     import ssl
     from forge.account_api import create_account_app
     from forge.account_sessions import PostgresSessionStore, SessionService
@@ -74,7 +74,9 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.authorization_store import PostgresAuthorizationReader
     from forge.branding_api import mount_branding
     from forge.branding_store import PostgresBrandingStore
-    from forge.capability_api import mount_company_capabilities
+    from forge.capability_api import mount_company_capabilities, mount_effective
+    from forge.capability_effective import EffectivePolicy
+    from forge.capability_signing import load_signer
     from forge.capability_service import Capabilities
     from forge.capability_store import PostgresCapabilityStore
     from forge.directory import DirectoryService
@@ -106,6 +108,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     verify = ssl.create_default_context(cafile=gateway_ca_file) if gateway_ca_file else True  # a private gateway CA, else the system store
     cipher = GatewayCipher(gateway_key, policy=gateway_policy)
     sessions = SessionService(PostgresSessionStore(accounts))
+    directory = DirectoryService(PostgresDirectoryStore(gateway))
     delivery = DeliveryCoordinator(PostgresDeliveryStore(accounts), delivery_adapter, origin=onboarding_origin,
                                    encryption_key=delivery_key)  # one coordinator: member invitations, resets and first admins
     app = create_account_app(
@@ -117,13 +120,16 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         gateway_catalog=GatewayCatalog(PostgresPoolCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy, verify=verify)),
         gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy, verify=verify),
                                            usage=PostgresUsageStore(gateway)),
-        directory=DirectoryService(PostgresDirectoryStore(gateway)))
+        directory=directory)
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
     capabilities = Capabilities(PostgresCapabilityStore(capability))
     mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),
                    sessions=sessions, readiness=readiness, keys=GatewayKeys(PostgresGatewayKeyStore(platform), cipher),
                    usage=PlatformUsage(PostgresPlatformUsageStore(platform)), capabilities=capabilities)
     mount_company_capabilities(app, capabilities=capabilities, sessions=sessions, readiness=readiness)
+    signer = None if policy_key is None else load_signer(policy_key)  # absent: the effective-policy routes answer 503
+    mount_effective(app, policy=EffectivePolicy(PostgresCapabilityStore(capability), signer), sessions=sessions, readiness=readiness,
+                    organizations=lambda token: [item.id for item in directory.me(token).organizations if item.status == 'active'])
     mount_company_usage(app, usage=CompanyUsage(PostgresCompanyUsageStore(gateway)), sessions=sessions,
                         authorization_reader=PostgresAuthorizationReader(bootstrap), readiness=readiness)
     return app

@@ -6,6 +6,7 @@ missing, unknown or malformed field exits with a finite non-secret code before a
 port is bound. The legacy demo ports are refused and no other process is ever touched.
 """
 import argparse
+import base64
 from dataclasses import dataclass, field
 import json
 import logging
@@ -127,6 +128,7 @@ class MvpSecrets:
     delivery_key: bytes = field(repr=False)
     gateway_key: bytes = field(repr=False)
     platform_key: bytes = field(repr=False)
+    policy_key: str | None = field(default=None, repr=False)  # the Ed25519 seed that signs the effective policy; absent = the route answers 503
 
 
 def load_secrets(path):
@@ -138,16 +140,22 @@ def load_secrets(path):
         raise ConfigError('SECRETS_INVALID') from None
     try:
         roles = values['roles']
-        if (set(values) != {'roles', 'delivery_key', 'gateway_key', 'platform_key'} or set(roles) != set(ROLES)
+        if (set(values) - {'policy_key'} != {'roles', 'delivery_key', 'gateway_key', 'platform_key'} or set(roles) != set(ROLES)
                 or any(type(password) is not str or not password for password in roles.values())
                 or len({values['delivery_key'], values['gateway_key'], values['platform_key']}) != 3):
             raise ValueError
         keys = [values[name].encode('ascii') for name in ('delivery_key', 'gateway_key', 'platform_key')]
         for key in keys:
             Fernet(key)
+        policy = values.get('policy_key')
+        if 'policy_key' in values:
+            from forge.capability_signing import load_signer, unb64u
+            load_signer(policy)
+            if unb64u(policy) in {base64.urlsafe_b64decode(key) for key in keys}:
+                raise ValueError  # one secret per purpose
     except (ValueError, TypeError, KeyError, AttributeError):
         raise ConfigError('SECRETS_INVALID') from None
-    return MvpSecrets(dict(roles), *keys)
+    return MvpSecrets(dict(roles), *keys, policy)
 
 
 def role_settings(config, secrets, role):
@@ -181,7 +189,7 @@ def compose(config, secrets, pools):
     app = composition.build_app(
         owned, readiness=readiness, delivery_adapter=LocalTestMailbox(mailbox, sender='forge@local.test'),
         onboarding_origin=config.client_origin, delivery_key=secrets.delivery_key, gateway_key=secrets.gateway_key, platform_key=secrets.platform_key,
-        gateway_policy=config.gateway_policy)
+        gateway_policy=config.gateway_policy, policy_key=secrets.policy_key)
     return assemble(app, config, readiness)
 
 

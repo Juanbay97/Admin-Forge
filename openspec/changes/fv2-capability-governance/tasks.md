@@ -46,9 +46,9 @@ Chain strategy: stacked-to-main
 - [x] 3.3 Hidden-route test + MVP contract pin unchanged
 
 ## S4 Effective policy
-- [ ] 4.1 `capability_signing.py` Ed25519, kid, canonical JSON; vectors
-- [ ] 4.2 `GET /forge/v1/capabilities/effective` + `/keys`; 503 w/o key
-- [ ] 4.3 `contract/forge-capability-policy.v1.json` + tamper/expiry/epoch tests
+- [x] 4.1 `capability_signing.py` Ed25519, kid, canonical JSON; vectors
+- [x] 4.2 `GET /forge/v1/capabilities/effective` + `/keys`; 503 w/o key
+- [x] 4.3 `contract/forge-capability-policy.v1.json` + tamper/expiry/epoch tests
 
 ## S5 Invocation log
 - [ ] 5.1 Migration + ingest fn (dedupe event_id)

@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT/'src'))
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from forge import contract
+from forge.capability_signing import b64u
 from forge.mvp_local import MVP_PORTS, compose, load_config, load_secrets
 from forge.mvp_profile import MVP_PROFILE
 from forge.provisioning import SEED, provision
@@ -34,7 +35,8 @@ def stack(environment=None):
         (root/'admin').mkdir()
         (root/'admin'/'index.html').write_text('<title>Forge admin</title>', 'utf-8')
         secrets = {'roles': dict(db.passwords), 'delivery_key': Fernet.generate_key().decode(),
-                   'gateway_key': Fernet.generate_key().decode(), 'platform_key': Fernet.generate_key().decode()}
+                   'gateway_key': Fernet.generate_key().decode(), 'platform_key': Fernet.generate_key().decode(),
+                   'policy_key': b64u(os.urandom(32))}
         (root/'secrets.json').write_text(json.dumps(secrets), 'utf-8')
         values = db.connection_settings()
         config_path = root/'config.json'
