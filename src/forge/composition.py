@@ -85,8 +85,12 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.invitation_delivery import DeliveryCoordinator, PostgresDeliveryStore
     from forge.invitation_store import PostgresInvitationStore
     from forge.invitations import InvitationService
+    from forge.platform import PlatformService
+    from forge.platform_api import mount_platform
+    from forge.platform_store import PostgresPlatformStore
+    from forge.platform_totp import SecretSealer
     from forge.postgres import PostgresBootstrapReader
-    accounts, enrollment, bootstrap, gateway, branding, platform = pools  # platform: mounted by the platform API
+    accounts, enrollment, bootstrap, gateway, branding, platform = pools
     cipher = GatewayCipher(gateway_key, policy=gateway_policy)
     sessions = SessionService(PostgresSessionStore(accounts))
     app = create_account_app(
@@ -100,4 +104,6 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         gateway_inference=GatewayInference(PostgresGatewayInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy)),
         directory=DirectoryService(PostgresDirectoryStore(gateway)))
     mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
+    mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key)), sessions=sessions,
+                   readiness=readiness)
     return app

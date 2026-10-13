@@ -1,0 +1,206 @@
+"""Platform HTTP routes (``/forge/v1/platform/*``), mounted onto an existing account app and kept OUT of the pinned contract.
+
+Every route is ``include_in_schema=False``, so the contract hash is unchanged and ``MeResponse`` is not widened:
+``GET /forge/v1/platform/me`` is a separate document. Callers authenticate with the same account bearer token as
+everywhere else; the platform's own checks (owner role, verified second factor, freshness) are database functions
+that run on every call, so a route here never decides authority by itself. Failures are finite codes with no detail.
+
+Authenticated (password session): ``GET me``, ``POST mfa/enroll``, ``POST login/mfa`` (a TOTP ``code`` or a
+``recovery_code``). Authenticated and MFA-verified: ``GET companies``, ``GET companies/{id}``, ``GET audit``.
+"""
+import json
+import re
+from uuid import UUID, uuid4
+
+from anyio.to_thread import run_sync
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from forge.api import ErrorDetail, ErrorEnvelope
+from forge.invitations import capability_digest
+from forge.platform import (COMPANY_CODE, MAX_PAGE, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, PlatformDenied,
+                            PlatformInvalid, PlatformNotFound)
+
+PREFIX = '/forge/v1/platform'
+JSON_LIMIT = 1024
+LOCK_SECONDS = 900
+_UNAVAILABLE = ('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable.')
+_FAILURES = ((PlatformDenied, 403, 'PLATFORM_DENIED', 'Platform access denied.'),
+             (MfaRequired, 403, 'MFA_REQUIRED', 'A verified second factor is required.'),
+             (MfaInvalid, 403, 'MFA_INVALID', 'The verification code was not accepted.'),
+             (MfaLocked, 429, 'MFA_LOCKED', 'Too many attempts; try again later.'),
+             (MfaEnrolled, 409, 'MFA_ENROLLED', 'A second factor is already enrolled.'),
+             (PlatformInvalid, 422, 'INVALID_REQUEST', 'The platform request is invalid.'),
+             (PlatformNotFound, 404, 'NOT_FOUND', 'The requested resource is unavailable.'))
+_QUERY_KEYS = {'companies': {'after', 'page'}, 'audit': {'before', 'page'}}
+_DIGITS = re.compile(r'[0-9]{1,18}')
+
+
+def _envelope(status, code, message, *, retry=None, headers=None):
+    body = ErrorEnvelope(error=ErrorDetail(code=code, message=message, request_id=uuid4(), retryable=retry is not None or status == 503,
+                                           retry_after_seconds=retry, reset_at=None))
+    return JSONResponse(status_code=status, content=body.model_dump(mode='json'), headers=headers)
+
+
+class _Refusal(Exception):
+    def __init__(self, response):
+        self.response = response
+
+
+def _invalid():
+    return _Refusal(_envelope(422, 'INVALID_REQUEST', 'The platform request is invalid.'))
+
+
+def _unique(pairs):
+    keys = [key for key, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError
+    return dict(pairs)
+
+
+async def _body(request):
+    """A small JSON object with exactly one of the allowed keys, each a string."""
+    media = request.headers.get('content-type', '').split(';')[0].strip().lower()
+    if media != 'application/json':
+        raise _Refusal(_envelope(415, 'UNSUPPORTED_MEDIA_TYPE', 'The request body must be application/json.'))
+    declared = request.headers.get('content-length')
+    if declared is not None and (not declared.isascii() or not declared.isdigit()):
+        raise _invalid()
+    if declared is not None and int(declared) > JSON_LIMIT:
+        raise _Refusal(_envelope(413, 'PAYLOAD_TOO_LARGE', 'The request body is too large.'))
+    data = bytearray()
+    async for piece in request.stream():
+        data.extend(piece)
+        if len(data) > JSON_LIMIT:
+            raise _Refusal(_envelope(413, 'PAYLOAD_TOO_LARGE', 'The request body is too large.'))
+    try:
+        document = json.loads(bytes(data).decode('utf-8'), object_pairs_hook=_unique)
+    except (ValueError, UnicodeDecodeError):
+        raise _invalid() from None
+    if type(document) is not dict or len(document) != 1 or set(document) - {'code', 'recovery_code'}:
+        raise _invalid()
+    ((key, value),) = document.items()
+    if type(value) is not str:
+        raise _invalid()
+    return key, value
+
+
+def _query(request, name):
+    """Only the route's own keys, each at most once; ``page`` an integer in range, ``after``/``before`` well formed."""
+    allowed = _QUERY_KEYS[name]
+    keys = [key for key, _ in request.query_params.multi_items()]
+    if len(keys) != len(set(keys)) or set(keys) - allowed:
+        raise _invalid()
+    values = {key: request.query_params[key] for key in keys}
+    page = 50
+    if 'page' in values:
+        if not _DIGITS.fullmatch(values['page']) or not 1 <= int(values['page']) <= MAX_PAGE:
+            raise _invalid()
+        page = int(values['page'])
+    if name == 'companies':
+        after = values.get('after')
+        if after is not None and not COMPANY_CODE.fullmatch(after):
+            raise _invalid()
+        return {'after': after, 'page': page}
+    before = values.get('before')
+    if before is not None and (not _DIGITS.fullmatch(before) or int(before) < 1):
+        raise _invalid()
+    return {'before': None if before is None else int(before), 'page': page}
+
+
+def _company(company):
+    return {'id': str(company.organization_id), 'slug': company.slug, 'display_name': company.display_name, 'active': company.active}
+
+
+def mount_platform(app: FastAPI, *, service, sessions, readiness=None):
+    """Add the platform routes (all ``include_in_schema=False``, so the contract pin is unchanged)."""
+    def blocking(function, *arguments, **keywords):
+        return run_sync(lambda: function(*arguments, **keywords), abandon_on_cancel=False)
+
+    async def authenticate(request):
+        header = request.headers.getlist('authorization')
+        scheme, separator, value = (header[0] if len(header) == 1 else '').partition(' ')
+        unauthenticated = _Refusal(_envelope(401, 'UNAUTHENTICATED', 'A valid Forge bearer token is required.',
+                                             headers={'WWW-Authenticate': 'Bearer'}))
+        if scheme.lower() != 'bearer' or not separator or len(value) != 43 or any(c.isspace() for c in value):
+            raise unauthenticated
+        try:
+            if readiness is None or not await blocking(readiness.check):
+                raise _Refusal(_envelope(503, *_UNAVAILABLE))
+            capability_digest(value)
+            identity = await blocking(sessions.validate, value)
+        except _Refusal:
+            raise
+        except ValueError:
+            identity = None
+        except Exception:
+            raise _Refusal(_envelope(503, *_UNAVAILABLE)) from None
+        if identity is None:
+            raise unauthenticated
+        return value
+
+    async def guarded(request, operation):
+        try:
+            token = await authenticate(request)
+            return await operation(token)
+        except _Refusal as refusal:
+            return refusal.response
+        except MfaLocked:
+            return _envelope(429, 'MFA_LOCKED', 'Too many attempts; try again later.', retry=LOCK_SECONDS,
+                             headers={'Retry-After': str(LOCK_SECONDS)})
+        except Exception as error:
+            for failure, status, code, message in _FAILURES:
+                if isinstance(error, failure):
+                    return _envelope(status, code, message)
+            return _envelope(503, *_UNAVAILABLE)
+
+    @app.get(PREFIX + '/me', include_in_schema=False)
+    async def me(request: Request):
+        async def operation(token):
+            identity = await blocking(service.me, token)
+            status = await blocking(service.mfa_status, token)
+            return JSONResponse({'account_id': str(identity.account_id), 'role': identity.role,
+                                 'mfa': {'state': status.state, 'verified': status.verified, 'fresh': status.fresh}})
+        return await guarded(request, operation)
+
+    @app.post(PREFIX + '/mfa/enroll', include_in_schema=False)
+    async def enroll(request: Request):
+        async def operation(token):
+            enrollment = await blocking(service.enroll_mfa, token)
+            return JSONResponse({'secret': enrollment.secret, 'otpauth_uri': enrollment.otpauth_uri,
+                                 'recovery_codes': list(enrollment.recovery_codes)}, status_code=201)
+        return await guarded(request, operation)
+
+    @app.post(PREFIX + '/login/mfa', include_in_schema=False)
+    async def verify(request: Request):
+        async def operation(token):
+            key, value = await _body(request)
+            await blocking(service.verify_mfa if key == 'code' else service.recover_mfa, token, value)
+            return JSONResponse({'verified': True})
+        return await guarded(request, operation)
+
+    @app.get(PREFIX + '/companies', include_in_schema=False)
+    async def companies(request: Request):
+        async def operation(token):
+            arguments = _query(request, 'companies')
+            found = await blocking(service.companies, token, **arguments)
+            more = found[-1].slug if len(found) == arguments['page'] else None
+            return JSONResponse({'companies': [_company(company) for company in found], 'next_after': more})
+        return await guarded(request, operation)
+
+    @app.get(PREFIX + '/companies/{organization_id}', include_in_schema=False)
+    async def company(organization_id: UUID, request: Request):
+        async def operation(token):
+            return JSONResponse(_company(await blocking(service.company, token, organization_id)))
+        return await guarded(request, operation)
+
+    @app.get(PREFIX + '/audit', include_in_schema=False)
+    async def audit(request: Request):
+        async def operation(token):
+            arguments = _query(request, 'audit')
+            found = await blocking(service.audit, token, **arguments)
+            entries = [{'id': entry.id, 'actor_id': str(entry.actor_id), 'action': entry.action,
+                        'organization_id': None if entry.organization_id is None else str(entry.organization_id),
+                        'recorded_at': entry.recorded_at.isoformat()} for entry in found]
+            return JSONResponse({'entries': entries, 'next_before': found[-1].id if len(found) == arguments['page'] else None})
+        return await guarded(request, operation)
