@@ -12,13 +12,13 @@ from psycopg.rows import tuple_row
 
 from forge.account_store import _KEYS, _ROLE
 from forge.branding_store import _branding
-from forge.platform import (AuditEntry, Company, CompanyConflict, MfaChallenge, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
+from forge.platform import (AuditEntry, Company, CompanyConflict, KeyConflict, MfaChallenge, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired, MfaStatus,
                             PlatformDenied, PlatformError, PlatformIdentity, PlatformInvalid, PlatformNotFound, PlatformUnavailable,
                             RevisionConflict)
 
 ROLE = 'forge_platform_service'
 _MESSAGES = {'PLATFORM_DENIED': PlatformDenied, 'PLATFORM_INVALID': PlatformInvalid, 'MFA_REQUIRED': MfaRequired,
-             'MFA_INVALID': MfaInvalid, 'MFA_LOCKED': MfaLocked, 'MFA_ENROLLED': MfaEnrolled, 'COMPANY_CONFLICT': CompanyConflict,
+             'MFA_INVALID': MfaInvalid, 'MFA_LOCKED': MfaLocked, 'MFA_ENROLLED': MfaEnrolled, 'COMPANY_CONFLICT': CompanyConflict, 'KEY_CONFLICT': KeyConflict,
              'PLATFORM_NOT_FOUND': PlatformNotFound, 'REVISION_CONFLICT': RevisionConflict}
 
 

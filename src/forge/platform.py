@@ -60,6 +60,11 @@ class CompanyConflict(PlatformError):
     message = 'A company with this code already exists.'
 
 
+class KeyConflict(PlatformError):
+    code = 'KEY_CONFLICT'
+    message = 'A gateway key with this label already exists.'
+
+
 class RevisionConflict(PlatformError):
     code = 'REVISION_CONFLICT'
     message = 'The branding revision changed.'

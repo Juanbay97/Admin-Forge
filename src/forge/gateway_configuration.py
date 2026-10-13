@@ -26,6 +26,10 @@ class GatewayRecord:
     binding_id: UUID
     endpoint: str
     encrypted_key: str
+    # Pool keys (sealed format v2) carry the key id and the revision of that key; legacy records carry neither.
+    # ``revision`` stays the gateway/profile revision the catalogue binds to.
+    key_id: UUID | None=None
+    key_revision: int | None=None
 
 @dataclass(frozen=True)
 class GatewayStatus:
@@ -86,9 +90,28 @@ class GatewayCipher:
             'revision':revision,'endpoint':endpoint,'key':key},sort_keys=True,separators=(',',':')).encode()
         return self._cipher.encrypt(payload).decode('ascii')
 
+    def seal_pooled(self,key_id: UUID,revision: int,key: str,endpoint: str) -> str:
+        """Format v2: the payload binds the key id, its revision and its origin, never an organization.
+
+        The same key serves several companies, so the organization cannot be part of the binding; moving a
+        sealed value to another key id, revision or origin makes it unreadable.
+        """
+        self.validate_key(key)
+        self._policy.require(endpoint)
+        if type(key_id) is not UUID or type(revision) is not int or not 1<=revision<=MAX_REVISION+1:
+            raise ValueError('Invalid gateway binding.')
+        payload=json.dumps({'v':2,'key_id':str(key_id),'revision':revision,'endpoint':endpoint,'key':key},
+            sort_keys=True,separators=(',',':')).encode()
+        return self._cipher.encrypt(payload).decode('ascii')
+
     def open_key(self,organization_id: UUID,record: GatewayRecord) -> GatewayKey:
-        """Private server-side use only, after fresh administrator or restricted member-route authorization."""
+        """Private server-side use only, after fresh administrator or restricted member-route authorization.
+
+        Dispatches on the record: a pool key (``key_id`` set) opens as format v2, a legacy record as v1.
+        """
         try:
+            if type(record) is GatewayRecord and record.key_id is not None:
+                return self._open_pooled(record)
             if (type(record) is not GatewayRecord or type(record.revision) is not int
                     or not 1<=record.revision<=MAX_REVISION+1 or type(record.binding_id) is not UUID
                     or not self._policy.permits(record.endpoint) or type(record.encrypted_key) is not str
@@ -98,6 +121,23 @@ class GatewayCipher:
             self.validate_key(payload['key'])
             if payload!={'v':1,'organization':str(organization_id),'binding':str(record.binding_id),
                     'revision':record.revision,'endpoint':record.endpoint,'key':payload['key']}:
+                raise ValueError()
+            return GatewayKey(payload['key'],record.endpoint)
+        except Exception:
+            raise GatewayUnavailable() from None
+
+    def _open_pooled(self,record: GatewayRecord) -> GatewayKey:
+        try:
+            if (type(record.key_id) is not UUID or type(record.key_revision) is not int
+                    or not 1<=record.key_revision<=MAX_REVISION+1 or type(record.revision) is not int
+                    or not 1<=record.revision<=MAX_REVISION+1 or type(record.binding_id) is not UUID
+                    or not self._policy.permits(record.endpoint) or type(record.encrypted_key) is not str
+                    or not 100<=len(record.encrypted_key)<=12288):
+                raise ValueError()
+            payload=json.loads(self._cipher.decrypt(record.encrypted_key.encode('ascii')))
+            self.validate_key(payload['key'])
+            if payload!={'v':2,'key_id':str(record.key_id),'revision':record.key_revision,
+                    'endpoint':record.endpoint,'key':payload['key']}:
                 raise ValueError()
             return GatewayKey(payload['key'],record.endpoint)
         except Exception:
