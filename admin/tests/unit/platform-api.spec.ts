@@ -46,7 +46,7 @@ test.describe("platform contract (fixtures are the real response shapes)", () =>
     const created = await platform.createCompany({ slug: "initech", display_name: "Initech", department: "General", admin_email: "ada@initech.test", admin_name: "Ada" });
     expect(created.invitation.delivery_state).toBe("delivered");
     expect((await platform.suspend(ORG)).active).toBe(false);
-    expect((await platform.audit({ before: 12 })).entries[0]?.action).toBe("company.suspend");
+    expect((await platform.audit({ before: 12 })).entries[0]?.action).toBe("company.suspended");
     expect(calls.at(-1)?.path).toBe(`${P}/audit?before=12`);
   });
 
