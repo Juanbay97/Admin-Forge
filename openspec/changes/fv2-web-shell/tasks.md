@@ -64,9 +64,9 @@ Chain strategy: stacked-to-main
 - [x] 5.6 e2e `shell.spec.ts` + adapt `admin-flow.spec.ts` URLs (real stack)
 
 ## Phase 6 — Port I (PR 6)
-- [ ] 6.1 Login (branded, RHF+zod) — existing `login.spec.ts` untouched + new states
-- [ ] 6.2 Overview (cards + skeleton) and Members (DataTable, invite dialog, suspend AlertDialog) — move tests with code, keep roles/labels
-- [ ] 6.3 `members.spec.ts`/`hardening.spec.ts` green; axe at 3 viewports
+- [x] 6.1 Login (branded, RHF+zod) — existing `login.spec.ts` untouched + new states
+- [x] 6.2 Overview (cards + skeleton) and Members (DataTable, invite dialog, suspend AlertDialog) — move tests with code, keep roles/labels
+- [x] 6.3 `members.spec.ts`/`hardening.spec.ts` green; axe at 3 viewports
 
 ## Phase 7 — Port II + closeout (PR 7)
 - [ ] 7.1 Gateway (read-only-ready layout; key form kept until `fv2-gateway-keys` changes it), Catalog, Branding (extract `ThemeEditor`/`BrandPreview` for reuse by console wizard)

@@ -51,6 +51,13 @@ export async function expectAccessible(page: Page, options: { scope?: string; ex
 }
 
 export async function expectNoHorizontalScroll(page: Page): Promise<void> {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow, "document is wider than the viewport").toBeLessThanOrEqual(0);
+  const { overflow, offenders } = await page.evaluate(() => {
+    const width = window.innerWidth;
+    const wide = [...document.querySelectorAll("body *")]
+      .filter((element) => element.getBoundingClientRect().right > width + 0.5 && getComputedStyle(element).position !== "fixed")
+      .slice(0, 5)
+      .map((element) => `${element.tagName.toLowerCase()}${element.className ? "." + String(element.className).split(" ")[0] : ""}`);
+    return { overflow: document.documentElement.scrollWidth - width, offenders: wide };
+  });
+  expect(overflow, `document is wider than the viewport; widest: ${offenders.join(", ")}`).toBeLessThanOrEqual(0);
 }

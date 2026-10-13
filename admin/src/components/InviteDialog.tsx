@@ -1,7 +1,15 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState } from "react";
 import type { Department } from "../api/account";
 import type { InviteInput } from "../api/members";
+import { z } from "../lib/zod";
 import { describeFailure } from "../members/model";
+import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
+import { useZodForm } from "../ui/form";
+import { FormError } from "../ui/FormError";
+import { Input } from "../ui/Input";
+import { Dialog } from "../ui/overlay/Dialog";
+import { Select } from "../ui/Select";
 
 interface InviteDialogProps {
   open: boolean;
@@ -10,94 +18,61 @@ interface InviteDialogProps {
   onClose: () => void;
 }
 
-const FIELD = "rounded border border-carbon/40 px-3 py-2 text-base";
+const schema = z.object({
+  name: z.string().trim().min(1, "Enter the member's name.").max(120, "Use at most 120 characters."),
+  email: z.string().min(1, "Enter the member's email address.").pipe(z.email("Enter a valid email address.")),
+  departmentId: z.string().min(1, "Choose a department."),
+});
 
-export function InviteDialog({ open, departments, onSubmit, onClose }: InviteDialogProps) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
+/** The form lives inside the dialog, which mounts it only while open, so every invitation starts from a clean form. */
+function InviteForm({ departments, onSubmit, onClose }: Omit<InviteDialogProps, "open">) {
+  const form = useZodForm(schema, { defaultValues: { name: "", email: "", departmentId: departments[0]?.id ?? "" } });
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    if (open && !element.open) {
-      setName("");
-      setEmail("");
-      setError(null);
-      setDepartmentId(departments[0]?.id ?? "");
-      element.showModal(); // native modal: focus trap, Escape and focus return come for free
-    } else if (!open && element.open) {
-      element.close();
-    }
-  }, [open, departments]);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
+  const { errors, isSubmitting } = form.formState;
+  const submit = form.handleSubmit(async (input) => {
     setError(null);
     try {
-      await onSubmit({ name, email, departmentId });
+      await onSubmit(input);
     } catch (failure) {
       setError(describeFailure(failure, "invite"));
-    } finally {
-      setBusy(false);
     }
-  }
-
+  });
   return (
-    <dialog
-      ref={dialog}
-      aria-labelledby="invite-title"
-      onClose={onClose}
-      className="m-auto w-full max-w-md rounded-lg p-0 shadow-xl backdrop:bg-primary/60"
-    >
-      <form onSubmit={submit} className="flex flex-col gap-4 p-6">
-        <h2 id="invite-title" className="font-title text-lg font-bold text-primary">
-          Invite a member
-        </h2>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Name
-          <input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className={FIELD} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Email
-          <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className={FIELD} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Department
-          <select required value={departmentId} onChange={(event) => setDepartmentId(event.target.value)} className={FIELD}>
+    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+      <Field label="Name" error={errors.name?.message}>
+        {(control) => <Input maxLength={120} autoComplete="off" {...control} {...form.register("name")} />}
+      </Field>
+      <Field label="Email" error={errors.email?.message}>
+        {(control) => <Input type="email" autoComplete="off" {...control} {...form.register("email")} />}
+      </Field>
+      <Field label="Department" error={errors.departmentId?.message}>
+        {(control) => (
+          <Select {...control} {...form.register("departmentId")}>
             {departments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.name}
               </option>
             ))}
-          </select>
-        </label>
-        {error && (
-          <p role="alert" className="text-sm font-medium text-red-800">
-            {error}
-          </p>
+          </Select>
         )}
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => dialog.current?.close()}
-            className="rounded border border-carbon/40 px-4 py-2 transition-colors hover:bg-sand"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded bg-teal px-4 py-2 font-medium text-white transition-colors hover:bg-primary disabled:opacity-60"
-          >
-            Send invitation
-          </button>
-        </div>
-      </form>
-    </dialog>
+      </Field>
+      <FormError message={error} />
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={isSubmitting}>
+          Send invitation
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function InviteDialog({ open, departments, onSubmit, onClose }: InviteDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()} title="Invite a member" description="They receive an email with a link to activate their account.">
+      <InviteForm departments={departments} onSubmit={onSubmit} onClose={onClose} />
+    </Dialog>
   );
 }

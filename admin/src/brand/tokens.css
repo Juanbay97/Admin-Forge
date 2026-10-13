@@ -192,12 +192,12 @@
 @layer base {
   body {
     font-family: var(--brand-font-body);
-    background-color: var(--brand-sand);
-    color: var(--brand-carbon);
+    background-color: var(--ui-bg);
+    color: var(--ui-fg);
   }
 
   :focus-visible {
-    outline: 2px solid var(--brand-accent);
+    outline: 2px solid var(--ui-ring);
     outline-offset: 2px;
   }
 }

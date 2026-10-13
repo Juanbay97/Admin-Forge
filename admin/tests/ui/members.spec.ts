@@ -10,6 +10,8 @@ async function openMembers(page: Page, adminUrl: string, email = "admin@example.
   await page.getByRole("button", { name: "Members" }).click();
 }
 
+// Suspending is destructive, so it is confirmed in an alert dialog (reactivating is not).
+const confirmSuspend = (page: Page) => page.getByRole("alertdialog").getByRole("button", { name: "Suspend", exact: true }).click();
 const row = (page: Page, name: string) => page.getByRole("row").filter({ hasText: name });
 
 test.describe("members list", () => {
@@ -51,6 +53,7 @@ test.describe("suspend and reactivate", () => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await openMembers(page, adminUrl);
     await page.getByRole("button", { name: "Suspend Pat Member" }).click();
+    await confirmSuspend(page);
     await expect(row(page, "Pat Member")).toContainText("Suspended");
     await expect(page.getByRole("button", { name: "Suspend Pat Member" })).toHaveCount(0);
     await page.getByRole("button", { name: "Reactivate Pat Member" }).click();
@@ -67,6 +70,7 @@ test.describe("suspend and reactivate", () => {
     await installBackend(page, ADMIN_BACKEND);
     await openMembers(page, adminUrl);
     await page.getByRole("button", { name: "Suspend Alex Admin" }).click();
+    await confirmSuspend(page);
     await expect(page.getByRole("alert")).toHaveText(
       "This is the last administrator. Make another member an administrator before suspending this one.",
     );

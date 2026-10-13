@@ -51,6 +51,7 @@ export function DataTable<T>({
       {filter}
       {loading ? (
         <div role="status" aria-label={loadingLabel ?? `Loading ${caption.toLowerCase()}`} className="overflow-hidden rounded-card border border-line bg-surface">
+          <span className="sr-only">{loadingLabel ?? `Loading ${caption.toLowerCase()}`}</span>
           <Skeleton className="h-11 rounded-none" />
           {Array.from({ length: SKELETON_ROWS }, (_, index) => (
             <div key={index} className="flex h-11 items-center gap-4 border-t border-line px-4">
@@ -66,9 +67,9 @@ export function DataTable<T>({
         <>
           <div
             role="region"
-            aria-label={`${caption} table`}
+            aria-label="Scrollable table"
             tabIndex={0}
-            className={cn("overflow-auto rounded-card border border-line bg-surface outline-focus focus-visible:outline-2", scrollClassName)}
+            className={cn("relative overflow-auto rounded-card border border-line bg-surface outline-focus focus-visible:outline-2", scrollClassName)}
           >
             <table className="w-full border-collapse text-left text-body">
               <caption className="sr-only">{caption}</caption>

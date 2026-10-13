@@ -111,6 +111,8 @@ test("an admin invites a member, suspends access, sees the platform-managed gate
   await test.step("suspend and reactivate the seeded member", async () => {
     const row = page.getByRole("row", { name: new RegExp(member!.email) });
     await row.getByRole("button", { name: /^Suspend/ }).click();
+    // Suspending is destructive, so the page asks first.
+    await page.getByRole("alertdialog").getByRole("button", { name: "Suspend", exact: true }).click();
     await expect(row).toContainText("Suspended");
     // The server, not the page, denies a suspended member.
     expect((await memberView(request)).status).not.toBe(200);

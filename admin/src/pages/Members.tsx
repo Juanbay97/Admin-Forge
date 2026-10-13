@@ -6,6 +6,10 @@ import { InviteDialog } from "../components/InviteDialog";
 import { MemberTable } from "../components/MemberTable";
 import { NotFound } from "../components/NotFound";
 import { applyUpdate, describeFailure, visiblePending, type PendingInvite } from "../members/model";
+import { Alert } from "../ui/Alert";
+import { Button } from "../ui/Button";
+import { PageHeader } from "../ui/PageHeader";
+import { AlertDialog } from "../ui/overlay/Dialog";
 
 interface MembersProps {
   api: AccountApi;
@@ -25,6 +29,7 @@ export function Members({ api, membersApi, organization }: MembersProps) {
   const [failure, setFailure] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [suspending, setSuspending] = useState<Member | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -64,35 +69,38 @@ export function Members({ api, membersApi, organization }: MembersProps) {
 
   const ready = load.status === "ready" ? load : null;
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="font-title text-2xl font-bold text-primary">Members</h1>
-        <button
-          type="button"
-          disabled={!ready || ready.departments.length === 0}
-          onClick={() => setInviting(true)}
-          className="rounded bg-teal px-4 py-2 font-medium text-white transition-colors hover:bg-primary disabled:opacity-60"
-        >
-          Invite member
-        </button>
-      </div>
-      {notice && <p role="status">{notice}</p>}
-      {failure && <p role="alert" className="font-medium text-red-800">{failure}</p>}
-      {load.status === "loading" && <p role="status">Loading members…</p>}
-      {load.status === "error" && <p role="alert" className="font-medium text-red-800">{describeFailure(null, "load")}</p>}
-      {ready && (
+    <section className="flex flex-col gap-6">
+      <PageHeader
+        title="Members"
+        description="Who can use Forge in your company."
+        actions={
+          <Button disabled={!ready || ready.departments.length === 0} onClick={() => setInviting(true)}>
+            Invite member
+          </Button>
+        }
+      />
+      {notice && <Alert tone="success">{notice}</Alert>}
+      {failure && <Alert tone="destructive">{failure}</Alert>}
+      {load.status === "error" && <Alert tone="destructive">{describeFailure(null, "load")}</Alert>}
+      {load.status !== "error" && (
         <MemberTable
-          members={ready.members}
-          pending={visiblePending(pending, ready.members)}
+          loading={load.status === "loading"}
+          members={ready?.members ?? []}
+          pending={ready ? visiblePending(pending, ready.members) : []}
           busyId={busyId}
-          onChange={change}
+          onChange={(member, action) => (action === "suspend" ? setSuspending(member) : void change(member, action))}
+          onInvite={() => setInviting(true)}
         />
       )}
-      <InviteDialog
-        open={inviting}
-        departments={ready?.departments ?? []}
-        onSubmit={invite}
-        onClose={() => setInviting(false)}
+      <InviteDialog open={inviting} departments={ready?.departments ?? []} onSubmit={invite} onClose={() => setInviting(false)} />
+      <AlertDialog
+        open={suspending !== null}
+        onOpenChange={(open) => !open && setSuspending(null)}
+        title={`Suspend ${suspending?.display_name ?? ""}?`}
+        description="They lose access to Forge until you reactivate them."
+        confirmLabel="Suspend"
+        destructive
+        onConfirm={() => (suspending ? change(suspending, "suspend") : undefined)}
       />
     </section>
   );
