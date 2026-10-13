@@ -177,13 +177,14 @@ class GuardedClient:
     def trust_env(self):
         return self._client.trust_env
 
-    def request(self, method, url, allowed_hosts, *, headers, content=None) -> Upstream:
+    def request(self, method, url, allowed_hosts, *, headers, content=None, timeout=None) -> Upstream:
         target = self._guard.plan(url, allowed_hosts)
         sent = {name: value for name, value in headers.items() if name.lower() not in ('host', 'accept-encoding', 'user-agent')}
         sent.update({'Host': target.host_header, 'Accept-Encoding': 'identity', 'User-Agent': USER_AGENT})
         extensions = {'sni_hostname': target.host} if target.tls else {}
         try:
-            built = self._client.build_request(method, target.url, headers=sent, content=content, extensions=extensions)
+            built = self._client.build_request(method, target.url, headers=sent, content=content, extensions=extensions,
+                                               timeout=httpx.USE_CLIENT_DEFAULT if timeout is None else httpx.Timeout(timeout))
             response = self._client.send(built, stream=True)
         except httpx.TimeoutException:
             raise EgressDenied('timeout') from None

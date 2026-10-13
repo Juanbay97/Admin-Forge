@@ -44,9 +44,9 @@ Chain strategy: stacked-to-main
 - [x] 3.3 Replay, expired state, disabled-connector, concurrent-refresh tests
 
 ## B4 MCP proxy
-- [ ] 4.1 `tests/fixtures/fake_mcp_server.py` (initialize, tools/list, tools/call, header echo)
-- [ ] 4.2 RED→GREEN `mcp_broker.py`: authz per call, inject/scrub, method filter, caps, SSE pass-through
-- [ ] 4.3 Metadata log via governance ingest fn (source=broker)
+- [x] 4.1 `tests/fixtures/fake_mcp_server.py` (initialize, tools/list, tools/call, header echo)
+- [x] 4.2 RED→GREEN `mcp_broker.py`: authz per call, inject/scrub, method filter, caps, SSE pass-through
+- [x] 4.3 Metadata log via governance ingest fn (source=broker)
 
 ## B5 APIs
 - [ ] 5.1 `connector_api.py` hidden routes (start, callback, status, disconnect, credential PUT)
