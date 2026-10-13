@@ -1,19 +1,20 @@
 """Narrow member text inference, not a full OpenAI or capability contract."""
 import asyncio
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import re
 from typing import Protocol
 from uuid import UUID, uuid4
 from anyio.to_thread import run_sync
-from forge.gateway_configuration import GatewayRecord, GatewayDenied, GatewayUnavailable
+from forge.gateway_configuration import GatewayRecord, GatewayDenied, GatewayUnavailable, RetryableUpstream
 from forge.invitations import capability_digest
 
 MAX_MESSAGES = 16
 MAX_CONTENT = 4096
 MAX_INPUT_BYTES = 16384
 MAX_OUTPUT_TOKENS = 2048
+MAX_CANDIDATES = 16
 REVOCATION_INTERVAL = 0.5
 
 
@@ -50,13 +51,28 @@ class RouteContext:
     catalog_revision: int
     upstream_id: str
     gateway: GatewayRecord
+    # Further keys of the company in priority order; ``gateway`` is the lowest-priority (primary) one.
+    fallbacks: tuple = ()
+
+    @property
+    def candidates(self):
+        return (self.gateway, *self.fallbacks)
+
+    def same_route(self, other):
+        """Authority identity: the key material may rotate or reorder mid-stream, the route and binding may not."""
+        return (type(other) is RouteContext and self.organization_id == other.organization_id
+                and self.alias == other.alias and self.catalog_revision == other.catalog_revision
+                and self.upstream_id == other.upstream_id and self.gateway.binding_id == other.gateway.binding_id
+                and self.gateway.revision == other.gateway.revision)
 
     def validate(self, organization_id, alias):
         if (type(self.organization_id) is not UUID or self.organization_id != organization_id
                 or self.alias != alias or type(self.catalog_revision) is not int
                 or self.catalog_revision < 1 or type(self.upstream_id) is not str
                 or not re.fullmatch(r'[!-~]{1,255}', self.upstream_id)
-                or type(self.gateway) is not GatewayRecord):
+                or type(self.gateway) is not GatewayRecord or type(self.fallbacks) is not tuple
+                or len(self.fallbacks) >= MAX_CANDIDATES
+                or any(type(item) is not GatewayRecord for item in self.fallbacks)):
             raise GatewayUnavailable()
 
 
@@ -70,6 +86,8 @@ class PreparedInference:
     route: RouteContext
     request: TextRequest
     key: str
+    # Opened keys in priority order (the first equals ``key``); empty means just ``key``.
+    keys: tuple = ()
 
 
 def sse(document):
@@ -103,8 +121,29 @@ class GatewayInference:
             raise ValueError('Invalid text request.')
         digest = capability_digest(token)
         route = await self._resolve(digest, organization_id, request.model)
-        key = self._cipher.open_key(organization_id, route.gateway)
-        return PreparedInference(digest, route, request, key)
+        opened = []
+        for record in route.candidates:
+            try:
+                opened.append(self._cipher.open_key(organization_id, record))
+            except GatewayUnavailable:
+                continue  # an unreadable key is skipped; none readable is unavailable before any outbound call
+        if not opened:
+            raise GatewayUnavailable()
+        return PreparedInference(digest, route, request, opened[0], tuple(opened))
+
+    async def _failover(self, prepared):
+        """Try each opened key once, in priority order; only a typed pre-first-byte failure moves on."""
+        for key in prepared.keys or (prepared.key,):
+            stream = self._adapter.events(key, prepared.route.upstream_id, prepared.request)
+            try:
+                async for event in stream:
+                    yield event
+                return
+            except RetryableUpstream:
+                continue
+            finally:
+                await stream.aclose()
+        raise GatewayUnavailable()
 
     async def stream(self, prepared, *, disconnected=None):
         """Every response is freshly normalized; upstream documents never cross API.
@@ -130,7 +169,7 @@ class GatewayInference:
         async def check():
             current = await self._resolve(prepared.digest, prepared.route.organization_id,
                                           prepared.request.model)
-            if current != prepared.route:
+            if not current.same_route(prepared.route):
                 raise GatewayDenied()
 
         async def watch():
@@ -148,8 +187,7 @@ class GatewayInference:
             if disconnected is not None and await disconnected():
                 return
             authority = asyncio.create_task(watch())
-            stream = self._adapter.events(prepared.key, prepared.route.upstream_id,
-                                          prepared.request)
+            stream = self._failover(prepared)
             queue = asyncio.Queue(maxsize=1)
 
             async def produce():

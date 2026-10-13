@@ -3,7 +3,7 @@ import asyncio
 import codecs
 import json
 import httpx
-from forge.gateway_configuration import GatewayUnavailable, GatewayCipher, GATEWAY_ENDPOINT
+from forge.gateway_configuration import GatewayUnavailable, GatewayCipher, GATEWAY_ENDPOINT, RetryableUpstream
 from forge.gateway_origins import DEFAULT_POLICY, OriginPolicy
 
 PATH = '/v1/chat/completions'
@@ -14,6 +14,7 @@ MAX_BYTES = 1048576
 MAX_EVENT_BYTES = 16384
 MAX_EVENTS = 1024
 MAX_OUTPUT_CHARS = 32768
+RETRYABLE_STATUS = frozenset({401, 429})  # plus every 5xx
 
 
 class PrivateEchoGuard:
@@ -46,6 +47,7 @@ class HttpxTextAdapter:
     async def events(self, key, upstream_id, request):
         GatewayCipher.validate_key(key)
         guard = PrivateEchoGuard((key, upstream_id))
+        started = False
         try:
             # An opened GatewayKey carries its bound origin; a plain key is the fixed default.
             url = self._policy.require(getattr(key, 'endpoint', GATEWAY_ENDPOINT)) + PATH
@@ -60,6 +62,9 @@ class HttpxTextAdapter:
                                   'messages': [{'role': role, 'content': content}
                                                for role, content in request.messages],
                                   'max_tokens': request.max_output_tokens, 'stream': True}) as response:
+                        started = True
+                        if response.status_code in RETRYABLE_STATUS or response.status_code >= 500:
+                            raise RetryableUpstream()
                         if (response.status_code != 200
                                 or response.headers.get('content-type', '').split(';')[0].strip()
                                 != 'text/event-stream'
@@ -148,5 +153,10 @@ class HttpxTextAdapter:
                         raise GatewayUnavailable()
         except asyncio.CancelledError:
             raise
+        except RetryableUpstream:
+            raise
+        except httpx.TransportError:
+            # Before response headers nothing reached anyone, so another key may be tried; afterwards it is final.
+            raise (GatewayUnavailable() if started else RetryableUpstream()) from None
         except Exception:
             raise GatewayUnavailable() from None

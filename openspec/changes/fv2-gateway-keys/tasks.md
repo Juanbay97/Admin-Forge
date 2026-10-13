@@ -36,8 +36,8 @@ Chain strategy: stacked-to-main
 - [x] 2.2 RED/GREEN `gateway_keys.py` + `gateway_keys_store.py` (create/rotate/disable, last4, no key echo)
 - [x] 2.3 RED/GREEN `platform_keys_api.py` hidden routes, assignment/priority, audit rows; company-admin denial
 ## Phase 3: Routing
-- [ ] 3.1 RED adapter `RetryableUpstream` table tests; GREEN `gateway_inference_adapter.py`
-- [ ] 3.2 RED failover/pre-byte/all-down in `test_gateway_inference.py`; GREEN `gateway_inference.py` candidates
+- [x] 3.1 RED adapter `RetryableUpstream` table tests; GREEN `gateway_inference_adapter.py`
+- [x] 3.2 RED failover/pre-byte/all-down in `test_gateway_inference.py`; GREEN `gateway_inference.py` candidates
 - [ ] 3.3 RED/GREEN `0032` route fn + catalog rebinding; PG upgrade with existing snapshots (F32)
 ## Phase 4: Access + admin
 - [ ] 4.1 RED/GREEN ceiling set/shrink + publication check (`catalog_publication*.py`)

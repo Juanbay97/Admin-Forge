@@ -20,6 +20,12 @@ class GatewayConflict(Exception):
 class GatewayUnavailable(Exception):
     def __init__(self): super().__init__('Gateway configuration unavailable.')
 
+class RetryableUpstream(GatewayUnavailable):
+    """The upstream refused before any byte reached the member (rejected key, rate limit, 5xx, connect failure).
+
+    Only this typed signal lets the inference seam try the next assigned key; it is never raised once output exists.
+    """
+
 @dataclass(frozen=True,repr=False)
 class GatewayRecord:
     revision: int

@@ -1,4 +1,4 @@
-"""Labelled HTTPX fixture transport, never real provider inference."""
+﻿"""Labelled HTTPX fixture transport, never real provider inference."""
 import asyncio
 import json
 from pathlib import Path
@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 import httpx
-from forge.gateway_configuration import GatewayUnavailable
+from forge.gateway_configuration import GatewayUnavailable, RetryableUpstream
 from forge.gateway_inference import TextRequest
 from forge.gateway_inference_adapter import HttpxTextAdapter, URL
 
@@ -142,3 +142,50 @@ class AdapterTests(unittest.IsolatedAsyncioTestCase):
                     emitted.append(value)
             self.assertNotIn(term,''.join(emitted))
             self.assertTrue(body.closed)
+
+
+class FailingBody(Body):
+    async def __aiter__(self):
+        for part in self.parts:
+            yield part
+        raise httpx.ReadError('connection reset')
+
+
+class RetryClassificationTests(unittest.IsolatedAsyncioTestCase):
+    """Only a failure before the first byte (status or connect) may be retried on another key; the signal is typed."""
+    adapter = AdapterTests.adapter
+    collect = AdapterTests.collect
+
+    async def test_a_rejected_key_rate_limit_or_server_failure_before_any_body_is_retryable(self):
+        for status in (401, 429, 500, 502, 503, 504):
+            with self.subTest(status=status):
+                body = Body([KEY.encode()])
+                with self.assertRaises(RetryableUpstream) as caught:
+                    await self.collect(self.adapter(body, status, {'content-type': 'application/json'}))
+                self.assertIsInstance(caught.exception, GatewayUnavailable)
+                self.assertNotIn(KEY, str(caught.exception))
+                self.assertTrue(body.closed)
+
+    async def test_connect_failures_before_headers_are_retryable(self):
+        for failure in (httpx.ConnectError('refused'), httpx.ConnectTimeout('slow'), httpx.PoolTimeout('busy')):
+            with self.subTest(failure=type(failure).__name__):
+                async def refuse(request, failure=failure):
+                    raise failure
+                with self.assertRaises(RetryableUpstream):
+                    await self.collect(HttpxTextAdapter(transport=httpx.MockTransport(refuse)))
+
+    async def test_other_statuses_bad_media_and_every_failure_after_the_first_byte_are_not_retryable(self):
+        for status, headers in ((400, None), (403, None), (404, None), (302, {'location': 'https://evil.invalid'}),
+                                (200, {'content-type': 'application/json'})):
+            with self.subTest(status=status):
+                with self.assertRaises(GatewayUnavailable) as caught:
+                    await self.collect(self.adapter(Body([b'x']), status, headers))
+                self.assertNotIsInstance(caught.exception, RetryableUpstream)
+        for body in (FailingBody([event('Hello')]), Body([event('Hello')]), Body([event('Hello'), b'data: bad\n\n'])):
+            with self.subTest(body=type(body).__name__):
+                emitted = []
+                with self.assertRaises(GatewayUnavailable) as caught:
+                    async for item in self.adapter(body).events(KEY, UPSTREAM, REQUEST):
+                        emitted.append(item)
+                self.assertEqual(emitted[:1], [('text', 'Hello')], 'the failure happened after output was produced')
+                self.assertNotIsInstance(caught.exception, RetryableUpstream)
