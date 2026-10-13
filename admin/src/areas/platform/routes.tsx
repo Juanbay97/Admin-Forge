@@ -1,5 +1,7 @@
-﻿import { Overview } from "./overview/Overview";
+import { CompanyDetail } from "./companies/CompanyDetail";
+import { CompanyList } from "./companies/CompanyList";
+import { Overview } from "./overview/Overview";
 
-export function OverviewRoute() {
-  return <Overview />;
-}
+export const OverviewRoute = () => <Overview />;
+export const CompaniesRoute = () => <CompanyList />;
+export const CompanyRoute = () => <CompanyDetail />;

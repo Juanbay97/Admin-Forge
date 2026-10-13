@@ -28,6 +28,8 @@ export interface World {
   usage: { totals: Json; companies: Json; models: Json };
 }
 
+const DEFAULT_BRANDING: Json = fixture("branding-default");
+
 export const newWorld = (): World => ({
   mfa: { state: "active", verified: false },
   companies: fixture<{ companies: Company[] }>("companies").companies.map((company) => ({ ...company })),
@@ -104,7 +106,7 @@ export async function installPlatform(page: Page, world: World = newWorld()) {
 }
 
 type Reply = (route: Route, status: number, body?: unknown) => Promise<boolean>;
-async function handlers(key: string, _url: URL, _body: Json | undefined, world: World, reply: Reply, route: Route): Promise<boolean> {
+async function handlers(key: string, _url: URL, body: Json | undefined, world: World, reply: Reply, route: Route): Promise<boolean> {
   let match: RegExpMatchArray | null;
   if (key === "GET /companies") return reply(route, 200, { companies: world.companies, next_after: null });
   if (key === "GET /audit") return reply(route, 200, { entries: world.audit, next_before: null });
@@ -113,6 +115,39 @@ async function handlers(key: string, _url: URL, _body: Json | undefined, world: 
   if (key === "GET /usage/totals") return reply(route, 200, world.usage.totals);
   if (key === "GET /usage/companies") return reply(route, 200, world.usage.companies);
   if (key === "GET /usage/models") return reply(route, 200, world.usage.models);
+  if (key === "POST /companies") {
+    const input = body as { slug: string; display_name: string };
+    if (world.companies.some((company) => company.slug === input.slug)) return reply(route, 409, envelope("COMPANY_CONFLICT"));
+    const created = { id: `99999999-9999-4999-8999-${String(world.companies.length + 1).padStart(12, "0")}`, slug: input.slug, display_name: input.display_name, active: true };
+    world.companies.push(created);
+    return reply(route, 201, { ...created, invitation: { id: "44444444-4444-4444-8444-444444444444", expires_at: "2026-10-20T12:00:00+00:00", delivery_state: "delivered", delivery_channel: "local_mailbox" } });
+  }
+  if ((match = key.match(/^(GET|PUT|POST) \/companies\/([^/]+)\/(branding|gateway-keys|model-access|branding\/reset)$/))) {
+    const [, method, id, what] = match as unknown as [string, string, string, string];
+    if (!world.companies.some((company) => company.id === id)) return reply(route, 404, envelope("NOT_FOUND"));
+    if (what === "gateway-keys") {
+      if (method === "PUT") {
+        const entries = (body as { keys: Array<{ key_id: string; priority: number; active: boolean }> }).keys;
+        world.assignments[id] = entries.map((entry) => {
+          const known = world.keys.find((item) => item.id === entry.key_id) ?? {};
+          return { key_id: entry.key_id, label: known.label ?? "Key", origin: known.origin ?? "https://gateway.example.test", priority: entry.priority, active: entry.active, key_status: "active", has_key: true };
+        });
+      }
+      return reply(route, 200, { keys: world.assignments[id] ?? [] });
+    }
+    if (what === "model-access") {
+      if (method === "PUT") world.models[id] = (body as { models: string[] }).models;
+      return reply(route, 200, { models: world.models[id] ?? [] });
+    }
+    const current = (world.branding[id] ??= { ...DEFAULT_BRANDING });
+    if (what === "branding/reset") world.branding[id] = { ...DEFAULT_BRANDING, revision: (current.revision as number) + 1 };
+    if (method === "PUT") {
+      const change = body as { expectedRevision: number; branding: Json };
+      if (change.expectedRevision !== current.revision) return reply(route, 409, envelope("REVISION_CONFLICT"));
+      world.branding[id] = { ...change.branding, revision: (current.revision as number) + 1, assets: {} };
+    }
+    return reply(route, 200, world.branding[id]);
+  }
   if ((match = key.match(/^GET \/companies\/([^/]+)$/))) {
     const found = world.companies.find((company) => company.id === match![1]);
     return found ? reply(route, 200, found) : reply(route, 404, envelope("NOT_FOUND"));

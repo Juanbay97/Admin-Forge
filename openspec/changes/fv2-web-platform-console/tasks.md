@@ -53,9 +53,9 @@ Chain strategy: stacked-to-main
 - [x] 3.3 Skeleton/empty/error states, range URL sync; UI spec; e2e smoke with seeded usage
 
 ## Phase 4 — Companies list & detail frame (PR 4)
-- [ ] 4.1 RED→GREEN: URL param schema, list table (search debounce, status filter, pagination)
-- [ ] 4.2 Detail frame: header, tabs (URL-synced), Overview tab + setup checklist, suspended banner
-- [ ] 4.3 Suspend (typed code) / reactivate; UI + e2e (suspend then member login denied is asserted in release-e2e, not here)
+- [x] 4.1 RED→GREEN: URL param schema, list table (search debounce, status filter, pagination)
+- [x] 4.2 Detail frame: header, tabs (URL-synced), Overview tab + setup checklist, suspended banner
+- [x] 4.3 Suspend (typed code) / reactivate; UI + e2e (suspend then member login denied is asserted in release-e2e, not here)
 
 ## Phase 5 — Create wizard (PR 5)
 - [ ] 5.1 RED unit: slug rules, per-step schemas, `saga.ts` (success, fail at each of 4 steps, retry idempotent)

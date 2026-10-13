@@ -51,6 +51,8 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import("../areas/platform/PlatformLayout")).PlatformLayout }),
             children: [
               { index: true, lazy: platform("OverviewRoute") },
+              { path: "companies", lazy: platform("CompaniesRoute") },
+              { path: "companies/:id", lazy: platform("CompanyRoute") },
               { path: "*", element: <NotFound /> },
             ],
           },
