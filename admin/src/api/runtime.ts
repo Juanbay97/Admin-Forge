@@ -5,6 +5,7 @@ import { createCatalogApi } from "./catalog";
 import { createApiClient } from "./client";
 import { createGatewayApi } from "./gateway";
 import { createMembersApi } from "./members";
+import { createPlatformApi } from "./platform";
 import type { Services } from "./services";
 
 const client = createApiClient({ session });
@@ -14,4 +15,5 @@ export const services: Services = {
   gateway: createGatewayApi(client),
   catalog: createCatalogApi(client),
   branding: createBrandingApi(client),
+  platform: createPlatformApi(client),
 };

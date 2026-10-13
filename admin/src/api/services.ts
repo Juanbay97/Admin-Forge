@@ -3,6 +3,7 @@ import type { BrandingApi } from "./branding";
 import type { CatalogApi } from "./catalog";
 import type { GatewayApi } from "./gateway";
 import type { MembersApi } from "./members";
+import type { PlatformApi } from "./platform";
 
 /** Everything a screen may call; the console hands each page only the port it needs. */
 export interface Services {
@@ -11,4 +12,5 @@ export interface Services {
   gateway: GatewayApi;
   catalog: CatalogApi;
   branding: BrandingApi;
+  platform: PlatformApi;
 }
