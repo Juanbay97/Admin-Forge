@@ -137,6 +137,56 @@ class AccountApiTests(unittest.TestCase):
             self.assertEqual(result.json(),{'status':'accepted','delivery_channel':'local_test_mailbox'})
         delivery.queue_reset.assert_not_called()
 
+    def invite_with(self, company_code):
+        from forge.authorization import AuthorizationSnapshot, MembershipStatus
+        from forge.invitation_delivery import DeliveryState
+        from forge.invitations import IssuedInvitation
+        actor=AuthenticatedIdentity('forge',ACCOUNT_ISSUER,str(uuid4()))
+        organization=uuid4()
+        sessions=MagicMock()
+        sessions.validate.return_value=actor
+        reader=MagicMock()
+        reader.read.return_value=AuthorizationSnapshot(actor,organization,uuid4(),1,frozenset({'organization_admin'}),MembershipStatus.ACTIVE,True)
+        invitations=MagicMock()
+        invitations.issue.return_value=IssuedInvitation(uuid4(),secrets.token_urlsafe(32),datetime.now(timezone.utc)+timedelta(hours=1))
+        delivery=MagicMock()
+        delivery.channel='local_test_mailbox'
+        delivery.dispatch.return_value=DeliveryState.DELIVERED
+        ports={} if company_code is None else {'company_code':company_code}
+        token=secrets.token_urlsafe(32)
+        with self.configured(sessions,delivery=delivery,invitations=invitations,authorization_reader=reader,**ports) as client:
+            invited=client.post('/forge/v1/accounts/invitations',json={
+                'organization_id':str(organization),'department_id':str(uuid4()),'email':'new@example.com','name':'New Person'},
+                headers={'Authorization':'Bearer '+token})
+        return invited,delivery,organization,token
+
+    def test_an_administrator_invitation_carries_the_company_code_for_a_branded_join_page(self):
+        calls=[]
+        def company_code(token,organization):
+            calls.append((token,organization))
+            return 'acme'
+        invited,delivery,organization,token=self.invite_with(company_code)
+        self.assertEqual(invited.status_code,201,invited.text)
+        self.assertEqual(delivery.queue_invitation.call_args.args[2:],('acme',))
+        self.assertEqual(calls,[(token,organization)])
+        self.assertEqual(set(invited.json()),{'invitation_id','expires_at','delivery_state','delivery_channel'},'the response is unchanged')
+
+    def test_a_company_code_that_cannot_be_read_never_blocks_the_invitation(self):
+        def failing(token,organization):
+            raise RuntimeError('database down')
+        invited,delivery,_,_=self.invite_with(failing)
+        self.assertEqual(invited.status_code,201,invited.text)
+        self.assertEqual(delivery.queue_invitation.call_args.args[2:],(None,))
+        for odd in ('Bad Code!','',None,5,'x'*70):
+            invited,delivery,_,_=self.invite_with(lambda token,organization,odd=odd: odd)
+            self.assertEqual(invited.status_code,201)
+            self.assertEqual(delivery.queue_invitation.call_args.args[2:],(None,),repr(odd))
+
+    def test_without_the_port_the_invitation_has_no_company_code(self):
+        invited,delivery,_,_=self.invite_with(None)
+        self.assertEqual(invited.status_code,201)
+        self.assertEqual(delivery.queue_invitation.call_args.args[2:],(None,))
+
     def test_reset_and_invitation_report_the_channel_the_coordinator_really_uses(self):
         from forge.account_sessions import ResetIntent
         from forge.authorization import AuthorizationSnapshot, MembershipStatus

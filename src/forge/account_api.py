@@ -1,7 +1,7 @@
 """Explicit opt-in owned-account HTTP composition, never environment discovery."""
 from threading import Lock
 from time import monotonic
-from typing import Annotated, Protocol, Literal
+from typing import Annotated, Callable, Protocol, Literal
 from uuid import UUID,uuid4
 
 from fastapi import Depends,Request,FastAPI
@@ -15,7 +15,7 @@ from forge.accounts import ACCOUNT_ISSUER,PasswordWorkUnavailable
 from forge.authorization import AuthorizationSnapshot,valid_snapshot
 from forge.foundation import AuthenticatedIdentity
 from forge.invitations import InvitationService,InvitationRequest,InvitationDenied,ExistingAccountAuthenticationRequired,InvitationUnavailable
-from forge.invitation_delivery import DeliveryCoordinator
+from forge.invitation_delivery import COMPANY_CODE,DeliveryCoordinator
 from forge.directory import (DirectoryService,DirectoryDenied,DirectorySuspended,DirectoryConflict,
     DirectoryLastAdmin,DirectoryUnavailable)
 from forge.gateway_inference import GatewayInference,TextRequest
@@ -283,7 +283,8 @@ def create_account_app(*,sessions: SessionService | None=None,
         gateway_configuration: GatewayConfiguration | None=None,
         gateway_catalog: GatewayCatalog | None=None,
         gateway_inference: GatewayInference | None=None,
-        directory: DirectoryService | None=None) -> FastAPI:
+        directory: DirectoryService | None=None,
+        company_code: Callable[[str,UUID],str | None] | None=None) -> FastAPI:
     """All synchronous ports run in worker threads. Unconfigured composition denies.
 
     Caller owns separate account/enrollment/bootstrap pools, private local mailbox
@@ -581,6 +582,16 @@ def create_account_app(*,sessions: SessionService | None=None,
         if not invoke(sessions.disable,actor[0]):
             raise AccountFailure(401,'UNAUTHENTICATED')
 
+    def code_hint(token,organization_id):
+        """The company's public code for the mailed link's ``c=`` hint, so the join page is branded. Never blocks an invitation."""
+        if company_code is None:
+            return None
+        try:
+            code=company_code(token,organization_id)
+        except Exception:
+            return None
+        return code if type(code) is str and COMPANY_CODE.fullmatch(code) else None
+
     @app.post('/forge/v1/accounts/invitations',status_code=201,response_model=InvitationResponse,openapi_extra={'security':[{'ForgeBearer':[]}]})
     def invite(body: InviteBody,actor: Annotated[tuple,Depends(token)]):
         if invitations is None or delivery is None or authorization_reader is None:
@@ -592,7 +603,7 @@ def create_account_app(*,sessions: SessionService | None=None,
             raise ApiFailure(404,'NOT_FOUND')
         request=InvitationRequest(body.organization_id,snapshot.membership_id,body.department_id,body.email,body.name)
         issued=invoke(invitations.issue,actor[1],request)
-        message=invoke(delivery.queue_invitation,issued,request)
+        message=invoke(delivery.queue_invitation,issued,request,code_hint(actor[0],body.organization_id))
         state=invoke(delivery.dispatch,message)
         return invoke(lambda: {'invitation_id':str(issued.invitation_id),'expires_at':issued.expires_at.isoformat(),
                 'delivery_state':state.value,'delivery_channel':delivery.channel})

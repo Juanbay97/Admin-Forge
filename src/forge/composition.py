@@ -108,7 +108,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.usage_store import PostgresUsageStore
     from forge.invitation_delivery import DeliveryCoordinator, PostgresDeliveryStore
     from forge.invitation_store import PostgresInvitationStore
-    from forge.invitations import InvitationService
+    from forge.invitations import InvitationService, capability_digest
     from forge.platform import PlatformService
     from forge.platform_api import mount_platform
     from forge.platform_reads import PlatformReads
@@ -120,6 +120,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     verify = ssl.create_default_context(cafile=gateway_ca_file) if gateway_ca_file else True  # a private gateway CA, else the system store
     cipher = GatewayCipher(gateway_key, policy=gateway_policy)
     sessions = SessionService(PostgresSessionStore(accounts))
+    branding_store = PostgresBrandingStore(gateway, branding)
     directory = DirectoryService(PostgresDirectoryStore(gateway))
     delivery = DeliveryCoordinator(PostgresDeliveryStore(accounts), delivery_adapter, origin=onboarding_origin,
                                    encryption_key=delivery_key)  # one coordinator: member invitations, resets and first admins
@@ -132,9 +133,9 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         gateway_catalog=GatewayCatalog(PostgresPoolCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy, verify=verify)),
         gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy, verify=verify),
                                            usage=PostgresUsageStore(gateway)),
-        directory=directory)
+        directory=directory, company_code=lambda token, organization: branding_store.read(capability_digest(token), organization).code)
     mount_member_department(app, directory=directory, sessions=sessions, readiness=readiness)
-    mount_branding(app, store=PostgresBrandingStore(gateway, branding), sessions=sessions, readiness=readiness)
+    mount_branding(app, store=branding_store, sessions=sessions, readiness=readiness)
     capabilities = Capabilities(PostgresCapabilityStore(capability))
     # The connector broker: its own sealing key, its own pool, its own egress guard. Without the key every connector route answers 503.
     connectors = oauth = broker_proxy = None
