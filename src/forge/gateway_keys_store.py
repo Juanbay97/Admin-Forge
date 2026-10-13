@@ -1,4 +1,4 @@
-﻿"""PostgreSQL adapter for ``forge.gateway_keys``: migration 0032 functions on the dedicated platform pool."""
+"""PostgreSQL adapter for ``forge.gateway_keys``: migration 0032 functions on the dedicated platform pool."""
 import json
 
 from forge.gateway_keys import GatewayKeyInfo, KeyAssignment

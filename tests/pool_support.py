@@ -1,4 +1,4 @@
-﻿"""Owned-PostgreSQL fixture: give a company a platform gateway key through the real platform services.
+"""Owned-PostgreSQL fixture: give a company a platform gateway key through the real platform services.
 
 Since 0034 a company administrator can no longer store a key, so every end-to-end test (and the supervised local stack)
 configures a company the way production does: the platform owner creates a key, assigns it and sets the model ceiling.

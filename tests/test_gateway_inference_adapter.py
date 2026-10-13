@@ -1,4 +1,4 @@
-﻿"""Labelled HTTPX fixture transport, never real provider inference."""
+"""Labelled HTTPX fixture transport, never real provider inference."""
 import asyncio
 import json
 from pathlib import Path

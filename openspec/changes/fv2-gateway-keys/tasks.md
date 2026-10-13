@@ -40,7 +40,7 @@ Chain strategy: stacked-to-main
 - [x] 3.2 RED failover/pre-byte/all-down in `test_gateway_inference.py`; GREEN `gateway_inference.py` candidates
 - [x] 3.3 RED/GREEN `0032` route fn + catalog rebinding; PG upgrade with existing snapshots (F32)
 ## Phase 4: Access + admin
-- [ ] 4.1 RED/GREEN ceiling set/shrink + publication check (`catalog_publication*.py`)
-- [ ] 4.2 RED/GREEN `0033` revoke `gateway_save`, `PUT` → 403, status GET (F33)
-- [ ] 4.3 Admin Gateway view read-only; keep roles/labels; run admin 142 tests
+- [x] 4.1 RED/GREEN ceiling set/shrink + publication check (`catalog_publication*.py`)
+- [x] 4.2 RED/GREEN `0033` revoke `gateway_save`, `PUT` → 403, status GET (F33)
+- [x] 4.3 Admin Gateway view read-only; keep roles/labels; run admin 142 tests
 - [ ] 4.4 extend `mvp-smoke`: two keys, failover via fake gateway; docs

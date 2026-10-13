@@ -88,6 +88,12 @@ class FingerprintGateTests(unittest.TestCase):
         self.assertNotEqual(fresh, F26)
 
 
+def before_readonly():
+    """The 0027 function is exercised where it is still granted: 0034 (tested on its own) revokes it from the service pool."""
+    from forge.mvp_profile import GATEWAY_ADMIN_READONLY_MIGRATION
+    return mvp_database(migrations=(*MIGRATIONS, *MVP_ADDITIONS[:at(GATEWAY_ADMIN_READONLY_MIGRATION)]))
+
+
 class OriginConfigTests(unittest.TestCase):
     def organization(self, db):
         results = provision(db.admin, SEED, lambda created: None)
@@ -96,7 +102,7 @@ class OriginConfigTests(unittest.TestCase):
         return results[0].organization_id, sessions.login(admin.email, admin.password).capability
 
     def test_the_check_accepts_every_canonical_https_origin_and_the_dev_loopback_only(self):
-        with mvp_database() as db:
+        with before_readonly() as db:
             organization, token = self.organization(db)
             service = GatewayConfiguration(PostgresGatewayStore(db.pool('forge_gateway_service')),
                                            GatewayCipher(Fernet.generate_key(), policy=OriginPolicy(frozenset({DEFAULT_ENDPOINT}))))
@@ -109,7 +115,7 @@ class OriginConfigTests(unittest.TestCase):
                     db.admin.execute('UPDATE forge.organization_gateways SET endpoint=%s', (bad,))
 
     def test_a_non_default_origin_chosen_by_the_allow_list_is_saved_read_back_and_bound_to_the_key(self):
-        with mvp_database() as db:
+        with before_readonly() as db:
             organization, token = self.organization(db)
             policy = OriginPolicy(frozenset({CUSTOM, PORTED}))
             store = PostgresGatewayStore(db.pool('forge_gateway_service'))
@@ -145,7 +151,7 @@ class OriginConfigTests(unittest.TestCase):
             self.assertEqual(row[2], DEFAULT_ENDPOINT)
 
     def test_the_function_is_still_authority_owned_definer_only_and_executable_by_the_gateway_service_alone(self):
-        with mvp_database() as db:
+        with before_readonly() as db:
             signature = 'forge.gateway_save(text,uuid,bigint,uuid,text,text)'
             owner, definer, config = db.admin.execute(
                 'SELECT pg_get_userbyid(proowner),prosecdef,proconfig FROM pg_proc WHERE oid=%s::regprocedure', (signature,)).fetchone()

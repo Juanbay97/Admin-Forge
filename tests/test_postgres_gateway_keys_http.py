@@ -1,4 +1,4 @@
-﻿"""Owned PostgreSQL through the composed app: the platform owner manages the key pool over HTTP; a company administrator and
+"""Owned PostgreSQL through the composed app: the platform owner manages the key pool over HTTP; a company administrator and
 a member are denied everywhere; key text is write-only and never appears in any response, row or audit entry."""
 from pathlib import Path
 import sys

@@ -20,7 +20,7 @@ from forge.directory import (DirectoryService,DirectoryDenied,DirectorySuspended
     DirectoryLastAdmin,DirectoryUnavailable)
 from forge.gateway_inference import GatewayInference,TextRequest
 from forge.gateway_catalog import GatewayCatalog
-from forge.gateway_configuration import GatewayConfiguration,GatewayDenied,GatewayConflict,GatewayUnavailable
+from forge.gateway_configuration import GatewayConfiguration,GatewayDenied,GatewayConflict,GatewayManaged,GatewayUnavailable
 
 
 class ReadinessPort(Protocol):
@@ -306,6 +306,15 @@ def create_account_app(*,sessions: SessionService | None=None,
         return JSONResponse(status_code=409,content=envelope.model_dump(mode='json'),
                             headers={'Cache-Control':'no-store'})
 
+    @app.exception_handler(GatewayManaged)
+    async def gateway_managed(request,exc):
+        # Deliberately outside the pinned error list: the code is the exception's own and the refusal is final.
+        envelope=ErrorEnvelope(error=ErrorDetail(code=exc.code,
+            message='The gateway key is managed by the platform.',request_id=uuid4(),
+            retryable=False,retry_after_seconds=None,reset_at=None))
+        return JSONResponse(status_code=403,content=envelope.model_dump(mode='json'),
+                            headers={'Cache-Control':'no-store'})
+
     @app.exception_handler(DirectoryConflict)
     async def directory_conflict(request,exc):
         envelope=ErrorEnvelope(error=ErrorDetail(code='DEPARTMENT_EXISTS',
@@ -359,7 +368,7 @@ def create_account_app(*,sessions: SessionService | None=None,
             raise ApiFailure(404,'NOT_FOUND') from None
         except DirectorySuspended:
             raise ApiFailure(403,'MEMBERSHIP_SUSPENDED') from None
-        except (GatewayConflict,DirectoryConflict,DirectoryLastAdmin):
+        except (GatewayConflict,GatewayManaged,DirectoryConflict,DirectoryLastAdmin):
             raise
         except (GatewayUnavailable,DirectoryUnavailable):
             raise ApiFailure(503,'SERVICE_UNAVAILABLE') from None

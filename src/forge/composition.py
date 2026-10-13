@@ -76,11 +76,11 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.directory_store import PostgresDirectoryStore
     from forge.gateway_catalog import GatewayCatalog
     from forge.gateway_catalog_adapter import HttpxModelsAdapter
-    from forge.gateway_configuration import GatewayCipher, GatewayConfiguration
-    from forge.gateway_configuration_store import PostgresGatewayStore
+    from forge.gateway_configuration import GatewayCipher
     from forge.gateway_inference import GatewayInference
     from forge.gateway_inference_adapter import HttpxTextAdapter
-    from forge.gateway_pool_store import PostgresPoolCatalogStore, PostgresPoolInferenceStore
+    from forge.gateway_pool_store import (PoolGatewayConfiguration, PostgresPoolCatalogStore, PostgresPoolInferenceStore,
+                                          PostgresPoolStatusStore)
     from forge.gateway_keys import GatewayKeys
     from forge.gateway_keys_store import PostgresGatewayKeyStore
     from forge.invitation_delivery import DeliveryCoordinator, PostgresDeliveryStore
@@ -101,7 +101,7 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
         invitations=InvitationService(PostgresInvitationStore(enrollment), PostgresEnrollmentStore(enrollment)),
         delivery=delivery,
         bootstrap_reader=PostgresBootstrapReader(bootstrap), authorization_reader=PostgresAuthorizationReader(bootstrap),
-        readiness=readiness, gateway_configuration=GatewayConfiguration(PostgresGatewayStore(gateway), cipher),
+        readiness=readiness, gateway_configuration=PoolGatewayConfiguration(PostgresPoolStatusStore(gateway), gateway_policy.allowed),
         gateway_catalog=GatewayCatalog(PostgresPoolCatalogStore(gateway), cipher, HttpxModelsAdapter(policy=gateway_policy)),
         gateway_inference=GatewayInference(PostgresPoolInferenceStore(gateway), cipher, HttpxTextAdapter(policy=gateway_policy)),
         directory=DirectoryService(PostgresDirectoryStore(gateway)))

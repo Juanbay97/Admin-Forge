@@ -1,4 +1,4 @@
-﻿"""Owned PostgreSQL: the key service over the platform pool seals before the database, never returns key text and keeps the
+"""Owned PostgreSQL: the key service over the platform pool seals before the database, never returns key text and keeps the
 pool's metadata, rotation compare-and-swap, label uniqueness and owner-only access."""
 from pathlib import Path
 import sys

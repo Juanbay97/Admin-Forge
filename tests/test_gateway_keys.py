@@ -1,4 +1,4 @@
-﻿"""Gateway key pool: the v2 sealed format binds the key id, revision and origin; the service seals before the store sees
+"""Gateway key pool: the v2 sealed format binds the key id, revision and origin; the service seals before the store sees
 anything, checks the origin against the deployment allow-list and never returns key text."""
 from pathlib import Path
 import sys

@@ -14,6 +14,11 @@ MAX_REVISION=2**63-3
 class GatewayDenied(Exception):
     def __init__(self): super().__init__('Gateway configuration unavailable.')
 
+class GatewayManaged(Exception):
+    """The company gateway key belongs to the platform: a company administrator cannot write it."""
+    code='GATEWAY_MANAGED_BY_PLATFORM'
+    def __init__(self): super().__init__('The gateway is managed by the platform.')
+
 class GatewayConflict(Exception):
     def __init__(self): super().__init__('Gateway configuration revision changed.')
 

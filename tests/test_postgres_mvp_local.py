@@ -102,19 +102,18 @@ class PostgresMvpLocalTests(unittest.TestCase):
                        secrets['delivery_key'], secrets['gateway_key'], *db.passwords.values(), *(a.password for r in results for a in r.accounts)]
             self.assertFalse([value for value in private if value in text])
 
-    def test_the_gateway_allow_list_and_the_origin_guard_are_wired_end_to_end(self):
+    def test_the_gateway_is_read_only_for_the_admin_and_the_origin_and_host_guards_are_wired_end_to_end(self):
         with stack() as (db, client, results, root, secrets):
             first = results[0]
             headers = login(client, first.accounts[0])
             url = '/forge/v1/orgs/%s/gateway' % first.organization_id
-            allowed = client.get(url, headers=headers).json()
-            self.assertEqual((allowed['status'], allowed['allowed_endpoints']), ('NOT_CONFIGURED', [GATEWAY]))
+            status = client.get(url, headers=headers).json()
+            self.assertEqual((status['status'], status['allowed_endpoints']), ('NOT_CONFIGURED', []), 'no origin details reach the admin')
             saved = client.put(url, headers=headers, json={'expected_revision': 0, 'api_key': first.gateway_key, 'endpoint': GATEWAY})
-            self.assertEqual((saved.status_code, saved.json()['endpoint']), (200, GATEWAY))
-            refused = client.put(url, headers=headers, json={'expected_revision': 1, 'api_key': 'x', 'endpoint': 'https://evil.test'})
-            self.assertEqual(refused.status_code, 422)
+            self.assertEqual((saved.status_code, saved.json()['error']['code']), (403, 'GATEWAY_MANAGED_BY_PLATFORM'))
+            self.assertEqual(db.admin.execute('SELECT count(*) FROM forge.organization_gateways').fetchone(), (0,), 'nothing is stored')
             foreign = client.put(url, headers={**headers, 'Origin': 'http://evil.test'},
-                                 json={'expected_revision': 1, 'api_key': first.gateway_key, 'endpoint': GATEWAY})
+                                 json={'expected_revision': 0, 'api_key': first.gateway_key, 'endpoint': GATEWAY})
             self.assertEqual((foreign.status_code, foreign.json()['error']['code']), (403, 'FORBIDDEN_ORIGIN'))
             self.assertNotIn(first.gateway_key, saved.text + client.get(url, headers=headers).text)
             self.assertEqual(client.get(url, headers={**headers, 'Host': 'evil.test:3410'}).status_code, 403)

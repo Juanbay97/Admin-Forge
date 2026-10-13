@@ -1,4 +1,4 @@
-﻿"""Platform gateway-key routes, mounted by ``forge.platform_api.mount_platform`` when a key service is composed.
+"""Platform gateway-key routes, mounted by ``forge.platform_api.mount_platform`` when a key service is composed.
 
 Hidden (``include_in_schema=False``) like every platform route, so the contract pin is unchanged. Key text is accepted
 only by ``POST gateway-keys`` and ``POST gateway-keys/{id}/rotate`` (write-only); every response is metadata. The same

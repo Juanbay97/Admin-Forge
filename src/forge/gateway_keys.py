@@ -1,4 +1,4 @@
-﻿"""Platform-owned gateway key pool: sealed write-only keys, assignment with priority and the per-company model ceiling.
+"""Platform-owned gateway key pool: sealed write-only keys, assignment with priority and the per-company model ceiling.
 
 Authority is the database (a fresh verified platform owner on every call); this service only seals the key text
 before any store call (format v2, bound to the key id, revision and origin), checks the origin against the deployment

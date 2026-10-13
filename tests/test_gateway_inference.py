@@ -1,4 +1,4 @@
-﻿"""Current-authority domain checks and direct async streaming lifecycle."""
+"""Current-authority domain checks and direct async streaming lifecycle."""
 import asyncio
 from dataclasses import replace
 from pathlib import Path
