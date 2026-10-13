@@ -2,7 +2,7 @@
 # Restore the DATA of a Forge dump into an empty, freshly migrated database (runs inside the `restore` compose
 # service, profile `tools`).
 #
-#   docker compose up -d --wait                                   # migrate builds the reviewed schema (empty)
+#   FORGE_MIGRATE_SEED=0 docker compose up -d --wait              # migrate builds the reviewed schema (empty: no catalog seed)
 #   docker compose stop control-plane caddy                       # nothing may write while restoring
 #   docker compose --profile tools run --rm restore /backups/forge-<stamp>.dump
 #   docker compose up -d --wait

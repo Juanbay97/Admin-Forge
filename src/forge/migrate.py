@@ -250,8 +250,9 @@ def main(argv=None, *, environ=None, connect=psycopg.connect, run=migrate, seed=
         environ = os.environ
     try:
         seeded = []
-        applied = run_migrations(load_prod_config(environ), arguments.migrations_dir, connect=connect, run=run,
-                                 seed=None if arguments.no_seed else seed, seeded=seeded)
+        config = load_prod_config(environ)
+        applied = run_migrations(config, arguments.migrations_dir, connect=connect, run=run,
+                                 seed=None if arguments.no_seed or not config.migrate_seed else seed, seeded=seeded)
     except MigrationError as error:
         emit({'status': 'failed', 'code': error.code, **({'migration': error.migration} if error.migration else {})})
         return 1

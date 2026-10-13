@@ -598,7 +598,9 @@ try {
     Write-Pass 'dumps contain no secret value'
 
     # Round trip: a fresh stack (migrate builds the reviewed schema), then only the rows are restored into it.
-    $null = Invoke-Compose @('up', '-d', '--wait', '--wait-timeout', '240', 'control-plane') -Name $restoreProject
+    # The migrate job seeds the catalog; a restore needs an empty database, so the fresh stack's migrate is told not to (docs/deploy.md).
+$env:FORGE_MIGRATE_SEED = '0'
+try { $null = Invoke-Compose @('up', '-d', '--wait', '--wait-timeout', '240', 'control-plane') -Name $restoreProject } finally { Remove-Item Env:FORGE_MIGRATE_SEED -ErrorAction SilentlyContinue }
     $null = Invoke-Compose @('stop', 'control-plane') -Name $restoreProject
     $restored = Invoke-Compose @('run', '--rm', '-T', 'restore', "/backups/$newest") -Name $restoreProject -Global @('--profile', 'tools')
     Assert-True ($restored.Output -match 'RESTORED') "restore.sh did not report success: $($restored.Output)"

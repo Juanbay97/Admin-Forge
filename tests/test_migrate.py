@@ -186,6 +186,20 @@ class CliTests(unittest.TestCase):
             code, text, _ = self.run_cli([], self.environment(f), Runner([]), seed=broken)
             self.assertEqual((code, json.loads(text)), (1, {'status': 'failed', 'code': 'SEED_FAILED'}))
 
+    def test_the_seed_switch_is_a_strict_zero_or_one_that_a_restore_uses_to_keep_the_catalog_empty(self):
+        with Fixture() as f:
+            calls = []
+            seed = lambda connection: calls.append(connection)
+            for value, seeded in (('0', 0), ('1', 1), ('', 1)):
+                with self.subTest(value=value):
+                    calls.clear()
+                    code, _, _ = self.run_cli([], {**self.environment(f), 'FORGE_MIGRATE_SEED': value}, Runner([]), seed=seed)
+                    self.assertEqual((code, len(calls)), (0, seeded))
+            for value in ('yes', 'true', '2', ' 0'):
+                with self.subTest(refused=value):
+                    code, text, connections = self.run_cli([], {**self.environment(f), 'FORGE_MIGRATE_SEED': value}, Runner([]), seed=seed)
+                    self.assertEqual((code, json.loads(text), connections), (1, {'status': 'failed', 'code': 'CONFIG_INVALID:FORGE_MIGRATE_SEED'}, []))
+
     def test_no_seed_skips_the_catalog(self):
         with Fixture() as f:
             calls = []

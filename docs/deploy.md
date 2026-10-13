@@ -399,7 +399,7 @@ Restore procedure (new server, or after loss of the data volume). Only rows are 
 one `migrate` builds, because the schema attestation would reject a restored copy of it.
 
 1. Put `deploy/secrets/` back from the offline copy, check out the same release that took the dump, set `.env`, and
-   start the stack on an empty database: `docker compose up -d --wait` (`migrate` builds the reviewed schema).
+   start the stack on an empty database: `FORGE_MIGRATE_SEED=0 docker compose up -d --wait` (`migrate` builds the reviewed schema and, with the switch at `0`, does not seed the capability catalog: the dump carries it and a restore needs empty tables).
 2. Stop writers: `docker compose stop control-plane caddy`.
 3. Restore: `docker compose --profile tools run --rm restore /backups/forge-<stamp>.dump`.
 4. Start everything: `docker compose up -d --wait`. `migrate` finds every migration recorded (a no-op) and the control
@@ -434,7 +434,7 @@ failure is `SEED_FAILED`). Before any catalog exists the effective policy is a s
 | Situation | Action |
 |-----------|--------|
 | Code problem, schema unchanged | `FORGE_IMAGE=forge-control-plane:previous docker compose up -d --wait` |
-| A migration must be undone | Check out the previous release, `docker compose down -v` (deletes the data), `docker compose up -d --wait`, then restore the pre-upgrade dump ([restore procedure](#backup-and-restore)) |
+| A migration must be undone | Check out the previous release, `docker compose down -v` (deletes the data), `FORGE_MIGRATE_SEED=0 docker compose up -d --wait`, then restore the pre-upgrade dump ([restore procedure](#backup-and-restore)) |
 
 ## Logs
 

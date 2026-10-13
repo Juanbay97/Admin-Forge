@@ -89,6 +89,7 @@ services:
     environment:
       <<: *forge-env
       FORGE_DB_ADMIN_PASSWORD_FILE: /run/secrets/pg_superuser
+      FORGE_MIGRATE_SEED: ${FORGE_MIGRATE_SEED:-1}  # 0 only while restoring a dump into an empty database, see docs/deploy.md
     secrets:
       - pg_superuser
       - forge_account_service

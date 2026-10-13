@@ -820,6 +820,22 @@ class SmokeBrokerPhase(unittest.TestCase):
         self.assertNotIn('FORGE_CONNECTOR_TEST_FIXTURES_FILE', text('deploy/compose.yml'), 'the production stack never carries the fixture switch')
 
 
+class CatalogSeedVersusRestore(unittest.TestCase):
+    """The migrate job seeds the catalog, but a restore needs an empty database: the switch is explicit and only the restore flow uses it."""
+    def test_only_the_migrate_service_carries_the_seed_switch_and_it_defaults_on(self):
+        block = services(text(COMPOSE))
+        self.assertIn('FORGE_MIGRATE_SEED: ${FORGE_MIGRATE_SEED:-1}', block['migrate'])
+        self.assertNotIn('FORGE_MIGRATE_SEED', block['control-plane'])
+
+    def test_the_smoke_restores_into_a_stack_whose_migrate_did_not_seed_and_the_runbook_says_so(self):
+        script = text('scripts/deploy-smoke.ps1')
+        self.assertIn("FORGE_MIGRATE_SEED = '0'", script)
+        self.assertIn('FORGE_MIGRATE_SEED=0', text('docs/deploy.md').split('Restore procedure')[1].split('`restore.sh` changes nothing')[0])
+
+    def test_the_template_leaves_the_switch_out_of_the_values_an_operator_sets(self):
+        self.assertNotIn('FORGE_MIGRATE_SEED=0', text('deploy/.env.example'))
+
+
 class SmokeBackupPhase(unittest.TestCase):
     def test_the_smoke_proves_dump_retention_refusal_and_round_trip_and_checks_dumps_for_secrets(self):
         script = text('scripts/deploy-smoke.ps1')
