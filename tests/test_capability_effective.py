@@ -16,6 +16,7 @@ from forge.capability_model import CapabilityDenied, CapabilityInvalid, Capabili
 from forge.capability_policy import CatalogEntry, Layer
 from forge.capability_signing import LIFETIME_SECONDS, PolicySigner, verify_document
 from forge.foundation import AuthenticatedIdentity
+from forge.invitations import capability_digest
 
 ORG, ACCOUNT = uuid4(), uuid4()
 TOKEN = secrets.token_urlsafe(32)
@@ -30,8 +31,14 @@ SIGNER = PolicySigner(bytes(range(32)))
 
 
 class Store:
-    def __init__(self, value=SNAPSHOT, fail=None):
-        self.calls, self.value, self.fail = [], value, fail
+    def __init__(self, value=SNAPSHOT, fail=None, attested=None, attested_fail=None):
+        self.calls, self.value, self.fail, self.attested, self.attested_fail, self.attested_calls = [], value, fail, attested, attested_fail, []
+
+    def attested_level(self, digest, org):
+        self.attested_calls.append((digest, org))
+        if self.attested_fail:
+            raise self.attested_fail
+        return self.attested
 
     def snapshot(self, digest, org):
         self.calls.append((digest, org))
@@ -40,8 +47,8 @@ class Store:
         return self.value
 
 
-def store(value=SNAPSHOT, fail=None):
-    return Store(value, fail)
+def store(value=SNAPSHOT, fail=None, **options):
+    return Store(value, fail, **options)
 
 
 class ServiceTests(unittest.TestCase):
@@ -66,6 +73,39 @@ class ServiceTests(unittest.TestCase):
         for bad in (-1, 5, True, '3', 3.0):
             with self.subTest(level=bad), self.assertRaises(CapabilityInvalid):
                 policy.document(TOKEN, ORG, bad)
+
+    def level_for(self, attested, claimed):
+        fake = store(attested=attested)
+        document = EffectivePolicy(fake, SIGNER, clock=lambda: NOW).document(TOKEN, ORG, claimed)
+        verify_document(document, SIGNER.keyset(), now=NOW)
+        return document['reported_level'], next(item for item in document['capabilities'] if item['id'] == 'code_execute')['state'], fake
+
+    def test_without_an_attestation_the_claimed_level_is_used_exactly_as_before(self):
+        self.assertEqual(self.level_for(None, 3)[:2], (3, 'on'))
+        self.assertEqual(self.level_for(None, None)[:2], (0, 'blocked_attestation'))
+
+    def test_the_latest_attestation_caps_what_a_request_claims(self):
+        # (attested, claimed) -> effective: the lower of the two, because a claim can never exceed what the device last reported
+        for attested, claimed, effective in ((2, 3, 2), (2, 4, 2), (0, 3, 0), (3, 3, 3), (4, 1, 1), (4, 0, 0), (1, 4, 1)):
+            with self.subTest(attested=attested, claimed=claimed):
+                self.assertEqual(self.level_for(attested, claimed)[0], effective)
+        self.assertEqual(self.level_for(2, 3)[1], 'blocked_attestation', 'an exec tool needs the level the device really attested')
+
+    def test_the_latest_attestation_is_used_when_the_request_claims_nothing(self):
+        self.assertEqual(self.level_for(4, None)[:2], (4, 'on'))
+        self.assertEqual(self.level_for(0, None)[:2], (0, 'blocked_attestation'))
+
+    def test_the_attestation_lookup_is_asked_with_the_digest_and_company_and_its_failure_is_not_swallowed(self):
+        _, _, fake = self.level_for(3, 3)
+        ((digest, org),) = fake.attested_calls
+        self.assertEqual((org, digest == capability_digest(TOKEN)), (ORG, True))
+        with self.assertRaises(CapabilityDenied):
+            EffectivePolicy(store(attested_fail=CapabilityDenied()), SIGNER, clock=lambda: NOW).document(TOKEN, ORG, 3)
+
+    def test_an_unexpected_attested_level_is_refused_not_trusted(self):
+        for odd in (5, -1, '3', True, 2.5):
+            with self.subTest(odd=odd), self.assertRaises(CapabilityUnavailable):
+                EffectivePolicy(store(attested=odd), SIGNER, clock=lambda: NOW).document(TOKEN, ORG, 3)
 
     def test_the_document_is_never_issued_without_a_signing_key_and_the_store_is_not_even_asked(self):
         fake = store()

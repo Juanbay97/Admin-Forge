@@ -31,7 +31,23 @@ The device measures its own isolation and reports the level; the control plane *
 
 Below its minimum an enabled exec tool resolves `blocked_attestation`; no administrator setting can lift that. **The report is
 client-reported and spoofable**: it is advisory telemetry for the server, and the local gate in the client is what really keeps
-exec tools off. Every report is part of the signed document, so it is auditable.
+exec tools off.
+
+### The attestation report (`POST /forge/v1/client/attestation`)
+
+The device posts its self-test result after the sandbox suite runs (hidden route, member session, `?org=` when the session has several
+companies): `{level 0..4, suite_version, client_version, os_build, cases:[{id, passed}] (at most 64), at}` and nothing else. Any other
+field (a path, an environment value, a prompt) rejects the whole report with `422`; the answer is `202 {level, stored}`. Reports are kept
+in an append-only, member-bound log (migration 0047: SELECT and INSERT only, no role can update or delete, no content column): who
+(the member of the session, never the payload), which company, what was reported and when (`at` from the device, `recorded_at` from the
+server). The same device time is a replay (`stored: false`) and at most 24 reports per member per day are kept. This log is the audit
+trail of what each device claimed.
+
+**Effective policy uses the latest attestation.** `GET /capabilities/effective` resolves with the *lower* of the level the request claims
+(`?sandbox_level=`) and the member's newest attestation of the last 30 days: a claim can lower the level but never raise it above what the
+device last attested; without a claim the attested level is used; without a recent attestation the claim is used as before (0 when there
+is none). The signed document's `reported_level` is the level actually used. An attestation older than 30 days proves nothing about the
+device now and is ignored.
 
 ## Routes
 
@@ -41,7 +57,7 @@ All routes are hidden from the published API contract (`include_in_schema=False`
 |---|---|
 | Platform owner (MFA) | `GET /forge/v1/platform/capabilities`, `PUT .../capabilities/{id}` (`expected_revision` 0 creates), `PUT .../capabilities/{id}/policy`, `GET\|PUT .../companies/{org}/capabilities[/{id}]`, `GET .../capability-audit` |
 | Company administrator | `GET /forge/v1/orgs/{org}/capabilities`, `PUT .../capabilities/{id}` with `{"enabled": true\|false\|null}`, `GET .../capability-audit` |
-| Member | `GET /forge/v1/capabilities/effective?sandbox_level=N[&org=...]`, `POST /forge/v1/capabilities/audit` |
+| Member | `GET /forge/v1/capabilities/effective?sandbox_level=N[&org=...]`, `POST /forge/v1/capabilities/audit`, `POST /forge/v1/client/attestation[?org=...]` |
 | Anyone | `GET /forge/v1/capabilities/keys` (the public key set) |
 
 Ids are `<kind>:<slug>` (`skill:pdf`, `tool:code_execute`, `app:acme.hello`). A company administrator who targets another company, a

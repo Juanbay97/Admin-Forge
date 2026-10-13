@@ -13,6 +13,7 @@ from test_postgres_mvp_local import login, stack
 
 EFFECTIVE = '/forge/v1/capabilities/effective'
 AUDIT = '/forge/v1/capabilities/audit'
+ATTEST = '/forge/v1/client/attestation'
 SKILL = {'version': '1.0.0', 'risk': 'low', 'is_base': True, 'default_state': 'on', 'min_sandbox_level': 0, 'credential_locus': 'none'}
 EXEC = {**SKILL, 'risk': 'high', 'is_base': False, 'min_sandbox_level': 3}
 SHELL = {**EXEC, 'min_sandbox_level': 4}
@@ -54,6 +55,28 @@ class PostgresEffectivePolicyTests(unittest.TestCase):
             tampered = {**document, 'reported_level': 4}
             with self.assertRaises(DocumentRejected):
                 verify_document(tampered, keys, now=time.time())
+
+    def test_the_latest_client_attestation_caps_the_claimed_level_and_a_new_report_lifts_it(self):
+        with stack() as (db, client, results, root, secrets):
+            boss = owner(db, client)
+            seed(client, boss)
+            member, other = login(client, results[0].accounts[1]), login(client, results[1].accounts[1])
+            def report(level, at):
+                response = client.post(ATTEST, headers=member, json={'level': level, 'suite_version': '1.0.0', 'client_version': '0.9.0', 'os_build': '10.0.26200',
+                                                                      'cases': [{'id': 'traversal', 'passed': True}], 'at': at})
+                self.assertEqual(response.status_code, 202, response.text)
+            document = client.get(EFFECTIVE + '?sandbox_level=4', headers=member).json()
+            self.assertEqual((document['reported_level'], states(document)[('tool', 'bash')]), (4, 'on'), 'with no attestation the claim is used as before')
+            report(2, '2026-10-12T12:00:00Z')
+            capped = client.get(EFFECTIVE + '?sandbox_level=4', headers=member).json()
+            self.assertEqual((capped['reported_level'], states(capped)[('tool', 'code_execute')], states(capped)[('tool', 'bash')]), (2, 'blocked_attestation', 'blocked_attestation'))
+            self.assertEqual(client.get(EFFECTIVE, headers=member).json()['reported_level'], 2, 'no claim: the attested level is used')
+            self.assertEqual(client.get(EFFECTIVE + '?sandbox_level=1', headers=member).json()['reported_level'], 1, 'a claim may be lower')
+            verify_document(capped, client.get('/forge/v1/capabilities/keys').json(), now=time.time())
+            report(4, '2026-10-12T12:05:00Z')
+            lifted = client.get(EFFECTIVE + '?sandbox_level=4', headers=member).json()
+            self.assertEqual((lifted['reported_level'], states(lifted)[('tool', 'bash')]), (4, 'on'))
+            self.assertEqual(client.get(EFFECTIVE + '?sandbox_level=4', headers=other).json()['reported_level'], 4, 'another member and company are not capped by it')
 
     def test_epochs_rise_with_changes_and_a_force_off_reaches_only_its_company(self):
         with stack() as (db, client, results, root, secrets):

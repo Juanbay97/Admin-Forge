@@ -44,8 +44,8 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 - [x] 6.1 RED/GREEN: Caddyfile forwards + static policy tests
 
 ## G7 Client attestation (migration 0047)
-- [ ] 7.1 RED/GREEN: table + ingest function + route `POST /client/attestation`, audited
-- [ ] 7.2 RED/GREEN: effective policy uses the latest attestation
+- [x] 7.1 RED/GREEN: table + ingest function + route `POST /client/attestation`, audited
+- [x] 7.2 RED/GREEN: effective policy uses the latest attestation
 
 ## G8 Signing key rotation
 - [ ] 8.1 RED/GREEN: retired public keys through `FORGE_POLICY_RETIRED_KEYS_FILE` (prod_config, mvp_local) + runbook

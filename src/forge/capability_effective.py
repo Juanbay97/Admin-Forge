@@ -1,7 +1,9 @@
 """The member's signed effective policy: the layers of the member's company, resolved with the reported attestation level.
 
 The database proves the session and the active membership of exactly that company on every call (``cap_read_layers``); this
-service resolves the layers with the pure resolver and signs the result. Without a configured signing key nothing is issued
+service resolves the layers with the pure resolver and signs the result. The level it resolves with is never higher than the one the
+member's device LAST ATTESTED (``attested_level``, the newest report of the last 30 days): a request may claim a lower level, never a higher
+one. With no recent attestation the claimed level is used as before. Without a configured signing key nothing is issued
 and the store is not even consulted (the routes answer 503).
 """
 import time
@@ -26,13 +28,21 @@ class EffectivePolicy:
         return self._signer.keyset()
 
     def document(self, token, org, level):
-        """``level`` is the client-reported attestation level: None (not reported) is 0; anything else must be an int in 0..4."""
+        """``level`` is the level the request claims: None (not claimed) is 0 unless the device has a recent attestation; anything else must
+        be an int in 0..4. The level used (and signed as ``reported_level``) is the lower of the claim and the latest attestation."""
         if self._signer is None:
             raise CapabilityUnavailable()
         if level is not None and (type(level) is not int or not 0 <= level <= MAX_LEVEL):
             raise CapabilityInvalid()
-        reported = 0 if level is None else level
-        snapshot = self._store.snapshot(capability_digest(token), org)
+        digest = capability_digest(token)
+        attested = self._store.attested_level(digest, org)
+        if attested is not None and (type(attested) is not int or not 0 <= attested <= MAX_LEVEL):
+            raise CapabilityUnavailable()  # a value the database holds but the domain refuses: fail closed
+        if attested is None:
+            reported = 0 if level is None else level
+        else:
+            reported = attested if level is None else min(level, attested)
+        snapshot = self._store.snapshot(digest, org)
         now = self._clock()
         items = resolve(snapshot.entries, snapshot.platform, snapshot.company, snapshot.org, reported)
         return self._signer.sign({
