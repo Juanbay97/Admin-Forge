@@ -80,9 +80,10 @@ Without a signing key the effective and keys routes answer `503`: nothing unsign
 
 `scripts/deploy-secrets.(sh|ps1)` creates `policy_key` (32 random bytes: an Ed25519 seed). The control plane reads it from
 `FORGE_POLICY_KEY_FILE` (compose already wires `/run/secrets/policy_key`); the local stack generates a throwaway one. **Back it up
-offline.** Losing it means clients cannot verify new documents until a new key is published and trusted; rotating keeps the old
-public key in the published set only when it is supplied as a retired key (not yet wired into the deployment configuration: rotate
-by replacing the secret and re-trusting the new `kid`; key pinning at the client is still an open decision).
+offline.** Losing it means clients cannot verify new documents until a new key is published and trusted. Rotating keeps the old
+public key in the published set as `retired` when it is supplied in `FORGE_POLICY_RETIRED_KEYS` (or `..._FILE`; for the local stack
+`policy_retired_keys` in the secrets file): the runbook is "Rotate the policy signing key" in `docs/deploy.md`. Key pinning at the
+client is still an open decision.
 
 ### Seeding the catalog
 

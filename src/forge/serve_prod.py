@@ -89,7 +89,7 @@ def compose_prod(config, pools, *, pool_factory=None, readiness_factory=None, de
     app = composition.build_app(
         owned, readiness=readiness, delivery_adapter=delivery,
         onboarding_origin=config.public_origin, delivery_key=config.delivery_key, gateway_key=config.gateway_key, platform_key=config.platform_key,
-        gateway_policy=config.gateway_policy, gateway_ca_file=config.gateway_ca_file, policy_key=config.policy_key,
+        gateway_policy=config.gateway_policy, gateway_ca_file=config.gateway_ca_file, policy_key=config.policy_key, policy_retired_keys=config.policy_retired_keys,
         connector_key=config.connector_key, connector_fixtures=config.connector_fixtures, public_origin=config.public_origin)
     return assemble_prod(app, config, readiness)
 

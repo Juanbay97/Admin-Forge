@@ -453,6 +453,28 @@ class SmokeCoversTheMailedLinks(unittest.TestCase):
         self.assertIn("-eq 'newhire@smoke.example.test'", self.script)
 
 
+class PolicyKeyRotationPolicy(unittest.TestCase):
+    """Rotation is deployment configuration: the compose file passes the retired public keys, the template documents them, the runbook walks through it."""
+    def test_compose_passes_the_retired_public_keys_as_plain_configuration_not_as_a_secret(self):
+        source = text(COMPOSE)
+        self.assertIn('FORGE_POLICY_RETIRED_KEYS: ${FORGE_POLICY_RETIRED_KEYS:-}', source)
+        self.assertNotIn('policy_retired', source.split('secrets:')[-1], 'public keys are not Docker secrets')
+
+    def test_the_variables_are_known_to_the_runtime_and_the_template_leaves_them_empty(self):
+        from forge.prod_config import KNOWN_KEYS
+        self.assertTrue({'FORGE_POLICY_RETIRED_KEYS', 'FORGE_POLICY_RETIRED_KEYS_FILE'} <= set(KNOWN_KEYS))
+        values = dict(line.split('=', 1) for line in text('deploy/.env.example').splitlines() if line and not line.startswith('#'))
+        self.assertEqual(values['FORGE_POLICY_RETIRED_KEYS'], '')
+
+    def test_the_runbook_has_the_whole_procedure(self):
+        doc = text('docs/deploy.md')
+        section = doc.split('## Rotate the policy signing key')[1].split('\n## ')[0]
+        for needle in ('/forge/v1/capabilities/keys', 'FORGE_POLICY_RETIRED_KEYS', 'FORGE_POLICY_RETIRED_KEYS_FILE', 'policy_key', 'retired',
+                       'Back up the old seed', 'control-plane', 'CONFIG_INVALID:FORGE_POLICY_RETIRED_KEYS', '24 hours'):
+            self.assertIn(needle, section)
+        self.assertNotRegex(section, r'[A-Za-z0-9_-]{43}', 'the runbook shows no key material')
+
+
 class EnvExample(unittest.TestCase):
     def test_every_setting_is_a_placeholder_with_a_reserved_domain(self):
         values = dict(line.split('=', 1) for line in text('deploy/.env.example').splitlines()

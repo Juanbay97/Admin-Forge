@@ -25,7 +25,7 @@ GATEWAY = 'http://127.0.0.1:%d' % MVP_PORTS['fake_gateway']
 
 
 @contextmanager
-def stack(environment=None, *, connector_fixtures=None):
+def stack(environment=None, *, connector_fixtures=None, secrets_extra=None):
     """A composed control plane over a provisioned two-organization database."""
     with mvp_database() as db, tempfile.TemporaryDirectory() as directory, ExitStack() as cleanup:
         # Only the application sees the hostile environment, never the harness' own admin connections.
@@ -36,7 +36,7 @@ def stack(environment=None, *, connector_fixtures=None):
         (root/'admin'/'index.html').write_text('<title>Forge admin</title>', 'utf-8')
         secrets = {'roles': dict(db.passwords), 'delivery_key': Fernet.generate_key().decode(),
                    'gateway_key': Fernet.generate_key().decode(), 'platform_key': Fernet.generate_key().decode(),
-                   'policy_key': b64u(os.urandom(32)), 'connector_key': Fernet.generate_key().decode()}
+                   'policy_key': b64u(os.urandom(32)), 'connector_key': Fernet.generate_key().decode(), **(secrets_extra or {})}
         (root/'secrets.json').write_text(json.dumps(secrets), 'utf-8')
         values = db.connection_settings()
         config_path = root/'config.json'

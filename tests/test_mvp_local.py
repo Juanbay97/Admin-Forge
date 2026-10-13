@@ -174,6 +174,25 @@ class PolicyKeyTests(unittest.TestCase):
             seed = base64.urlsafe_b64encode(bytes(range(32))).decode().rstrip('=')
             self.assertEqual(load_secrets(write(w.root/'s.json', {**good, 'policy_key': seed})).policy_key, seed)
 
+    def test_retired_policy_public_keys_are_optional_validated_and_never_the_active_key(self):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        def b64u(raw):
+            return base64.urlsafe_b64encode(raw).decode().rstrip('=')
+        def public(seed):
+            return b64u(Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw())
+        with Workspace() as w:
+            good = json.loads(Path(w.secrets_path).read_text('utf-8'))
+            seed = b64u(bytes(range(32)))
+            retired = [public(bytes([1]) * 32), public(bytes([2]) * 32)]
+            self.assertEqual(load_secrets(write(w.root/'s.json', {**good, 'policy_key': seed})).policy_retired_keys, ())
+            self.assertEqual(load_secrets(write(w.root/'s.json', {**good, 'policy_key': seed, 'policy_retired_keys': retired})).policy_retired_keys, tuple(retired))
+            for bad in (retired[0], ['not a key!'], ['AAAA'], [public(bytes(range(32)))], [retired[0], retired[0]], [public(bytes([n]) * 32) for n in range(1, 10)], [5]):
+                with self.subTest(bad=str(bad)[:40]), self.assertRaises(ConfigError) as caught:
+                    load_secrets(write(w.root/'s.json', {**good, 'policy_key': seed, 'policy_retired_keys': bad}))
+                self.assertEqual(str(caught.exception), 'SECRETS_INVALID')
+            with self.assertRaises(ConfigError):
+                load_secrets(write(w.root/'s.json', {**good, 'policy_retired_keys': retired}))  # no signing key to retire from
+
     def test_an_invalid_or_shared_policy_key_is_refused_without_echo(self):
         with Workspace() as w:
             good = json.loads(Path(w.secrets_path).read_text('utf-8'))

@@ -84,6 +84,52 @@ class PolicyKeyTests(unittest.TestCase):
         self.assertTrue({'FORGE_POLICY_KEY', 'FORGE_POLICY_KEY_FILE'} <= set(KNOWN_KEYS))
 
 
+def public_key(seed_bytes):
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    raw = Ed25519PrivateKey.from_private_bytes(seed_bytes).public_key().public_bytes_raw()
+    return base64.urlsafe_b64encode(raw).decode().rstrip('=')
+
+
+class PolicyRotationTests(unittest.TestCase):
+    """Rotation: the retired PUBLIC keys stay in the published key set so documents signed before the rotation still verify until they expire."""
+    SEED = base64.urlsafe_b64encode(bytes(range(32))).decode().rstrip('=')
+
+    def test_retired_keys_are_optional_public_keys_from_the_environment_or_a_file(self):
+        retired = [public_key(bytes([n]) * 32) for n in (1, 2)]
+        with Fixture() as f:
+            self.assertEqual(f.load(FORGE_POLICY_KEY=self.SEED).policy_retired_keys, ())
+            self.assertEqual(f.load(FORGE_POLICY_KEY=self.SEED, FORGE_POLICY_RETIRED_KEYS='').policy_retired_keys, (), 'an empty value is none (compose passes it empty)')
+            self.assertEqual(f.load(FORGE_POLICY_KEY=self.SEED, FORGE_POLICY_RETIRED_KEYS=' '.join(retired)).policy_retired_keys, tuple(retired))
+            self.assertEqual(f.load(FORGE_POLICY_KEY=self.SEED, FORGE_POLICY_RETIRED_KEYS=','.join(retired)).policy_retired_keys, tuple(retired))
+            (f.root/'retired.txt').write_text('# rotated 2026-10-01\n' + retired[0] + '\n\n' + retired[1] + '\n', 'utf-8')
+            self.assertEqual(f.load(FORGE_POLICY_KEY=self.SEED, FORGE_POLICY_RETIRED_KEYS_FILE=str(f.root/'retired.txt')).policy_retired_keys, tuple(retired))
+        self.assertTrue({'FORGE_POLICY_RETIRED_KEYS', 'FORGE_POLICY_RETIRED_KEYS_FILE'} <= set(KNOWN_KEYS))
+
+    def test_a_bad_list_fails_the_whole_load_by_name_without_echoing_a_value(self):
+        good = public_key(bytes([1]) * 32)
+        active = public_key(bytes(range(32)))
+        with Fixture() as f:
+            cases = {'not base64url': 'not a key!', 'too short': 'AAAA', 'a private seed is not 32 bytes of a public key but looks like one': None,
+                     'the active key retired': active, 'a duplicate': good + ' ' + good, 'too many': ' '.join(public_key(bytes([n]) * 32) for n in range(1, 10))}
+            for name, value in cases.items():
+                if value is None:
+                    continue
+                with self.subTest(name):
+                    f.refused(self, 'FORGE_POLICY_RETIRED_KEYS', FORGE_POLICY_KEY=self.SEED, FORGE_POLICY_RETIRED_KEYS=value)
+            f.refused(self, 'FORGE_POLICY_RETIRED_KEYS', FORGE_POLICY_KEY=self.SEED, FORGE_POLICY_RETIRED_KEYS=good, FORGE_POLICY_RETIRED_KEYS_FILE=str(f.root/'x'))  # ambiguous
+            f.refused(self, 'FORGE_POLICY_RETIRED_KEYS', FORGE_POLICY_RETIRED_KEYS=good)  # retired keys without a signing key make no sense
+            f.refused(self, 'FORGE_POLICY_RETIRED_KEYS', FORGE_POLICY_KEY=self.SEED, FORGE_POLICY_RETIRED_KEYS_FILE=str(f.root/'missing.txt'))
+
+    def test_the_rotation_reaches_the_published_key_set(self):
+        from forge.capability_signing import load_signer
+        old_seed = base64.urlsafe_b64encode(bytes([1]) * 32).decode().rstrip('=')
+        old = load_signer(old_seed)
+        with Fixture() as f:
+            config = f.load(FORGE_POLICY_KEY=self.SEED, FORGE_POLICY_RETIRED_KEYS=public_key(bytes([1]) * 32))
+        rotated = load_signer(config.policy_key, retired=config.policy_retired_keys)
+        self.assertEqual([(key['kid'], key['status']) for key in rotated.keyset()['keys']], [(rotated.kid, 'active'), (old.kid, 'retired')])
+
+
 class ConnectorConfigTests(unittest.TestCase):
     def test_the_connector_key_is_optional_a_fernet_key_and_separate_from_the_other_keys(self):
         with Fixture() as f:

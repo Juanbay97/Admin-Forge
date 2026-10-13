@@ -75,10 +75,40 @@ class PolicySigner:
         body['kid'] = self.kid
         return {**body, 'sig': b64u(self._key.sign(canonical(body)))}
 
+    def public_raw(self) -> bytes:
+        return self._public
+
     def keyset(self) -> dict:
         keys = [{'kid': self.kid, 'alg': 'Ed25519', 'public_key': b64u(self._public), 'status': 'active'}]
         keys += [{'kid': kid_of(raw), 'alg': 'Ed25519', 'public_key': b64u(raw), 'status': 'retired'} for raw in self._retired]
         return {'schema': KEYS_SCHEMA, 'keys': keys}
+
+
+MAX_RETIRED = 8
+
+
+def parse_retired_keys(values, *, active: str) -> tuple:
+    """The retired PUBLIC keys of a rotation: base64url of 32 bytes each, at most ``MAX_RETIRED``, no duplicates, never the active key.
+
+    ``active`` is the current signing seed. Returns the canonical (unpadded) strings; anything else raises ``ValueError`` without echoing a value.
+    """
+    seen, keys = set(), []
+    active_public = PolicySigner(unb64u(active)).public_raw()
+    for value in values:
+        raw = unb64u(value)
+        if len(raw) != 32 or raw in seen or raw == active_public:
+            raise ValueError('The retired policy keys are invalid.')
+        Ed25519PublicKey.from_public_bytes(raw)
+        seen.add(raw)
+        keys.append(b64u(raw))
+    if len(keys) > MAX_RETIRED:
+        raise ValueError('The retired policy keys are invalid.')
+    return tuple(keys)
+
+
+def split_retired_keys(text: str) -> list:
+    """A list as an operator writes it: keys separated by whitespace or commas, ``#`` starts a comment that runs to the end of the line."""
+    return [item for line in text.splitlines() for item in line.split('#', 1)[0].replace(',', ' ').split()]
 
 
 def load_signer(value, *, retired=()) -> PolicySigner:

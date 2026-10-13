@@ -1,4 +1,5 @@
 """Owned PostgreSQL: the signed effective policy through the real composed control plane (defaults, locks, attestation, epochs, isolation)."""
+import os
 from pathlib import Path
 import sys
 import time
@@ -55,6 +56,23 @@ class PostgresEffectivePolicyTests(unittest.TestCase):
             tampered = {**document, 'reported_level': 4}
             with self.assertRaises(DocumentRejected):
                 verify_document(tampered, keys, now=time.time())
+
+    def test_a_rotation_keeps_the_retired_public_key_in_the_published_set_and_old_documents_still_verify(self):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from forge.capability_signing import b64u, kid_of
+        old_seed = os.urandom(32)
+        old_public = Ed25519PrivateKey.from_private_bytes(old_seed).public_key().public_bytes_raw()
+        with stack(secrets_extra={'policy_retired_keys': [b64u(old_public)]}) as (db, client, results, root, secrets):
+            keys = client.get('/forge/v1/capabilities/keys').json()
+            self.assertEqual([(key['status'], key['public_key']) for key in keys['keys'][1:]], [('retired', b64u(old_public))])
+            self.assertEqual((keys['keys'][0]['status'], len(keys['keys'])), ('active', 2))
+            self.assertEqual({key['kid'] for key in keys['keys']}, {keys['keys'][0]['kid'], kid_of(old_public)})
+            seed(client, owner(db, client))
+            response = client.get(EFFECTIVE, headers=login(client, results[0].accounts[1]))
+            self.assertEqual(response.status_code, 200, response.text)
+            document = response.json()
+            self.assertEqual(document['kid'], keys['keys'][0]['kid'], 'new documents are signed by the active key')
+            verify_document(document, keys, now=time.time())
 
     def test_the_latest_client_attestation_caps_the_claimed_level_and_a_new_report_lifts_it(self):
         with stack() as (db, client, results, root, secrets):

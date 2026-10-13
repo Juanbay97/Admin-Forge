@@ -130,6 +130,7 @@ class MvpSecrets:
     platform_key: bytes = field(repr=False)
     policy_key: str | None = field(default=None, repr=False)  # the Ed25519 seed that signs the effective policy; absent = the route answers 503
     connector_key: bytes | None = field(default=None, repr=False)  # seals connector credentials; absent = the connector routes answer 503
+    policy_retired_keys: tuple = ()  # retired PUBLIC policy keys of a rotation (not secrets), kept in the published key set
 
 
 def load_secrets(path):
@@ -141,7 +142,7 @@ def load_secrets(path):
         raise ConfigError('SECRETS_INVALID') from None
     try:
         roles = values['roles']
-        if (set(values) - {'policy_key', 'connector_key'} != {'roles', 'delivery_key', 'gateway_key', 'platform_key'} or set(roles) != set(ROLES)
+        if (set(values) - {'policy_key', 'connector_key', 'policy_retired_keys'} != {'roles', 'delivery_key', 'gateway_key', 'platform_key'} or set(roles) != set(ROLES)
                 or any(type(password) is not str or not password for password in roles.values())
                 or len({values['delivery_key'], values['gateway_key'], values['platform_key']}) != 3):
             raise ValueError
@@ -159,9 +160,16 @@ def load_secrets(path):
             load_signer(policy)
             if unb64u(policy) in {base64.urlsafe_b64decode(key) for key in keys}:
                 raise ValueError  # one secret per purpose
+        retired = ()
+        if 'policy_retired_keys' in values:
+            from forge.capability_signing import parse_retired_keys
+            listed = values['policy_retired_keys']
+            if policy is None or type(listed) is not list or any(type(item) is not str for item in listed):
+                raise ValueError  # retired keys need a signing key to retire from
+            retired = parse_retired_keys(listed, active=policy)
     except (ValueError, TypeError, KeyError, AttributeError):
         raise ConfigError('SECRETS_INVALID') from None
-    return MvpSecrets(dict(roles), *keys, policy, connector)
+    return MvpSecrets(dict(roles), *keys, policy, connector, retired)
 
 
 def role_settings(config, secrets, role):
@@ -199,7 +207,7 @@ def compose(config, secrets, pools, *, connector_fixtures=None):
     app = composition.build_app(
         owned, readiness=readiness, delivery_adapter=LocalTestMailbox(mailbox, sender='forge@local.test'),
         onboarding_origin=config.client_origin, delivery_key=secrets.delivery_key, gateway_key=secrets.gateway_key, platform_key=secrets.platform_key,
-        gateway_policy=config.gateway_policy, policy_key=secrets.policy_key, connector_key=secrets.connector_key,
+        gateway_policy=config.gateway_policy, policy_key=secrets.policy_key, policy_retired_keys=secrets.policy_retired_keys, connector_key=secrets.connector_key,
         connector_fixtures=connector_fixtures, public_origin=config.admin_origin)
     return assemble(app, config, readiness)
 

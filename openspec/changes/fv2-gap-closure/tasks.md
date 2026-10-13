@@ -48,7 +48,7 @@ fingerprint gate (fresh apply equals upgrade, F pin printed then pinned).
 - [x] 7.2 RED/GREEN: effective policy uses the latest attestation
 
 ## G8 Signing key rotation
-- [ ] 8.1 RED/GREEN: retired public keys through `FORGE_POLICY_RETIRED_KEYS_FILE` (prod_config, mvp_local) + runbook
+- [x] 8.1 RED/GREEN: retired public keys through `FORGE_POLICY_RETIRED_KEYS_FILE` (prod_config, mvp_local) + runbook
 
 ## G9 Verification
 - [ ] 9.1 admin unit/ui, admin-e2e full, mvp-smoke, deploy-smoke, branding-smoke; apply-progress

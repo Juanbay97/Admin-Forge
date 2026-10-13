@@ -27,7 +27,8 @@ LOG_LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR')
 _SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_PLATFORM_KEY', 'FORGE_POLICY_KEY', 'FORGE_CONNECTOR_KEY', 'FORGE_DB_ADMIN_PASSWORD')
 _PLAIN = ('FORGE_PUBLIC_ORIGIN', 'FORGE_DB_HOST', 'FORGE_DB_PORT', 'FORGE_DB_NAME', 'FORGE_DB_SSLMODE',
           'FORGE_DB_ADMIN_USER', 'FORGE_ROLE_PASSWORDS_DIR', 'FORGE_ADMIN_DIR', 'FORGE_PORT', 'FORGE_BIND_HOST',
-          'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE, 'FORGE_GATEWAY_CA_FILE', 'FORGE_CONNECTOR_TEST_FIXTURES_FILE')
+          'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE, 'FORGE_GATEWAY_CA_FILE', 'FORGE_CONNECTOR_TEST_FIXTURES_FILE',
+          'FORGE_POLICY_RETIRED_KEYS', 'FORGE_POLICY_RETIRED_KEYS_FILE')
 # Later changes that add settings extend this tuple; any other FORGE_* name is a typo and refused.
 KNOWN_KEYS = (*_PLAIN, *_SECRETS, *(name + '_FILE' for name in _SECRETS), *SMTP_KEYS)
 _DB_HOST = re.compile(r'[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?')
@@ -62,6 +63,7 @@ class ProdConfig:
     policy_key: str | None = field(default=None, repr=False)  # Ed25519 seed (base64url) signing the effective policy; None = those routes answer 503
     connector_key: bytes | None = field(default=None, repr=False)  # seals connector credentials; None = the connector routes answer 503
     connector_fixtures: dict | None = None  # loopback/dev fixture hosts for the egress guard; NEVER set in production
+    policy_retired_keys: tuple = ()  # retired PUBLIC policy keys of a rotation, kept in the published key set
 
     @property
     def trusted_hosts(self):
@@ -140,6 +142,25 @@ def _policy_key(env, others):
     except ValueError:
         _fail('FORGE_POLICY_KEY')
     return value
+
+
+def _retired_policy_keys(env, policy_key):
+    """The optional retired PUBLIC policy keys of a rotation (these are not secrets): kept in the published key set. Needs a signing key."""
+    path, direct = env.get('FORGE_POLICY_RETIRED_KEYS_FILE'), env.get('FORGE_POLICY_RETIRED_KEYS')
+    if path is not None and direct is not None:
+        _fail('FORGE_POLICY_RETIRED_KEYS')
+    if path is not None:
+        if not path or not Path(path).is_absolute():
+            _fail('FORGE_POLICY_RETIRED_KEYS')
+        direct = _read(path, 'FORGE_POLICY_RETIRED_KEYS')
+    from forge.capability_signing import parse_retired_keys, split_retired_keys
+    try:
+        items = split_retired_keys(direct or '')
+        if items and policy_key is None:
+            raise ValueError
+        return parse_retired_keys(items, active=policy_key) if items else ()
+    except (ValueError, TypeError):
+        _fail('FORGE_POLICY_RETIRED_KEYS')
 
 
 def _connector_key(env, others):
@@ -233,6 +254,7 @@ def load_prod_config(environ):
     if platform in (delivery, gateway):
         _fail('FORGE_PLATFORM_KEY')
     policy_key = _policy_key(env, (delivery, gateway, platform))
+    policy_retired = _retired_policy_keys(env, policy_key)
     connector_key = _connector_key(env, (delivery, gateway, platform, *(() if policy_key is None else (policy_key,))))
     connector_fixtures = _connector_fixtures(env)
     try:
@@ -255,4 +277,4 @@ def load_prod_config(environ):
     gateway_ca = env.get('FORGE_GATEWAY_CA_FILE')
     if gateway_ca is not None and (not Path(gateway_ca).is_absolute() or not Path(gateway_ca).is_file()):
         _fail('FORGE_GATEWAY_CA_FILE')
-    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key, connector_key, connector_fixtures)
+    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key, connector_key, connector_fixtures, policy_retired)

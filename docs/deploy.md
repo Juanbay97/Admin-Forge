@@ -287,6 +287,28 @@ Expected: `{"status": "provisioned", "credentials_file": "...", "organizations":
 2. Delete the file once delivered; it is the only copy.
 3. The administrator signs in at `https://forge.example.test/admin/` and invites members from there.
 
+## Rotate the policy signing key
+
+The capability policy (`GET /forge/v1/capabilities/effective`) is signed with the Ed25519 seed in `deploy/secrets/policy_key`; clients verify it
+against the published key set (`GET /forge/v1/capabilities/keys`, public). A document signed before a rotation stays valid for its 24 hours, so
+the old *public* key must stay in the published set as `retired` until then. Rotation is configuration, not code:
+
+1. **Record the current public key.** `curl -s https://forge.example.test/forge/v1/capabilities/keys` and copy the `public_key` of the entry with
+   `"status": "active"` (and its `kid`). It is public; nothing secret is copied.
+2. **Back up the old seed offline**, then create the new one (`head -c 32 /dev/urandom | basenc --base64url | tr -d '='`, or the
+   `scripts/deploy-secrets.*` generator into a scratch directory) and write it to `deploy/secrets/policy_key`.
+3. **List the old public key as retired** in `deploy/.env` (space or comma separated, at most 8; keep the previous rotation's keys while their
+   documents could still be alive, then drop them): `FORGE_POLICY_RETIRED_KEYS=<old public_key>`. A file works too:
+   `FORGE_POLICY_RETIRED_KEYS_FILE=/run/secrets/...` (one key per line, `#` comments allowed). Setting both is refused.
+4. **Restart the control plane** (`docker compose up -d control-plane`). It refuses to start (`CONFIG_INVALID:FORGE_POLICY_RETIRED_KEYS`) when a key is
+   not 32 bytes of base64url, is repeated, is the new active key, or when there is no signing key at all.
+5. **Check** `GET /forge/v1/capabilities/keys`: the new key is `active` and the old `kid` is `retired`. Members' devices keep verifying documents
+   signed by the old key until they expire and fetch signed-by-new documents on their next refresh.
+6. After 24 hours (plus the clients' refresh interval) the retired key can be removed from `FORGE_POLICY_RETIRED_KEYS`.
+
+Rotating does not change what is signed: epochs and the schema stay, only `kid` and `sig` differ. Clients that pin a `kid` must be told the new
+one first (see `docs/capability-governance.md`).
+
 ## What the edge forwards
 
 Caddy answers only these paths; everything else on the public host is a `404` and an unknown `Host` is a `421`:
