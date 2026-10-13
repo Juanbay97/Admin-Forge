@@ -63,7 +63,7 @@ class BrandingSmokeRunnerTests(unittest.TestCase):
     def test_the_mvp_smoke_runner_is_left_alone(self):
         # tasks.md: mvp-smoke.ps1 is not edited; this runner is its own script.
         self.assertTrue(MVP_SMOKE.is_file())
-        self.assertNotIn('branding', MVP_SMOKE.read_text('utf-8'))
+        self.assertNotIn('branding-smoke', MVP_SMOKE.read_text('utf-8'))  # the mvp smoke runs the branding e2e spec, never this runner
         self.assertIsNone(re.search(r'mvp-smoke:', self.text))
 
 
