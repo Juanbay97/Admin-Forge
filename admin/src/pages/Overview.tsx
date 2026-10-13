@@ -12,19 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import { EmptyState } from "../ui/EmptyState";
 import { PageHeader } from "../ui/PageHeader";
 import { Skeleton, SkeletonText } from "../ui/Skeleton";
+import { Stat } from "../ui/Stat";
 
 interface OverviewProps {
   api: AccountApi;
   organization: Organization;
-}
-
-function Stat({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-card border border-line bg-surface p-5 shadow-card">
-      <dt className="text-caption font-medium text-muted">{label}</dt>
-      <dd className="flex min-h-8 items-center font-title text-section font-semibold text-fg">{children}</dd>
-    </div>
-  );
 }
 
 export function Overview({ api, organization }: OverviewProps) {

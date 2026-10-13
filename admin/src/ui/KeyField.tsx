@@ -27,6 +27,7 @@ export function KeyField({ label, value, onValueChange, lastFour, hint, error, r
             autoComplete="off"
             spellCheck={false}
             autoCapitalize="off"
+            required={required}
             value={value}
             onChange={(event) => onValueChange(event.target.value)}
             placeholder={lastFour ? "Enter a new key to replace it" : undefined}

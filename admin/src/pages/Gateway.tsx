@@ -4,6 +4,12 @@ import { ApiError } from "../api/client";
 import type { Gateway as GatewayState, GatewayApi } from "../api/gateway";
 import { NotFound } from "../components/NotFound";
 import { describeGatewayFailure, gatewayStateLabel } from "../gateway/model";
+import { Alert } from "../ui/Alert";
+import { Badge } from "../ui/Badge";
+import { Card, CardDescription, CardHeader, CardTitle } from "../ui/Card";
+import { PageHeader } from "../ui/PageHeader";
+import { Skeleton, SkeletonText } from "../ui/Skeleton";
+import { Stat } from "../ui/Stat";
 
 interface GatewayProps {
   gatewayApi: GatewayApi;
@@ -31,21 +37,35 @@ export function Gateway({ gatewayApi, organization }: GatewayProps) {
   if (load.status === "not-found") return <NotFound />;
 
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="font-title text-2xl font-bold text-primary">Gateway</h1>
-      {load.status === "loading" && <p role="status">Loading gateway...</p>}
-      {load.status === "error" && (
-        <p role="alert" className="font-medium text-red-800">
-          {describeGatewayFailure(null)}
-        </p>
+    <section className="flex flex-col gap-6">
+      <PageHeader title="Gateway" description="Where Forge sends model requests for your company." />
+      {load.status === "loading" && (
+        <div role="status" className="flex flex-col gap-4">
+          <span className="sr-only">Loading gateway…</span>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </div>
+          <SkeletonText lines={2} />
+        </div>
       )}
+      {load.status === "error" && <Alert tone="destructive">{describeGatewayFailure(null)}</Alert>}
       {load.status === "ready" && (
         <>
-          <p>
-            Status: <strong>{gatewayStateLabel(load.gateway.status)}</strong>
-          </p>
-          <p>Usable platform keys: {load.gateway.revision}</p>
-          <p className="max-w-lg text-sm">The gateway key is managed by the platform. Contact the platform operator to change it.</p>
+          <section aria-label="Gateway status">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <Stat label="Status">
+                <Badge tone={load.gateway.status === "NOT_CONFIGURED" ? "warning" : "success"}>{gatewayStateLabel(load.gateway.status)}</Badge>
+              </Stat>
+              <Stat label="Usable platform keys">{load.gateway.revision}</Stat>
+            </dl>
+          </section>
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>Managed by the platform</CardTitle>
+              <CardDescription>The gateway key is managed by the platform. Contact the platform operator to change it.</CardDescription>
+            </CardHeader>
+          </Card>
         </>
       )}
     </section>

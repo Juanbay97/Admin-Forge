@@ -3,6 +3,7 @@ import type { Organization } from "../api/account";
 import type { CatalogApi, CatalogStatus } from "../api/catalog";
 import { ApiError } from "../api/client";
 import { NotFound } from "../components/NotFound";
+import { Layers } from "lucide-react";
 import {
   describeCatalogFailure,
   effectiveDefault,
@@ -11,6 +12,15 @@ import {
   validateSelection,
   type Row,
 } from "../catalog/model";
+import { Alert } from "../ui/Alert";
+import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/Card";
+import { Checkbox, Radio, RadioGroup } from "../ui/Choice";
+import { EmptyState } from "../ui/EmptyState";
+import { Input } from "../ui/Input";
+import { PageHeader } from "../ui/PageHeader";
+import { Skeleton, SkeletonText } from "../ui/Skeleton";
 
 interface CatalogProps {
   catalogApi: CatalogApi;
@@ -28,9 +38,7 @@ interface Discovery {
   preferredDefault: string;
 }
 
-const CELL = "px-3 py-2 text-left align-middle";
-const BUTTON =
-  "rounded bg-teal px-4 py-2 font-medium text-white transition-colors hover:bg-primary disabled:opacity-60";
+const CELL = "px-4 py-2 text-left align-middle";
 
 async function fetchCatalog(catalogApi: CatalogApi, orgId: string): Promise<Load> {
   const catalog = await catalogApi.status(orgId);
@@ -114,108 +122,117 @@ export function Catalog({ catalogApi, organization, newOperationId = () => crypt
       state && { ...state, rows: state.rows.map((row) => (row.upstream === upstream ? { ...row, ...change } : row)) },
     );
 
+  const defaultUpstream = discovery ? effectiveDefault(discovery.rows, discovery.preferredDefault) : "";
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="font-title text-2xl font-bold text-primary">Catalog</h1>
-      {load.status === "loading" && <p role="status">Loading catalog…</p>}
-      {load.status === "error" && (
-        <p role="alert" className="font-medium text-red-800">
-          {describeCatalogFailure(null, "load")}
-        </p>
+    <section className="flex flex-col gap-6">
+      <PageHeader title="Catalog" description="The models your members can choose, published under aliases." />
+      {load.status === "loading" && (
+        <div role="status" className="flex flex-col gap-4">
+          <span className="sr-only">Loading catalog…</span>
+          <Skeleton className="h-28" />
+          <SkeletonText lines={3} />
+        </div>
       )}
+      {load.status === "error" && <Alert tone="destructive">{describeCatalogFailure(null, "load")}</Alert>}
       {load.status === "ready" && (
         <>
-          <p>
-            Status: <strong>{publicationLabel(load.catalog.publication_state)}</strong>
-          </p>
-          <p>Catalog revision {load.catalog.catalogue_revision}</p>
-          {load.catalog.default_model && <p>Default model: {load.catalog.default_model}</p>}
-          <h2 className="font-title text-lg font-semibold">Published aliases</h2>
-          {load.aliases.length > 0 ? (
-            <ul aria-label="Published aliases" className="list-disc pl-6">
-              {load.aliases.map((alias) => (
-                <li key={alias}>{alias}</li>
-              ))}
-            </ul>
-          ) : (
-            <p>No aliases are published.</p>
-          )}
-          <div>
-            <button type="button" disabled={busy} onClick={() => void refreshModels()} className={BUTTON}>
-              Refresh models
-            </button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Status</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              <section aria-label="Catalog status" className="flex flex-col gap-2">
+                <div>
+                  <Badge tone={load.catalog.publication_state === "CURRENT" ? "success" : "warning"}>{publicationLabel(load.catalog.publication_state)}</Badge>
+                </div>
+                <p className="text-muted">Catalog revision {load.catalog.catalogue_revision}</p>
+                {load.catalog.default_model && <p>Default model: {load.catalog.default_model}</p>}
+              </section>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex-row items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                <CardTitle>Published aliases</CardTitle>
+                <CardDescription>What members see in the client.</CardDescription>
+              </div>
+              <Button loading={busy} onClick={() => void refreshModels()}>
+                Refresh models
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {load.aliases.length > 0 ? (
+                <ul aria-label="Published aliases" className="flex flex-wrap gap-2">
+                  {load.aliases.map((alias) => (
+                    <li key={alias} className="rounded-full border border-line bg-subtle px-3 py-1 text-body">
+                      {alias}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState icon={Layers} title="No aliases are published." hint="Refresh the models from your gateway, choose what to publish and publish the catalog." />
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
-      {notice && <p role="status">{notice}</p>}
-      {failure && (
-        <p role="alert" className="font-medium text-red-800">
-          {failure}
-        </p>
-      )}
+      {notice && <Alert tone="success">{notice}</Alert>}
+      {failure && <Alert tone="destructive">{failure}</Alert>}
       {problems.length > 0 && (
-        <div role="alert" className="font-medium text-red-800">
-          <ul className="list-disc pl-6">
+        <Alert tone="destructive">
+          <ul className="list-disc pl-5">
             {problems.map((problem) => (
               <li key={problem}>{problem}</li>
             ))}
           </ul>
-        </div>
+        </Alert>
       )}
       {discovery && (
-        <>
-          <table className="w-full border-collapse overflow-hidden rounded-lg bg-white text-sm shadow">
-            <caption className="sr-only">Model mapping</caption>
-            <thead className="bg-primary text-sand">
-              <tr>
-                {["Publish", "Upstream model", "Alias", "Default"].map((heading) => (
-                  <th key={heading} scope="col" className={CELL}>
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {discovery.rows.map((row) => (
-                <tr key={row.upstream} className="border-t border-carbon/15">
-                  <td className={CELL}>
-                    <input
-                      type="checkbox"
-                      aria-label={`Publish ${row.upstream}`}
-                      checked={row.selected}
-                      onChange={(event) => edit(row.upstream, { selected: event.target.checked })}
-                    />
-                  </td>
-                  <td className={CELL}>{row.upstream}</td>
-                  <td className={CELL}>
-                    <input
-                      aria-label={`Alias for ${row.upstream}`}
-                      value={row.alias}
-                      disabled={!row.selected}
-                      onChange={(event) => edit(row.upstream, { alias: event.target.value })}
-                      className="rounded border border-carbon/40 px-2 py-1"
-                    />
-                  </td>
-                  <td className={CELL}>
-                    <input
-                      type="radio"
-                      name="default-model"
-                      aria-label={`Default: ${row.upstream}`}
-                      disabled={!row.selected}
-                      checked={effectiveDefault(discovery.rows, discovery.preferredDefault) === row.upstream}
-                      onChange={() => setDiscovery({ ...discovery, preferredDefault: row.upstream })}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div>
-            <button type="button" disabled={busy} onClick={() => void publish()} className={BUTTON}>
-              Publish catalog
-            </button>
-          </div>
-        </>
+        <Card>
+          <CardHeader>
+            <CardTitle>Model mapping</CardTitle>
+            <CardDescription>Choose the models to publish, name each alias and pick the default.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <RadioGroup aria-label="Default model" value={defaultUpstream} onValueChange={(upstream) => setDiscovery({ ...discovery, preferredDefault: upstream })}>
+              <div className="relative overflow-auto rounded-card border border-line">
+                <table className="w-full border-collapse text-body">
+                  <caption className="sr-only">Model mapping</caption>
+                  <thead>
+                    <tr>
+                      {["Publish", "Upstream model", "Alias", "Default"].map((heading) => (
+                        <th key={heading} scope="col" className={`${CELL} h-11 whitespace-nowrap border-b border-line bg-subtle font-semibold`}>
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {discovery.rows.map((row) => (
+                      <tr key={row.upstream} className="border-t border-line first:border-t-0">
+                        <td className={CELL}>
+                          <Checkbox checked={row.selected} onCheckedChange={(checked) => edit(row.upstream, { selected: checked === true })} label={<span className="sr-only">Publish {row.upstream}</span>} />
+                        </td>
+                        <td className={`${CELL} font-mono`}>{row.upstream}</td>
+                        <td className={CELL}>
+                          <Input aria-label={`Alias for ${row.upstream}`} value={row.alias} disabled={!row.selected} onChange={(event) => edit(row.upstream, { alias: event.target.value })} className="min-w-40" />
+                        </td>
+                        <td className={CELL}>
+                          <Radio value={row.upstream} disabled={!row.selected} label={<span className="sr-only">Default: {row.upstream}</span>} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </RadioGroup>
+            <div>
+              <Button loading={busy} onClick={() => void publish()}>
+                Publish catalog
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </section>
   );
