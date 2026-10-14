@@ -1,0 +1,1 @@
+Program record (exploration + verify report for the forge-v2 program; no delta specs). Archived 2026-10-14 without spec merge. verify-report.md (CP 5ad37f8, client 1f65297, PASS WITH WARNINGS, CRITICAL none) is the verification evidence for the fv2 and fv2c changes; see ARCHIVE-INDEX.md.
