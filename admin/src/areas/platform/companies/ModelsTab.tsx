@@ -14,14 +14,34 @@ import { Input } from "../../../ui/Input";
 import { Skeleton } from "../../../ui/Skeleton";
 import { useToast } from "../../../ui/toast/Toast";
 import { Layers } from "lucide-react";
+import { CatalogPanel } from "./CatalogPanel";
 
 export function ModelsTab({ company, readOnly }: { company: Company; readOnly: boolean }) {
+  return (
+    <div className="flex flex-col gap-10">
+      <section aria-labelledby="catalog-heading" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 id="catalog-heading" className="font-title text-card font-semibold text-fg">Catalog</h2>
+          <p className="text-body text-muted">Discover the models this company's keys can reach, choose which ones it may use under which names, and publish. Company administrators see the published catalog and can only narrow it.</p>
+        </div>
+        <CatalogPanel company={company} readOnly={readOnly} />
+      </section>
+      <section aria-labelledby="allowed-heading" className="flex flex-col gap-3">
+        <h2 id="allowed-heading" className="font-title text-card font-semibold text-fg">Allowed models</h2>
+        <AllowedModels company={company} readOnly={readOnly} />
+      </section>
+    </div>
+  );
+}
+
+function AllowedModels({ company, readOnly }: { company: Company; readOnly: boolean }) {
   const { platform } = useServices();
   const access = useQuery({ queryKey: ["platform", "company", company.id, "models"], queryFn: () => platform.modelAccess(company.id) });
   const prices = useQuery({ queryKey: ["platform", "prices"], queryFn: () => platform.prices() });
   if (access.isError) return <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void access.refetch()}>Try again</Button>}>{errorMessage(access.error)}</Alert>;
   if (!access.data) return <Skeleton className="h-40 w-full" />;
-  return <Editor key={company.id} company={company} readOnly={readOnly} initial={access.data.models} prices={prices.data?.prices ?? []} />;
+  // Keyed by the saved list: a publication elsewhere on this tab replaces the list, a save leaves it as it is.
+  return <Editor key={`${company.id}:${access.data.models.join("\n")}`} company={company} readOnly={readOnly} initial={access.data.models} prices={prices.data?.prices ?? []} />;
 }
 
 function Editor({ company, readOnly, initial, prices }: { company: Company; readOnly: boolean; initial: string[]; prices: Array<{ upstream_id: string; input_micros: number; output_micros: number; version: number }> }) {

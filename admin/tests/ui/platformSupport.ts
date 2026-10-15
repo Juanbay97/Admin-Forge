@@ -10,6 +10,14 @@ export const ACME = "11111111-1111-4111-8111-111111111111";
 export const GLOBEX = "22222222-2222-4222-8222-222222222222";
 
 type Json = Record<string, unknown>;
+/** One company's catalog as the owner's routes keep it (a company without an entry has no key assigned yet). */
+export interface CatalogWorld {
+  gatewayRevision: number;
+  discovered: { ids: string[]; at: string } | null;
+  revision: number;
+  defaultAlias: string | null;
+  aliases: Record<string, string>;
+}
 export interface Company { id: string; slug: string; display_name: string; active: boolean }
 
 /** A same-origin double of the hidden platform API with the real response shapes (tests/fixtures/platform). */
@@ -22,6 +30,9 @@ export interface World {
   secrets: string[];
   assignments: Record<string, Json[]>;
   models: Record<string, string[]>;
+  /** The catalog per company id, and what the keys would answer to a discovery (the real `catalog/discover` shape). */
+  catalogs: Record<string, CatalogWorld>;
+  discoveries: Record<string, { keys: Json[]; model_ids: string[] }>;
   prices: Json[];
   branding: Record<string, Json>;
   /** The members of each company, by company id (the directory shape). */
@@ -44,6 +55,8 @@ export const newWorld = (): World => ({
   secrets: [],
   assignments: { [ACME]: fixture<{ keys: Json[] }>("company-keys").keys },
   models: { [ACME]: ["gpt-4o", "gpt-4o-mini"] },
+  catalogs: { [ACME]: { gatewayRevision: 1, discovered: null, revision: 0, defaultAlias: null, aliases: {} } },
+  discoveries: { [ACME]: fixture<{ keys: Json[]; model_ids: string[] }>("catalog-discovery") },
   prices: fixture<{ prices: Json[] }>("prices").prices,
   branding: {},
   members: { [ACME]: fixture<{ members: Json[] }>("company-members").members },
@@ -165,6 +178,35 @@ async function handlers(key: string, url: URL, body: Json | undefined, world: Wo
     const created = { id: `99999999-9999-4999-8999-${String(world.companies.length + 1).padStart(12, "0")}`, slug: input.slug, display_name: input.display_name, active: true };
     world.companies.push(created);
     return reply(route, 201, { ...created, invitation: { id: "44444444-4444-4444-8444-444444444444", expires_at: "2026-10-20T12:00:00+00:00", delivery_state: world.delivery ?? "delivered", delivery_channel: "local_mailbox" } });
+  }
+  if ((match = key.match(/^(GET|PUT|POST) \/companies\/([^/]+)\/catalog(\/discover)?$/))) {
+    const [, method, id, discover] = match as unknown as [string, string, string, string | undefined];
+    if (!world.companies.some((company) => company.id === id)) return reply(route, 404, envelope("NOT_FOUND"));
+    const state = world.catalogs[id];
+    if (method === "GET") {
+      if (!state) return reply(route, 200, { configured: false });
+      return reply(route, 200, {
+        configured: true,
+        gateway_revision: state.gatewayRevision,
+        ceiling: world.models[id] ?? [],
+        discovered: state.discovered && { model_ids: state.discovered.ids, at: state.discovered.at },
+        catalogue: { revision: state.revision, default_model: state.defaultAlias, state: state.revision === 0 ? "UNPUBLISHED" : "CURRENT", aliases: state.aliases },
+      });
+    }
+    if (!state) return reply(route, 200, discover ? { keys: [], model_ids: [], discovered_at: null } : envelope("INVALID_REQUEST"));
+    if (discover) {
+      const found = world.discoveries[id] ?? { keys: [], model_ids: [] };
+      if (found.model_ids.length === 0) return reply(route, 200, { keys: found.keys, model_ids: [], discovered_at: null });
+      state.discovered = { ids: found.model_ids, at: "2026-10-14T12:00:00+00:00" };
+      return reply(route, 200, { keys: found.keys, model_ids: found.model_ids, discovered_at: state.discovered.at });
+    }
+    const input = body as { expected_catalogue_revision: number; expected_gateway_revision: number; aliases: Record<string, string>; default_alias: string };
+    if (input.expected_catalogue_revision !== state.revision || input.expected_gateway_revision !== state.gatewayRevision) return reply(route, 409, envelope("REVISION_CONFLICT"));
+    const upstream = Object.values(input.aliases);
+    if (!state.discovered || upstream.some((model) => !state.discovered!.ids.includes(model)) || !(input.default_alias in input.aliases)) return reply(route, 422, envelope("INVALID_REQUEST"));
+    Object.assign(state, { revision: state.revision + 1, defaultAlias: input.default_alias, aliases: input.aliases });
+    world.models[id] = [...new Set(upstream)].sort();
+    return reply(route, 200, { revision: state.revision, default_model: input.default_alias, models: Object.keys(input.aliases).sort() });
   }
   if ((match = key.match(/^(GET|PUT|POST) \/companies\/([^/]+)\/(branding|gateway-keys|model-access|branding\/reset)$/))) {
     const [, method, id, what] = match as unknown as [string, string, string, string];

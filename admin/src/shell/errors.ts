@@ -9,6 +9,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   MFA_ENROLLED: "A second factor is already set up for this account.",
   PLATFORM_DENIED: "This account cannot use the platform console.",
   COMPANY_CONFLICT: "A company with this code already exists.",
+  NO_ACTIVE_MEMBER: "This company has no active member yet. Publishing needs one person who has joined.",
   KEY_CONFLICT: "A gateway key with this label already exists.",
   INVALID_RESPONSE: "The server answered in a way this console does not understand. Contact support.",
   FORBIDDEN: "You do not have access to this.",

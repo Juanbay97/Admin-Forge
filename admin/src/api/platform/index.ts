@@ -4,7 +4,7 @@ import type { BrandingDocument } from "../branding";
 import { ApiError, type ApiClient } from "../client";
 import * as S from "./schemas";
 
-export type { AuditEntry, AuditPage, Company, CompanyList, CompanyMember, CompanyMemberPage, CompanyUsage, CreatedCompany, Enrollment, GatewayKey, GatewayKeyList, KeyAssignment, ModelUsage, Overview, PlatformMe, Price, UsageDay, UsageTotals } from "./schemas";
+export type { AuditEntry, AuditPage, CatalogDiscovery, CatalogPublished, CatalogRead, Company, CompanyList, CompanyMember, CompanyMemberPage, CompanyUsage, CreatedCompany, Enrollment, GatewayKey, GatewayKeyList, KeyAssignment, KeyDiscoveryState, ModelUsage, Overview, PlatformMe, Price, UsageDay, UsageTotals } from "./schemas";
 
 export interface NewCompany {
   slug: string;
@@ -17,6 +17,12 @@ export interface AssignmentEntry {
   key_id: string;
   priority: number;
   active: boolean;
+}
+export interface CatalogPublication {
+  expectedCatalogueRevision: number;
+  expectedGatewayRevision: number;
+  aliases: Record<string, string>;
+  defaultAlias: string;
 }
 export interface Window {
   from: string;
@@ -48,6 +54,12 @@ export interface PlatformApi {
   assignKeys(id: string, entries: AssignmentEntry[]): Promise<{ keys: S.KeyAssignment[] }>;
   modelAccess(id: string): Promise<{ models: string[] }>;
   setModelAccess(id: string, models: string[]): Promise<{ models: string[] }>;
+  /** The company catalog as the owner sees it: the stored discovery and the published selection (nothing until a key is assigned). */
+  catalog(id: string): Promise<S.CatalogRead>;
+  /** Asks every active assigned key for its models and stores the union as the company's discovery. */
+  discoverModels(id: string): Promise<S.CatalogDiscovery>;
+  /** Publishes the selection for the company; the allowed models become exactly the selected ones. */
+  publishCatalog(id: string, publication: CatalogPublication): Promise<S.CatalogPublished>;
   prices(upstreamId?: string): Promise<{ prices: S.Price[] }>;
   setPrice(price: { upstream_id: string; input_micros: number; output_micros: number; effective_from?: string }): Promise<S.Price>;
   usageTotals(window: Window): Promise<S.UsageTotals>;
@@ -109,6 +121,10 @@ export function createPlatformApi(client: ApiClient): PlatformApi {
     assignKeys: (id, keys) => send("PUT", S.KeyAssignments, `${company(id)}/gateway-keys`, { keys }),
     modelAccess: (id) => get(S.ModelAccess, `${company(id)}/model-access`),
     setModelAccess: (id, models) => send("PUT", S.ModelAccess, `${company(id)}/model-access`, { models }),
+    catalog: (id) => get(S.CatalogRead, `${company(id)}/catalog`),
+    discoverModels: (id) => send("POST", S.CatalogDiscovery, `${company(id)}/catalog/discover`, {}),
+    publishCatalog: (id, value) =>
+      send("PUT", S.CatalogPublished, `${company(id)}/catalog`, { expected_catalogue_revision: value.expectedCatalogueRevision, expected_gateway_revision: value.expectedGatewayRevision, aliases: value.aliases, default_alias: value.defaultAlias }),
     prices: (upstreamId) => get(S.PriceList, `/prices${query({ upstream_id: upstreamId })}`),
     setPrice: (price) => send("POST", S.Price, "/prices", price),
     usageTotals: ({ from, to }) => get(S.UsageTotals, `/usage/totals${query({ from, to })}`),

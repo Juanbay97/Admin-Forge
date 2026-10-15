@@ -483,7 +483,8 @@ export const test = base.extend<{ adminUrl: string; enforceCsp: boolean; csp: Cs
       await use(`http://127.0.0.1:${PREVIEW_PORT}`);
       await server.close();
     },
-    { scope: "worker" },
+    // The production build runs inside this fixture; on a busy machine it can outlast the 30 s default test timeout.
+    { scope: "worker", timeout: 240_000 },
   ],
   adminUrl: async ({ origin }, use) => use(`${origin}/admin/`),
 });

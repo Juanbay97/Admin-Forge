@@ -56,6 +56,27 @@ export const KeyAssignment = z.strictObject({
 export const KeyAssignments = z.strictObject({ keys: z.array(KeyAssignment) });
 export const ModelAccess = z.strictObject({ models: z.array(z.string()) });
 
+export const KEY_DISCOVERY_STATES = ["ok", "inactive", "disabled", "no_key", "unreadable", "unreachable"] as const;
+const CatalogState = z.enum(["UNPUBLISHED", "CURRENT", "STALE_GATEWAY"]);
+/** `GET companies/{id}/catalog`: nothing to show until a gateway key is assigned, then the stored discovery and the published selection. */
+export const CatalogRead = z.union([
+  z.strictObject({ configured: z.literal(false) }),
+  z.strictObject({
+    configured: z.literal(true),
+    gateway_revision: z.number().int(),
+    ceiling: z.array(z.string()).nullable(),
+    discovered: z.strictObject({ model_ids: z.array(z.string()), at: Instant }).nullable(),
+    catalogue: z.strictObject({ revision: z.number().int(), default_model: z.string().nullable(), state: CatalogState, aliases: z.record(z.string(), z.string()) }),
+  }),
+]);
+/** `POST companies/{id}/catalog/discover`: one finite state per assigned key, and the union that was stored. */
+export const CatalogDiscovery = z.strictObject({
+  keys: z.array(z.strictObject({ key_id: Uuid, label: z.string(), origin: z.string(), priority: z.number().int(), state: z.enum(KEY_DISCOVERY_STATES), model_count: z.number().int(), model_ids: z.array(z.string()) })),
+  model_ids: z.array(z.string()),
+  discovered_at: Instant.nullable(),
+});
+export const CatalogPublished = z.strictObject({ revision: z.number().int(), default_model: z.string(), models: z.array(z.string()) });
+
 export const Price = z.strictObject({
   id: z.number().int(),
   upstream_id: z.string().min(1),
@@ -105,6 +126,10 @@ export type AuditPage = z.infer<typeof AuditPage>;
 export type GatewayKey = z.infer<typeof GatewayKey>;
 export type GatewayKeyList = z.infer<typeof GatewayKeyList>;
 export type KeyAssignment = z.infer<typeof KeyAssignment>;
+export type CatalogRead = z.infer<typeof CatalogRead>;
+export type CatalogDiscovery = z.infer<typeof CatalogDiscovery>;
+export type CatalogPublished = z.infer<typeof CatalogPublished>;
+export type KeyDiscoveryState = (typeof KEY_DISCOVERY_STATES)[number];
 export type Price = z.infer<typeof Price>;
 export type UsageTotals = z.infer<typeof UsageTotals>;
 export type Overview = z.infer<typeof Overview>;

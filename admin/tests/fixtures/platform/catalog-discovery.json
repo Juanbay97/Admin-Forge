@@ -1,0 +1,8 @@
+{
+  "keys": [
+    {"key_id": "77777777-7777-4777-8777-000000000001", "label": "primary", "origin": "https://gateway.example.test", "priority": 1, "state": "ok", "model_count": 4, "model_ids": ["claude-3-5-sonnet", "combo/fast", "gpt-4o", "gpt-4o-mini"]},
+    {"key_id": "77777777-7777-4777-8777-000000000002", "label": "backup", "origin": "https://gateway.example.test", "priority": 2, "state": "unreachable", "model_count": 0, "model_ids": []}
+  ],
+  "model_ids": ["claude-3-5-sonnet", "combo/fast", "gpt-4o", "gpt-4o-mini"],
+  "discovered_at": "2026-10-14T12:00:00+00:00"
+}
