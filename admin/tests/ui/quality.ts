@@ -40,6 +40,17 @@ export function expectNoCspViolations(watch: CspWatch): void {
 
 /** axe with WCAG 2.0/2.1 A and AA rules; only serious and critical findings fail, minor ones stay visible in the message. */
 export async function expectAccessible(page: Page, options: { scope?: string; exclude?: string[] } = {}): Promise<void> {
+  // A theme switch or a viewport change starts CSS colour transitions; axe measures contrast on whatever is painted, so wait until
+  // none is running or it reads a half-faded colour (a flaky false positive on a loaded machine).
+  // Only finite ones: a spinner or a skeleton pulse never finishes and is not a colour change in flight.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity))
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  );
   let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]);
   if (options.scope) builder = builder.include(options.scope);
   for (const selector of options.exclude ?? []) builder = builder.exclude(selector);
