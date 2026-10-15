@@ -11,6 +11,8 @@ const LABELS: Record<string, string> = {
   "gateway_key.created": "Gateway key added",
   "gateway_key.rotated": "Gateway key rotated",
   "gateway_key.status_changed": "Gateway key enabled or disabled",
+  "company.models_discovered": "Models discovered",
+  "company.catalog_published": "Catalog published",
   "model_price.set": "Model price set",
   "owner.mfa_enrolled": "Second factor enrolled",
   "owner.mfa_recovery_used": "Recovery code used",

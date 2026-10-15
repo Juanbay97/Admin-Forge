@@ -64,12 +64,14 @@ function unquote(text: string): string {
 }
 
 /** The newest local-mailbox message to `recipient`: its onboarding or set-password link, moved onto the control-plane origin. */
-export function mailTo(recipient: string): { subject: string; link: string; path: string } {
+export function mailTo(recipient: string, only?: RegExp): { subject: string; link: string; path: string } {
   const directory = join(workspace(), "mailbox");
   const matches = readdirSync(directory)
     .filter((name) => name.endsWith(".eml"))
     .map((name) => ({ name, text: unquote(readFileSync(join(directory, name), "utf8")) }))
-    .filter(({ text }) => new RegExp(`^To:.*${recipient.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "mi").test(text));
+    .filter(({ text }) => new RegExp(`^To:.*${recipient.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "mi").test(text))
+    // Message file names are random ids, so "the newest" is only meaningful within one kind of message: callers name it by subject.
+    .filter(({ text }) => !only || only.test(/^Subject:\s*(.*)$/m.exec(text)?.[1] ?? ""));
   const last = matches.at(-1);
   if (!last) throw new Error(`no mailbox message for ${recipient}`);
   const link = /https?:\/\/[^\s"<>]+\/(?:onboarding|reset-password)[^\s"<>]*/.exec(last.text)?.[0];

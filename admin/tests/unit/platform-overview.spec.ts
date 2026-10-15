@@ -62,6 +62,8 @@ test.describe("audit labels", () => {
     expect(describeAction("company.branding_saved")).toBe("Branding saved");
     expect(describeAction("company.gateway_assigned")).toBe("Gateway keys assigned");
     expect(describeAction("company.model_access_set")).toBe("Model access set");
+    expect(describeAction("company.models_discovered")).toBe("Models discovered");
+    expect(describeAction("company.catalog_published")).toBe("Catalog published");
     expect(describeAction("gateway_key.created")).toBe("Gateway key added");
     expect(describeAction("gateway_key.rotated")).toBe("Gateway key rotated");
     expect(describeAction("gateway_key.status_changed")).toBe("Gateway key enabled or disabled");
