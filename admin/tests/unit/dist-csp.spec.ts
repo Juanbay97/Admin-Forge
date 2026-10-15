@@ -43,6 +43,18 @@ test.describe("production bundle", () => {
     }
   });
 
+  test("landing.html is a second entry of the same bundle: no inline code, only /admin assets, no remote reference", () => {
+    const landing = readFileSync(path.join(OUT, "landing.html"), "utf8");
+    expect(landing).not.toMatch(/<style[\s>]/i);
+    expect(landing).not.toMatch(/\sstyle\s*=/i);
+    expect(landing).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/i);
+    const references = [...landing.matchAll(/(?:src|href)="([^"]+)"/g)].map((match) => match[1] ?? "");
+    expect(references.filter((url) => /^(?:https?:)?\/\//.test(url))).toEqual([]);
+    expect(references.length).toBeGreaterThan(0);
+    for (const url of references) expect(url.startsWith("/admin/"), `${url} must stay under /admin/ so the edge forwards it`).toBe(true);
+    expect(landing).toContain("<title>Prometheon Forge");
+  });
+
   test("the kit gallery and the primitive spike are not shipped", () => {
     for (const js of scripts) {
       expect(js).not.toContain("Kit core");

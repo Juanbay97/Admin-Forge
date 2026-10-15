@@ -12,10 +12,15 @@ HOST, ADMIN, CLIENT = '127.0.0.1:3410', 'http://127.0.0.1:3410', 'http://127.0.0
 INDEX = '<!doctype html><title>Forge admin</title><script type="module" src="/admin/assets/app.abc123.js"></script>'
 
 
-def build(directory):
+LANDING = '<!doctype html><title>Prometheon Forge</title><script type="module" src="/admin/assets/landing.abc123.js"></script>'
+
+
+def build(directory, *, landing=False):
     root = Path(directory)/'admin'
     (root/'assets').mkdir(parents=True)
     (root/'index.html').write_text(INDEX, 'utf-8')
+    if landing:
+        (root/'landing.html').write_text(LANDING, 'utf-8')
     (root/'assets'/'app.abc123.js').write_text('console.log(1)', 'utf-8')
     (root/'favicon.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg"/>', 'utf-8')
     (Path(directory)/'secret.txt').write_text('outside the build', 'utf-8')
@@ -23,9 +28,9 @@ def build(directory):
 
 
 class AdminMountTests(unittest.TestCase):
-    def client(self, directory, **kwargs):
+    def client(self, directory, *, landing=False, **kwargs):
         app = FastAPI()
-        mount_admin(app, build(directory), **kwargs)
+        mount_admin(app, build(directory, landing=landing), **kwargs)
         return TestClient(app, base_url=ADMIN, follow_redirects=False)
 
     def test_index_is_served_with_a_strict_csp_and_no_caching(self):
@@ -42,6 +47,34 @@ class AdminMountTests(unittest.TestCase):
             self.assertIn("frame-ancestors 'none'", ADMIN_CSP)
             redirect = client.get('/admin')
             self.assertEqual((redirect.status_code, redirect.headers['location']), (307, '/admin/'))
+
+    def test_the_public_landing_is_served_at_the_root_under_the_same_strict_csp(self):
+        with tempfile.TemporaryDirectory() as directory, self.client(directory, required=True, landing=True) as client:
+            response = client.get('/')
+            self.assertEqual((response.status_code, response.text), (200, LANDING))
+            self.assertTrue(response.headers['content-type'].startswith('text/html'))
+            self.assertEqual(response.headers['content-security-policy'], ADMIN_CSP)
+            self.assertEqual(response.headers['cache-control'], 'no-store')
+            self.assertEqual(response.headers['x-content-type-options'], 'nosniff')
+            self.assertEqual(client.get('/admin/').text, INDEX, 'the admin entry is unchanged')
+            self.assertEqual(client.get('/?utm=1').status_code, 200)
+    def test_the_landing_is_hidden_from_the_contract_and_the_root_accepts_only_reads(self):
+        with tempfile.TemporaryDirectory() as directory, self.client(directory, required=True, landing=True) as client:
+            self.assertEqual(client.post('/').status_code, 405)
+            self.assertNotIn('/', client.app.openapi()['paths'])
+
+    def test_a_build_without_the_landing_sends_the_root_to_the_admin(self):
+        with tempfile.TemporaryDirectory() as directory, self.client(directory, required=True) as client:
+            response = client.get('/')
+            self.assertEqual((response.status_code, response.headers['location']), (307, '/admin/'))
+            self.assertEqual(response.headers['cache-control'], 'no-store')
+
+    def test_a_missing_build_sends_the_root_to_the_admin_message_too(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = FastAPI()
+            mount_admin(app, Path(directory)/'absent', required=False)
+            with TestClient(app, base_url=ADMIN, follow_redirects=False) as client:
+                self.assertEqual((client.get('/').status_code, client.get('/').headers['location']), (307, '/admin/'))
 
     def test_client_routes_fall_back_to_the_index_but_missing_files_are_404(self):
         with tempfile.TemporaryDirectory() as directory, self.client(directory, required=True) as client:

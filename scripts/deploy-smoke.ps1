@@ -178,6 +178,12 @@ try {
     Assert-True ((Invoke-Curl '/forge/v1/accounts/me').Status -eq 401) '/forge/v1/accounts/me is not default-deny'
     Write-Pass 'admin served with the application CSP; /forge/v1/accounts/me is 401'
 
+    # The public landing at the domain root is a second entry of the admin bundle: same CSP, never cached.
+    $landing = Invoke-Curl '/'
+    Assert-True ($landing.Status -eq 200 -and $landing.Headers['content-type'] -like 'text/html*' -and $landing.Headers['content-security-policy'] -and $landing.Headers['cache-control'] -eq 'no-store' -and $landing.Body -match 'Prometheon Forge') "the landing at / is not served by the control plane through the proxy ($($landing.Status))"
+    Assert-True ((Invoke-Curl '/nowhere').Status -eq 404) 'the proxy forwards more than the exact root path'
+    Write-Pass 'the public landing is served at / with the application CSP; other unknown paths stay 404'
+
     $refused = Invoke-Curl '/status' -Arguments @('-H', 'Host: evil.test') -Insecure
     Assert-True ($refused.Status -eq 421 -and $refused.Body -notmatch 'ready') "an unknown Host was not refused by the proxy ($($refused.Status))"
     $manifest = Invoke-Curl '/downloads/latest.json'

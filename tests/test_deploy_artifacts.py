@@ -419,9 +419,22 @@ class CaddyfilePolicy(unittest.TestCase):
         self.assertRegex(self.source, r'\(tls_acme\) \{\n\s+tls \{\$FORGE_ACME_EMAIL\}\n\}')
 
     def test_the_control_plane_routes_are_proxied_and_everything_else_is_refused(self):
-        self.assertRegex(self.source, r'@app path /admin /admin/\* /status /livez /forge/\*')
+        self.assertRegex(self.source, r'@app path / /admin /admin/\* /status /livez /forge/\*')
         self.assertIn('reverse_proxy control-plane:3410', self.source)
         self.assertRegex(self.source, r'handle \{\n\s+respond "Not found" 404\n\s+\}')
+
+    def test_the_public_landing_at_the_root_and_its_assets_reach_the_control_plane_and_nothing_wider(self):
+        # The landing is a second entry of the admin bundle served at ``/``: the edge forwards the exact root path (its assets and its
+        # sign-in target live under /admin/*, already forwarded) and every other unknown path is still a 404.
+        match = re.search(r'@app path ([^\n]+)\n\s+handle @app \{\n(?:.*\n)*?\s+reverse_proxy control-plane:3410', self.source)
+        self.assertIsNotNone(match, 'the application matcher is proxied to the control plane')
+        paths = match.group(1).split()
+        self.assertIn('/', paths)
+        self.assertEqual([path for path in paths if '*' not in path and path not in ('/', '/admin', '/status', '/livez')], [])
+        self.assertNotIn('/*', paths, 'a catch-all would forward every unknown path instead of answering 404')
+        self.assertRegex(self.source, r'handle \{\n\s+respond "Not found" 404\n\s+\}')
+        from forge.admin_mount import CONTENT_TYPES, mount_admin
+        self.assertIn('.html', CONTENT_TYPES)
 
     def test_the_mailed_links_reach_the_control_plane_and_only_those_paths(self):
         # The invitation link (/onboarding), its alias (/join) and the owner/password-reset link (/reset-password) are mailed on the public
@@ -459,6 +472,11 @@ class SmokeCoversTheMailedLinks(unittest.TestCase):
     """The deployment smoke proves through the real proxy what the Caddyfile policy only states."""
     def setUp(self):
         self.script = text('scripts/deploy-smoke.ps1')
+
+    def test_the_landing_root_is_requested_through_caddy_and_an_unknown_path_stays_404(self):
+        self.assertIn("Invoke-Curl '/'", self.script)
+        self.assertIn("Invoke-Curl '/nowhere'", self.script)
+        self.assertIn("-eq 'no-store'", self.script)
 
     def test_each_mailed_path_is_requested_through_caddy_and_a_wider_path_is_refused(self):
         for path in ('/onboarding?c=smoke-co', '/join?c=smoke-co', '/reset-password'):

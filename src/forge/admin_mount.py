@@ -72,6 +72,16 @@ def mount_admin(app: FastAPI, directory, *, required: bool):
     for source, target in LINK_REDIRECTS.items():
         app.get(source, include_in_schema=False)(entry(target))
 
+    # The public landing of the domain root: a second entry of the same bundle, so it is served under the same strict CSP and the
+    # same assets. A build without it (or no build at all) sends the root to the admin instead of a bare 404.
+    landing = root/'landing.html' if built and (root/'landing.html').is_file() else None
+
+    @app.get('/', include_in_schema=False)
+    def landing_page():
+        if landing is None:
+            return RedirectResponse('/admin/', status_code=307, headers={'Cache-Control': 'no-store'})
+        return Response(landing.read_bytes(), media_type=CONTENT_TYPES['.html'], headers=_headers('no-store'))
+
     @app.get('/admin', include_in_schema=False)
     def admin_redirect():
         return RedirectResponse('/admin/', status_code=307)

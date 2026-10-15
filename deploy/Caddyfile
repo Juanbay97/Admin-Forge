@@ -45,7 +45,7 @@
 		}
 	}
 
-	@app path /admin /admin/* /status /livez /forge/*
+	@app path / /admin /admin/* /status /livez /forge/*
 	handle @app {
 		# Host is preserved on purpose: the control plane only accepts its configured public host.
 		reverse_proxy control-plane:3410 {
