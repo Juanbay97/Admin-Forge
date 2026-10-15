@@ -15,7 +15,7 @@ test.describe("portal gating", () => {
     await joinAndLand(page, adminUrl);
     await go(page, "/");
     await expect(page).toHaveURL(/\/admin\/portal/);
-    await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button")).toHaveText(["Home", "Get the app", "My usage"]);
+    await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button")).toHaveText(["Home", "Download Prometheon Forge", "My usage"]);
   });
 
   test("the company and platform areas are closed to a member, and no company data is requested", async ({ page, adminUrl }) => {
@@ -34,6 +34,6 @@ test.describe("portal gating", () => {
     await go(page, "/");
     await expect(page).toHaveURL(/\/admin\/company/);
     await go(page, "/portal/download");
-    await expect(page.getByRole("heading", { level: 1, name: "Get the app" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Download Prometheon Forge" })).toBeVisible();
   });
 });

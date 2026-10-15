@@ -24,10 +24,10 @@ test.describe("area registry", () => {
     expect(areaOfPath("/")).toBeNull();
     expect(areaOfPath("/companyx")).toBeNull();
   });
-  test("company navigation lists the five pages in order and hides entries the user may not use", () => {
-    expect(navFor(AREAS.company, admin).map((item) => item.label)).toEqual(["Overview", "Members", "Gateway", "Catalog", "Branding"]);
-    expect(navFor(AREAS.company, admin).map((item) => item.to)).toEqual(["/company", "/company/members", "/company/gateway", "/company/catalog", "/company/branding"]);
-    expect(navFor({ ...AREAS.company, nav: [...AREAS.company.nav, { label: "Secret", to: "/company/secret", icon: "shield", requires: () => false }] }, admin)).toHaveLength(5);
+  test("company navigation lists the six pages in order and hides entries the user may not use", () => {
+    expect(navFor(AREAS.company, admin).map((item) => item.label)).toEqual(["Overview", "Members", "Gateway", "Catalog", "Branding", "Download Prometheon Forge"]);
+    expect(navFor(AREAS.company, admin).map((item) => item.to)).toEqual(["/company", "/company/members", "/company/gateway", "/company/catalog", "/company/branding", "/company/download"]);
+    expect(navFor({ ...AREAS.company, nav: [...AREAS.company.nav, { label: "Secret", to: "/company/secret", icon: "shield", requires: () => false }] }, admin)).toHaveLength(6);
   });
   test("a company admin may enter the company area and not the platform area", () => {
     expect(AREAS.company.requires(admin)).toBe(true);

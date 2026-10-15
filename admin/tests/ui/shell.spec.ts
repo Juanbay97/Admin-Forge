@@ -132,8 +132,8 @@ test.describe("shell chrome", () => {
     await page.keyboard.press("Control+k");
     const palette = page.getByRole("dialog", { name: "Command palette" });
     await expect(palette).toBeVisible();
-    await expect(palette.getByRole("option")).toHaveText(["Overview", "Members", "Gateway", "Catalog", "Branding"]);
-    await page.keyboard.type("mem");
+    await expect(palette.getByRole("option")).toHaveText(["Overview", "Members", "Gateway", "Catalog", "Branding", "Download Prometheon Forge"]);
+    await page.keyboard.type("members");
     await expect(palette.getByRole("option")).toHaveText(["Members"]);
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { level: 1, name: "Members" })).toBeVisible();

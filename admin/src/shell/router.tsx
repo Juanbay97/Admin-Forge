@@ -42,6 +42,7 @@ export const routes: RouteObject[] = [
               { path: "gateway", lazy: company("GatewayRoute") },
               { path: "catalog", lazy: company("CatalogRoute") },
               { path: "branding", lazy: company("BrandingRoute") },
+              { path: "download", lazy: company("DownloadRoute") },
               { path: "*", element: <NotFound /> },
             ],
           },

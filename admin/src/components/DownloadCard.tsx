@@ -1,0 +1,44 @@
+import { ArrowRight, Download as DownloadIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useId } from "react";
+import { Link } from "react-router";
+import type { Services } from "../api/services";
+import { formatBytes } from "../portal/download";
+import { buttonVariants } from "../ui/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/Card";
+import { Skeleton } from "../ui/Skeleton";
+
+interface DownloadCardProps {
+  services: Services;
+  /** The page of the area that holds the full download panel. */
+  to: string;
+  /** The company code, when the area knows it (members type it in the desktop app). */
+  code?: string | null;
+}
+
+/** The dashboard entry of the download area: what is published right now and the way to the full page. */
+export function DownloadCard({ services, to, code }: DownloadCardProps) {
+  const manifest = useQuery({ queryKey: ["portal", "manifest"], queryFn: () => services.downloads.latest(), retry: false });
+  const windows = manifest.data?.platforms.windows;
+  const heading = useId();
+  return (
+    <Card aria-labelledby={heading}>
+      <CardHeader>
+        <CardTitle id={heading} className="flex items-center gap-2"><DownloadIcon aria-hidden="true" className="size-5 text-muted" />Download Prometheon Forge</CardTitle>
+        <CardDescription>Install Forge on your computer and sign in with your company code{code ? <> <strong className="text-fg">{code}</strong></> : null}.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {manifest.isPending ? (
+          <Skeleton className="h-6 w-40" />
+        ) : windows && manifest.data ? (
+          <p className="text-body text-fg">Windows installer <strong>v{manifest.data.version}</strong> <span className="text-muted">({formatBytes(windows.size_bytes)})</span></p>
+        ) : (
+          <p className="text-body text-muted">{manifest.isError ? "The installer information could not be loaded." : "The installer is not published yet."}</p>
+        )}
+        <div>
+          <Link to={to} className={buttonVariants({})}>Download and set up<ArrowRight aria-hidden="true" className="size-4" /></Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

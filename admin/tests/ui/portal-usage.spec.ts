@@ -22,7 +22,7 @@ test.describe("portal home", () => {
     await expect(page.getByText("10K")).toBeVisible();
     await expect(page.getByRole("link", { name: /Download and set up/ })).toHaveAttribute("href", "/admin/portal/download");
     await expect(page.getByRole("link", { name: "See my usage" })).toHaveAttribute("href", "/admin/portal/usage");
-    await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button")).toHaveText(["Home", "Get the app", "My usage"]);
+    await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("button")).toHaveText(["Home", "Download Prometheon Forge", "My usage"]);
   });
 
   test("without a usage route the home still works", async ({ page, adminUrl }) => {
@@ -74,7 +74,7 @@ test.describe("my usage", () => {
     await joinAndLand(page, adminUrl, world);
     await go(page, "/portal/usage");
     await expect(page.getByText("No usage yet")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Get the app" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Download Prometheon Forge" }).first()).toBeVisible();
   });
 
   test("a server without the route says reporting is not available yet instead of failing", async ({ page, adminUrl }) => {

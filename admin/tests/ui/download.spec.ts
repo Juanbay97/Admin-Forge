@@ -11,7 +11,7 @@ test.describe("download page", () => {
 
   test("shows the company code, the installer with version, size and date, and the verification hash", async ({ page, adminUrl }) => {
     await joinAndLand(page, adminUrl);
-    await expect(page.getByRole("heading", { level: 1, name: "Get the app" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Download Prometheon Forge" })).toBeVisible();
     await expect(page.getByTestId("company-code")).toHaveText("acme");
     const download = page.getByRole("link", { name: "Download for Windows" });
     await expect(download).toHaveAttribute("href", "/downloads/Forge-Setup-1.2.3.exe");
@@ -33,7 +33,7 @@ test.describe("download page", () => {
   test("downloads the installer configuration of the chosen company", async ({ page, adminUrl }) => {
     const { requests } = await joinAndLand(page, adminUrl);
     const waiting = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Download configuration" }).click();
+    await page.getByRole("button", { name: "Download configuration (forge-install.json)" }).click();
     const download = await waiting;
     expect(download.suggestedFilename()).toBe("forge-install.json");
     const file = JSON.parse(readFileSync((await download.path())!, "utf8")) as { company_code: string; policy_keys: { keys: Array<{ status: string }> } };
@@ -48,9 +48,9 @@ test.describe("download page", () => {
     const world = newPortalWorld();
     world.installer = null;
     await joinAndLand(page, adminUrl, world);
-    await page.getByRole("button", { name: "Download configuration" }).click();
+    await page.getByRole("button", { name: "Download configuration (forge-install.json)" }).click();
     await expect(page.getByText("The configuration could not be prepared")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Download configuration" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Download configuration (forge-install.json)" })).toBeEnabled();
   });
   test("copies the company code", async ({ page, adminUrl, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);

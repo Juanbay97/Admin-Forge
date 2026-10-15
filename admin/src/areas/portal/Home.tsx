@@ -1,6 +1,7 @@
-import { ArrowRight, Download as DownloadIcon, LineChart } from "lucide-react";
+import { LineChart } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { DownloadCard } from "../../components/DownloadCard";
 import { formatTokens } from "../../lib/format";
 import { windowFor } from "../../platform/range";
 import { tokensOf } from "../../platform/usage";
@@ -22,15 +23,7 @@ export function Home() {
     <section className="flex flex-col gap-6">
       <PageHeader title={`Welcome, ${first}`} description={`You are part of ${organization.display_name}.`} />
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><DownloadIcon aria-hidden="true" className="size-5 text-muted" />Get the app</CardTitle>
-            <CardDescription>Install Forge on your computer and sign in with your company code{code ? <> <strong className="text-fg">{code}</strong></> : null}.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link to="/portal/download" className={buttonVariants({})}>Download and set up<ArrowRight aria-hidden="true" className="size-4" /></Link>
-          </CardContent>
-        </Card>
+        <DownloadCard services={services} to="/portal/download" code={code} />
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><LineChart aria-hidden="true" className="size-5 text-muted" />Your usage, last 7 days</CardTitle>

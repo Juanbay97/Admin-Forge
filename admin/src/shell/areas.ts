@@ -51,6 +51,7 @@ export const AREAS: Record<AreaId, AreaManifest> = {
       { label: "Gateway", to: "/company/gateway", icon: "plug" },
       { label: "Catalog", to: "/company/catalog", icon: "layers" },
       { label: "Branding", to: "/company/branding", icon: "palette" },
+      { label: "Download Prometheon Forge", to: "/company/download", icon: "download" },
     ],
   },
   portal: {
@@ -61,7 +62,7 @@ export const AREAS: Record<AreaId, AreaManifest> = {
     requires: (identity) => identity.orgs.length > 0,
     nav: [
       { label: "Home", to: "/portal", icon: "home" },
-      { label: "Get the app", to: "/portal/download", icon: "download" },
+      { label: "Download Prometheon Forge", to: "/portal/download", icon: "download" },
       { label: "My usage", to: "/portal/usage", icon: "chart" },
     ],
   },

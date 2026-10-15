@@ -31,7 +31,7 @@ export function Usage() {
         <EmptyState icon={Info} title="Usage reporting is not available yet" hint="This Forge server cannot show your personal usage yet. Nothing is wrong with your account." />
       )}
       {usage.data && usage.data.requests === 0 && (
-        <EmptyState icon={Activity} title="No usage yet" hint="Usage appears here after your first conversation in the Forge app." action={<Link to="/portal/download" className={buttonVariants({})}>Get the app</Link>} />
+        <EmptyState icon={Activity} title="No usage yet" hint="Usage appears here after your first conversation in the Forge app." action={<Link to="/portal/download" className={buttonVariants({})}>Download Prometheon Forge</Link>} />
       )}
       {usage.data && usage.data.requests > 0 && (
         <>

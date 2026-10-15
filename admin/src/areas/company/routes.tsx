@@ -3,15 +3,19 @@ import { Catalog } from "../../pages/Catalog";
 import { Gateway } from "../../pages/Gateway";
 import { Members } from "../../pages/Members";
 import { Overview } from "../../pages/Overview";
+import { DownloadCard } from "../../components/DownloadCard";
+import { DownloadPanel } from "../../components/DownloadPanel";
+import { PageHeader } from "../../ui/PageHeader";
 import { useCompany } from "./CompanyLayout";
 import { UsageSection } from "./dashboard/UsageSection";
 
 // The existing pages, mounted unchanged: each is keyed by the organization so a switch discards everything it held.
 export function OverviewRoute() {
-  const { services, organization } = useCompany();
+  const { services, organization, brand } = useCompany();
   return (
     <div className="flex flex-col gap-8" key={organization.id}>
       <Overview api={services.account} organization={organization} />
+      <DownloadCard services={services} to="/company/download" code={brand.status === "ready" ? (brand.branding.code ?? null) : null} />
       <UsageSection services={services} organization={organization} />
     </div>
   );
@@ -30,6 +34,16 @@ export function GatewayRoute() {
 export function CatalogRoute() {
   const { services, organization } = useCompany();
   return <Catalog key={organization.id} catalogApi={services.catalog} organization={organization} />;
+}
+
+export function DownloadRoute() {
+  const { services, organization, brand } = useCompany();
+  return (
+    <section key={organization.id} className="flex flex-col gap-6">
+      <PageHeader title="Download Prometheon Forge" description={`Install Forge on your computer and connect it to ${organization.display_name}.`} />
+      <DownloadPanel services={services} organization={organization} code={brand.status === "ready" ? (brand.branding.code ?? null) : null} />
+    </section>
+  );
 }
 
 export function BrandingRoute() {
