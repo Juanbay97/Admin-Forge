@@ -177,7 +177,8 @@ docker compose ps                                  # postgres, control-plane, ca
 curl -fsS https://forge.prometheonlab.com/status   # {"status":"ready", ...}
 ```
 
-The first build downloads images and compiles the admin web, so allow several minutes. The first start asks Let's Encrypt for a
+Open `https://forge.prometheonlab.com/` in a browser: it shows the public landing page (the brand, a **Sign in** button that leads to
+`/admin`, and the Windows download). It is part of the admin web, so the same build serves it and no extra setting exists. The first build downloads images and compiles the admin web, so allow several minutes. The first start asks Let's Encrypt for a
 certificate; if `/status` fails, read `docker compose logs caddy` before changing anything (the table in [Troubleshooting](#troubleshooting)
 has the usual causes). The migration job also seeds the capability catalog on a fresh install, so a new server is usable straight away.
 
@@ -199,7 +200,8 @@ Expected: `{"status": "created", "link_file": "/credentials/owner-link.txt", "de
    authenticator app (the TOTP secret), confirm with a code, and save the **ten recovery codes** shown once. Store them offline.
 3. Later sign-ins ask for a 6-digit code or one recovery code (each works once). Thirty idle minutes sign you out.
 
-If the link was lost, use *Forgot password* on the sign-in page. Running the command again does nothing (`"status": "exists"`).
+If the link was lost, use *Forgot password?* on the sign-in page ([Reset a password](#reset-a-password)). Running the command again does nothing
+(`"status": "exists"`).
 
 ## 8. Connect OmniRoute
 
@@ -226,6 +228,17 @@ Expected: the administrator receives an invitation email whose link opens the jo
 checklist that turns green as keys and models are assigned. If delivery says `failed`, the company exists: fix the mail relay and use the
 check in [deploy.md](deploy.md#email-delivery-smtp). The administrator signs in at `https://forge.prometheonlab.com/admin/`, invites the
 people, and each person lands on a download page.
+
+**Choose the models a company can use.** After the company has one or more gateway keys assigned (its **Keys** tab), open its **Models**
+tab as platform owner:
+
+1. **Discover models** asks every active key of the company, through OmniRoute's `/v1/models`, what it can reach. Each key shows its own state
+   (*Reachable*, *Not reachable*, *No key stored*, *Disabled* or *Assigned but off*) and when the last discovery succeeded; one broken key
+   does not hide the models of the others.
+2. Search the list, tick the models or combos the company may use, give each an **alias** (the name members see), and pick the **default**.
+3. **Publish catalog**. The published models become exactly the company's allowed models. Company administrators keep their own **Catalog** page,
+   but they can only publish models inside that allowed set (they can narrow your catalog, never widen it). Publishing needs one person in the company who has already
+   joined (the event is recorded against an administrator of the company); every discover and publish is in the platform **Audit log**.
 
 ## 10. Publish the installer
 
@@ -256,12 +269,30 @@ curl -fsS https://forge.prometheonlab.com/downloads/latest.json
 
 Caddy serves `deploy/downloads/` read-only; no restart is needed and `latest.json` is never cached, so a new release shows up at once.
 
+**What `latest.json` says.** It is the only thing the web reads to decide what to offer; the installer file itself is never inspected.
+
+| Field | Meaning | Rule |
+|-------|---------|------|
+| `"version"` | The version people see (`v1.5.0`) | Any non-empty text |
+| `"released_at"` | When it was published | An ISO 8601 UTC time, shown as a date |
+| `"platforms"` then `"windows"` | The installer for Windows, the only platform for now | Without it nobody is offered a download |
+| `"url"` | Where the file is | Must be `/downloads/<file name>` on this origin: a manifest can never send people to another site |
+| `"sha256"` | The file's SHA-256 in lowercase hex | Shown next to the button so people can verify the file; `sha256sum` prints it |
+| `"size_bytes"` | The file size in bytes | Shown as MB |
+
+It appears in three places, all reading `/downloads/latest.json`: the **Download for Windows** section of the public landing page at `/`,
+the **Download Prometheon Forge** page every signed-in person finds in the navigation (company administrators at `/admin/company/download`,
+members at `/admin/portal/download`), and the card on each dashboard. While no `latest.json` exists (or it is not valid) all three say that the
+installer is not published yet, and nothing else breaks. To publish a new version, copy the new file, rewrite `latest.json` with the commands
+above, and leave the old file in place for people who are mid-download.
+
 ## 11. Install the client on another PC
 
 Each person does this from the download page after accepting their invitation; an administrator can do the same silently.
 
-1. Open the invitation link, choose a password, and the **download page** opens at `https://forge.prometheonlab.com/admin/portal/download`.
-2. Download **the installer** and click **Download configuration**. The second file, `forge-install.json`, holds the company code, the
+1. Open the invitation link, choose a password, and the **Download Prometheon Forge** page opens at `https://forge.prometheonlab.com/admin/portal/download` (administrators find the same page
+   in their navigation at `/admin/company/download`).
+2. Download **the installer** and click **Download configuration (forge-install.json)**. The second file, `forge-install.json`, holds the company code, the
    control plane origin and the public policy keys the app pins. It holds no secret.
 3. Put both files in one folder and run the installer: it finds `forge-install.json` next to itself. For a silent or scripted install name
    the file explicitly (quote a path with spaces):
@@ -277,6 +308,26 @@ Each person does this from the download page after accepting their invitation; a
 5. Sign in with the account from the invitation. Models appear and a chat answers through OmniRoute.
 
 The client repository's `docs/policy-key-pinning.md` has the rules and limits; its `docs/desktop-installer.md` covers building.
+
+## Reset a password
+
+Every account (a member, a company administrator or the platform owner) resets its own password by mail. Nobody, including the platform owner,
+can read or set anyone else's password.
+
+1. On the sign-in page choose **Forgot password?** (`https://forge.prometheonlab.com/admin/forgot-password`), type the account's email and
+   send. The page always answers with the same message, whether the address has an account or not, so it cannot be used to find out who
+   has one.
+2. The mail from step 5 carries a link to `/reset-password`. It is single-use and valid for **30 minutes**; asking again replaces the previous
+   link, and a new request is accepted once a minute. The link opens the set-password page, where the new password needs at least 15 characters.
+3. Setting the password signs the account out everywhere. A sign-in with a password shorter than 15 characters, or a wrong one, says
+   *Email or password is incorrect.* and never reveals the length rule.
+
+The browser calls `POST /forge/v1/accounts/password-reset/request` with the email only; the reply is the same `202` for every address.
+
+**The platform owner** uses exactly the same page. The authenticator is not touched by a password reset: after the new password the console still
+asks for a 6-digit code, or one of the ten recovery codes from step 7 if the phone is gone. There is no command that re-issues an owner link
+(`bootstrap-owner` does nothing once an owner exists), so the mail relay must work: if a reset message does not arrive, run the SMTP check in
+[deploy.md](deploy.md#email-delivery-smtp) before anything else.
 
 ## Backups and restore
 
@@ -299,17 +350,28 @@ To restore on a new VM: repeat steps 1 to 4, put `deploy/secrets/` back from the
 (the dump carries the catalog, so the empty tables must stay empty), `docker compose stop control-plane caddy`, run the `restore` command above,
 then `docker compose up -d --wait`. [deploy.md](deploy.md#backup-and-restore) lists the exit codes `restore` can answer and what each means.
 
-## Upgrades
+## Update the server
+
+Do this on the VM each time you want a newer Forge. Nothing is lost: the data lives in the `pgdata` volume, the secrets in `deploy/secrets/`.
 
 ```bash
-cd /opt/forge && git pull
+cd /opt/forge && git pull                                      # 1. the new code and migrations
 cd deploy
-docker compose exec backup /opt/forge/backup.sh run-once      # a fresh dump first
-docker tag forge-control-plane:local forge-control-plane:previous
-docker compose up -d --build --wait                            # migrations run first; a failure stops the rollout
+docker compose exec backup /opt/forge/backup.sh run-once       # 2. a fresh dump first
+docker tag forge-control-plane:local forge-control-plane:previous   # keeps the running image for a code rollback
+docker compose build                                           # 3. builds the control plane (and the admin web with the landing)
+docker compose up -d --wait                                    # 4. migrate runs first; a failure stops the rollout
+docker compose logs migrate                                    # 5. the migration result: the JSON lines name what was applied
+curl -fsS https://forge.prometheonlab.com/status               # {"status":"ready", ...}
 ```
 
-Take a Proxmox snapshot before a major upgrade. A code-only problem is rolled back with
+`migrate` is a one-shot service that `up` runs before the control plane starts: it applies every new file in `migrations/` once, in order,
+then exits (0). Run it by itself with `docker compose run --rm migrate` if you want to see it work before the rollout. Migrations only move
+forward, and an applied file must never be edited (`MIGRATION_CHECKSUM_MISMATCH` otherwise). A release that adds a migration changes the
+schema the server attests, so the old control plane image stops being ready against the migrated database: roll back with a snapshot or the dump
+from step 2, not with the old image.
+
+Take a Proxmox snapshot before a major upgrade. A code-only problem (no new migration) is rolled back with
 `FORGE_IMAGE=forge-control-plane:previous docker compose up -d --wait`; a migration cannot be undone, so you return to the snapshot or restore
 the pre-upgrade dump (see [deploy.md](deploy.md#upgrade-and-roll-back)). Publish a new installer by repeating step 10 with the new version.
 
@@ -342,5 +404,8 @@ JSON with a request id and route, never an identifier or a secret.
 - [ ] The platform owner has the authenticator enrolled and the ten recovery codes stored offline
 - [ ] The OmniRoute key is added, models are priced and the first company has the key and its models assigned
 - [ ] `latest.json` and the installer open from `https://forge.prometheonlab.com/downloads/`
+- [ ] `https://forge.prometheonlab.com/` shows the landing page and its Sign in button opens `/admin`
+- [ ] The company's Models tab discovered models through OmniRoute and a catalog is published
+- [ ] *Forgot password?* sends a reset mail that arrives and works
 - [ ] A second PC installed with `forge-install.json`, signed in and received a chat answer
 - [ ] A dump exists, `pg_restore --list` reads it, and `deploy/backups/` is copied off the VM

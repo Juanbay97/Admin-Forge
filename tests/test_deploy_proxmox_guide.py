@@ -18,7 +18,8 @@ CREATED_PATHS = {'deploy/.env', 'deploy/secrets', 'deploy/credentials', 'deploy/
 HEADINGS = ('## Quick path', '## Before you start', '## 1. Prepare the VM', '## 2. DNS and ports', '## 3. Install Docker',
             '## 4. Configure Forge', '## 5. Mail through Resend', '## 6. Start the stack', '## 7. First platform owner',
             '## 8. Connect OmniRoute', '## 9. Create the first company', '## 10. Publish the installer',
-            '## 11. Install the client on another PC', '## Backups and restore', '## Upgrades', '## Troubleshooting', '## Checklist')
+            '## 11. Install the client on another PC', '## Reset a password', '## Backups and restore', '## Update the server',
+            '## Troubleshooting', '## Checklist')
 
 
 def known_settings():
@@ -89,6 +90,34 @@ class Guide(unittest.TestCase):
                        'vzdump', 'offline copy', 'restore', 'FORGE_MIGRATE_SEED=0', 'git pull', 'journalctl', 'Let\'s Encrypt'):
             with self.subTest(needle=needle):
                 self.assertIn(needle, self.doc)
+
+    def test_it_explains_how_to_update_the_server_in_the_order_the_stack_needs(self):
+        section = self.doc[self.doc.index('## Update the server'):self.doc.index('## Troubleshooting')]
+        positions = [section.find(step) for step in ('git pull', 'backup.sh run-once', 'docker compose build', 'docker compose up -d', 'docker compose logs migrate')]
+        self.assertNotIn(-1, positions, positions)
+        self.assertEqual(positions, sorted(positions), 'pull, dump, build, start, then read the migration result')
+        for needle in ('migrate', 'forward', 'FORGE_IMAGE', 'snapshot', 'MIGRATION_CHECKSUM_MISMATCH'):
+            self.assertIn(needle, section)
+        self.assertIn('migrate', text(COMPOSE))
+
+    def test_it_explains_the_password_reset_for_members_administrators_and_the_platform_owner(self):
+        section = self.doc[self.doc.index('## Reset a password'):self.doc.index('## Backups and restore')]
+        for needle in ('Forgot password', '/admin/forgot-password', 'password-reset/request', '30 minutes', 'platform owner',
+                       'authenticator', 'recovery code', 'same message', 'SMTP'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, section)
+        from forge.invitation_delivery import PostgresDeliveryStore
+        self.assertTrue(hasattr(PostgresDeliveryStore, 'queue_reset'))
+        self.assertIn('/reset-password', text('deploy/Caddyfile'))
+
+    def test_it_explains_latest_json_field_by_field_and_where_the_installer_lives(self):
+        section = self.doc[self.doc.index('## 10. Publish the installer'):self.doc.index('## 11. Install the client on another PC')]
+        for field in ('"version"', '"released_at"', '"platforms"', '"windows"', '"url"', '"sha256"', '"size_bytes"'):
+            with self.subTest(field=field):
+                self.assertIn(field, section)
+        for needle in ('/downloads/latest.json', 'deploy/downloads/', 'no restart', 'Download Prometheon Forge', 'landing'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, section)
 
     def test_the_runbook_points_to_the_guide_without_naming_a_production_domain(self):
         runbook = text('docs/deploy.md')
