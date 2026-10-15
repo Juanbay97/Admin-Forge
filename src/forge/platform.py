@@ -65,6 +65,12 @@ class KeyConflict(PlatformError):
     message = 'A gateway key with this label already exists.'
 
 
+class NoActiveMember(PlatformError):
+    """The company has nobody a publication event may name yet (no active member)."""
+    code = 'NO_ACTIVE_MEMBER'
+    message = 'The company has no active member yet.'
+
+
 class RevisionConflict(PlatformError):
     code = 'REVISION_CONFLICT'
     message = 'The branding revision changed.'

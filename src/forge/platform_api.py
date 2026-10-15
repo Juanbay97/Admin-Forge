@@ -23,7 +23,7 @@ from forge.capability_model import CapabilityConflict, CapabilityDenied, Capabil
 from forge.connector_model import BrokerConflict, BrokerInvalid, BrokerNotFound
 from forge.invitations import capability_digest
 from forge.platform import (COMPANY_CODE, MAX_PAGE, MAX_REVISION, CompanyConflict, KeyConflict, MfaEnrolled, MfaInvalid, MfaLocked, MfaRequired,
-                            PlatformDenied, PlatformInvalid, PlatformNotFound, RevisionConflict)
+                            NoActiveMember, PlatformDenied, PlatformInvalid, PlatformNotFound, RevisionConflict)
 
 PREFIX = '/forge/v1/platform'
 JSON_LIMIT = 1024
@@ -37,6 +37,7 @@ _FAILURES = ((PlatformDenied, 403, 'PLATFORM_DENIED', 'Platform access denied.')
              (MfaInvalid, 403, 'MFA_INVALID', 'The verification code was not accepted.'),
              (MfaLocked, 429, 'MFA_LOCKED', 'Too many attempts; try again later.'),
              (MfaEnrolled, 409, 'MFA_ENROLLED', 'A second factor is already enrolled.'),
+             (NoActiveMember, 409, 'NO_ACTIVE_MEMBER', 'The company has no active member yet.'),
              (PlatformInvalid, 422, 'INVALID_REQUEST', 'The platform request is invalid.'),
              (PlatformNotFound, 404, 'NOT_FOUND', 'The requested resource is unavailable.'),
              (CapabilityLocked, 409, 'LOCKED', 'The capability is locked.'),
@@ -148,7 +149,7 @@ def _company(company):
     return {'id': str(company.organization_id), 'slug': company.slug, 'display_name': company.display_name, 'active': company.active}
 
 
-def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None, usage=None, capabilities=None, connectors=None, reads=None):
+def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None, usage=None, capabilities=None, connectors=None, reads=None, catalog=None):
     """Add the platform routes (all ``include_in_schema=False``, so the contract pin is unchanged)."""
     def blocking(function, *arguments, **keywords):
         return run_sync(lambda: function(*arguments, **keywords), abandon_on_cancel=False)
@@ -305,6 +306,9 @@ def mount_platform(app: FastAPI, *, service, sessions, readiness=None, keys=None
     if connectors is not None:
         from forge.connector_api import mount_platform_connectors
         mount_platform_connectors(app, service=connectors, guarded=guarded, blocking=blocking)
+    if catalog is not None:
+        from forge.platform_catalog_api import mount_catalog
+        mount_catalog(app, catalog=catalog, guarded=guarded, blocking=blocking)
     if reads is not None:
         from forge.platform_reads_api import mount_reads
         mount_reads(app, reads=reads, guarded=guarded, blocking=blocking)

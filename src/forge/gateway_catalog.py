@@ -30,6 +30,31 @@ class CatalogStore(Protocol):
     def member_catalog(self, digest: str, org: UUID) -> tuple[str, str, str] | None: ...
 
 
+ALIAS = re.compile(r'[a-z][a-z0-9_-]{0,63}')
+UPSTREAM = re.compile(r'[!-~]{1,255}')
+
+
+def valid_selection(operation, expected, gateway_revision, mapping, default):
+    """The shape every catalogue publication carries, whoever authorizes it (an administrator or the platform owner)."""
+    if (type(operation) is not UUID or type(expected) is not int or not 0 <= expected < 2**63-2
+            or type(gateway_revision) is not int or not 1 <= gateway_revision < 2**63-1
+            or type(mapping) is not dict or not 1 <= len(mapping) <= 64
+            or type(default) is not str or default not in mapping):
+        return False
+    return all(type(alias) is str and ALIAS.fullmatch(alias) and type(upstream) is str and UPSTREAM.fullmatch(upstream)
+               for alias, upstream in mapping.items())
+
+
+def publication_material(org, binding_id, expected, gateway_revision, mapping, default):
+    """The immutable snapshot payload, its checksum and the selection identity for one publication."""
+    aliases = tuple(AliasSnapshot(alias, (RouteEvidence(org, binding_id,
+        uuid5(binding_id, 'route:' + alias + ':' + upstream),
+        uuid5(binding_id, 'discovery:' + upstream), Verification.UNVERIFIED,
+        UnknownCapabilities()),)) for alias, upstream in sorted(mapping.items()))
+    payload, checksum = encode_catalog(CatalogSnapshot(org, binding_id, expected + 1, aliases))
+    return payload, checksum, selection_identity(mapping, default, gateway_revision)
+
+
 def selection_identity(mapping, default, gateway_revision):
     material = json.dumps({'mapping': mapping, 'default': default,
         'gateway_revision': gateway_revision}, sort_keys=True, separators=(',', ':'))
@@ -78,15 +103,8 @@ class GatewayCatalog:
     def publish(self, token: str, org: UUID, operation: UUID, expected: int,
             gateway_revision: int, mapping: dict[str, str], default: str):
         digest = self._actor(token, org)
-        if (type(operation) is not UUID or type(expected) is not int or not 0 <= expected < 2**63-2
-                or type(gateway_revision) is not int or not 1 <= gateway_revision < 2**63-1
-                or type(mapping) is not dict or not 1 <= len(mapping) <= 64
-                or type(default) is not str or default not in mapping):
+        if not valid_selection(operation, expected, gateway_revision, mapping, default):
             raise ValueError('Invalid catalogue selection.')
-        for alias, upstream in mapping.items():
-            if (type(alias) is not str or not re.fullmatch(r'[a-z][a-z0-9_-]{0,63}', alias)
-                    or type(upstream) is not str or not re.fullmatch(r'[!-~]{1,255}', upstream)):
-                raise ValueError('Invalid catalogue selection.')
         discovery = self._store.discovery(digest, org)
         record = discovery.gateway
         self._cipher.verify(org, record)
@@ -95,14 +113,9 @@ class GatewayCatalog:
             raise GatewayConflict()
         if not set(mapping.values()) <= set(validated_ids(discovery.model_ids)):
             raise ValueError('Model unavailable in trusted discovery.')
-        aliases = tuple(AliasSnapshot(alias, (RouteEvidence(org, record.binding_id,
-            uuid5(record.binding_id, 'route:' + alias + ':' + upstream),
-            uuid5(record.binding_id, 'discovery:' + upstream), Verification.UNVERIFIED,
-            UnknownCapabilities()),)) for alias, upstream in sorted(mapping.items()))
-        snapshot = CatalogSnapshot(org, record.binding_id, expected + 1, aliases)
-        payload, checksum = encode_catalog(snapshot)
+        payload, checksum, selection_sha = publication_material(org, record.binding_id, expected, gateway_revision, mapping, default)
         revision = self._store.publish(digest, org, operation, expected, discovery,
-            dict(mapping), default, payload, checksum, selection_identity(mapping, default, gateway_revision))
+            dict(mapping), default, payload, checksum, selection_sha)
         return {'revision': revision, 'default_model': default,
                 'models': [alias for alias in sorted(mapping)]}
 

@@ -118,6 +118,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     from forge.invitation_store import PostgresInvitationStore
     from forge.invitations import InvitationService, capability_digest
     from forge.platform import PlatformService
+    from forge.platform_catalog import PlatformCatalog
+    from forge.platform_catalog_store import PostgresPlatformCatalogStore
     from forge.platform_api import mount_platform
     from forge.platform_reads import PlatformReads
     from forge.platform_reads_store import PostgresPlatformReadsStore
@@ -161,7 +163,8 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     mount_platform(app, service=PlatformService(PostgresPlatformStore(platform), SecretSealer(platform_key), delivery=delivery),
                    sessions=sessions, readiness=readiness, keys=GatewayKeys(PostgresGatewayKeyStore(platform), cipher),
                    usage=PlatformUsage(PostgresPlatformUsageStore(platform)), capabilities=capabilities, connectors=connectors,
-                   reads=PlatformReads(PostgresPlatformReadsStore(platform)))
+                   reads=PlatformReads(PostgresPlatformReadsStore(platform)),
+                   catalog=PlatformCatalog(PostgresPlatformCatalogStore(platform), cipher, HttpxModelsAdapter(policy=gateway_policy, verify=verify)))
     mount_company_capabilities(app, capabilities=capabilities, sessions=sessions, readiness=readiness)
     signer = None if policy_key is None else load_signer(policy_key, retired=policy_retired_keys, rotations=policy_rotations)  # absent: the effective-policy routes answer 503
     def companies(token):

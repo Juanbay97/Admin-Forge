@@ -33,7 +33,9 @@ SERVICE_FUNCTIONS = ('forge.platform_me(text)', 'forge.platform_company_list(tex
                      'forge.platform_usage_totals(text,date,date)')
 INTERNAL_FUNCTIONS = ('forge.platform_lock_owner(text,boolean)', 'forge.platform_audit_write(uuid,text,uuid)',
                       'forge.platform_audit_write(uuid,text,uuid,uuid)', 'forge.platform_usage_range(date,date,integer)', 'forge.platform_gateway_key_meta(uuid)',
-                      'forge.platform_owner_exists(uuid)')
+                      'forge.platform_owner_exists(uuid)',
+                      # 0048: the catalog helpers the gateway authority calls (not executable by the service)
+                      'forge.platform_catalog_authorize(text,uuid,boolean)', 'forge.platform_catalog_record(uuid,uuid,text,text[])')
 AUTHORITY_GRANTS = {('usage_daily', 'SELECT'), ('model_prices', 'SELECT'), ('model_prices', 'INSERT'),  # 0036: versioned prices
                     ('gateway_keys', 'SELECT'), ('gateway_keys', 'INSERT'), ('gateway_keys', 'UPDATE'),
                     ('organization_gateway_profiles', 'SELECT'), ('organization_gateway_profiles', 'INSERT'),
@@ -49,7 +51,9 @@ AUTHORITY_GRANTS = {('usage_daily', 'SELECT'), ('model_prices', 'SELECT'), ('mod
                     ('platform_mfa_sessions', 'SELECT'), ('platform_mfa_sessions', 'INSERT'), ('platform_mfa_sessions', 'UPDATE'),
                     # 0030: the four rows of a new company, written only for the organization a function names
                     ('organizations', 'INSERT'), ('configuration_revisions', 'INSERT'), ('departments', 'INSERT'),
-                    ('account_invitations', 'INSERT')}
+                    ('account_invitations', 'INSERT'),
+                    # 0043: a company's members, readable only while one company is pinned
+                    ('membership_roles', 'SELECT'), ('membership_departments', 'SELECT'), ('departments', 'SELECT')}
 PRIVILEGES = ('SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
 
 
