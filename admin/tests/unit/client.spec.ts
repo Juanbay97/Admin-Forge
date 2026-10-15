@@ -115,6 +115,15 @@ test.describe("account api", () => {
     expect(session.token()).toBeNull();
   });
 
+  test("requestReset posts only the email and resolves for the neutral 202", async () => {
+    const { fetchImpl, calls } = stub(() => json(202, { status: "accepted", delivery_channel: "smtp" }));
+    const api = createAccountApi(createApiClient({ session: createSession(), fetchImpl }));
+    await api.requestReset("a@example.com");
+    expect(calls[0]?.url).toBe("/forge/v1/accounts/password-reset/request");
+    expect(calls[0]?.init.method).toBe("POST");
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({ email: "a@example.com" });
+  });
+
   test("me, departments and logout use the contract paths", async () => {
     const session = createSession();
     session.set("tok");

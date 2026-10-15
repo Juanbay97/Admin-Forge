@@ -49,6 +49,16 @@ test.describe("login and per-company partition", () => {
     await expect(page.getByLabel("Email")).toHaveValue("admin@example.com");
   });
 
+  test("a password the server refuses by length gets the same generic error and never reveals the rule", async ({ page, adminUrl }) => {
+    const api = await installBackend(page, ADMIN_BACKEND);
+    await page.goto(adminUrl);
+    await signIn(page, "admin@example.com", "short");
+    await expect(page.getByRole("alert")).toHaveText("Email or password is incorrect.");
+    await expect(page.getByRole("main")).not.toContainText(/15|characters|unavailable/i);
+    await expect(page.getByLabel("Password")).toHaveValue("");
+    expect(api.requests.filter((r) => r.path.endsWith("/accounts/login"))).toHaveLength(1);
+  });
+
   test("sign out returns to the login form and drops the session", async ({ page, adminUrl }) => {
     const api = await installBackend(page, ADMIN_BACKEND);
     await page.goto(adminUrl);

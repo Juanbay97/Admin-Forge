@@ -9,7 +9,7 @@ import { PasswordForm } from "./PasswordForm";
 import { PublicFrame } from "./PublicFrame";
 
 /**
- * The page the owner set-password link lands on (`/reset-password#capability=…`). The capability is read once into memory and
+ * The page any account's set-password link lands on (a forgotten password, or the first one of a platform owner) (`/reset-password#capability=…`). The capability is read once into memory and
  * removed from the address bar; the password goes to the consume endpoint and is dropped. Never calls an authenticated endpoint.
  */
 export function ResetPassword({ consume }: { consume: (capability: string, password: string) => Promise<void> }) {
@@ -24,7 +24,7 @@ export function ResetPassword({ consume }: { consume: (capability: string, passw
 
   if (!capability) {
     return (
-      <PublicFrame brand={defaultTheme} title="This link cannot be used" description="It is incomplete, expired or was already used. Ask for a new one, or sign in if you already set your password.">
+      <PublicFrame brand={defaultTheme} title="This link cannot be used" description="It is incomplete, expired or was already used. Use Forgot password on the sign-in page to request a new one, or sign in if you already set your password.">
         <Button onClick={() => navigate("/", { replace: true })}>Go to sign in</Button>
       </PublicFrame>
     );

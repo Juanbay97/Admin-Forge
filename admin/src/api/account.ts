@@ -24,6 +24,8 @@ export interface AccountApi {
   me(): Promise<Me>;
   /** Public: spends a one-time capability (a set-password link) to set the password. */
   consumeReset(capability: string, password: string): Promise<void>;
+  /** Public: asks for a set-password link. The server answers the same 202 whether or not the address has an account. */
+  requestReset(email: string): Promise<void>;
   departments(orgId: string): Promise<Department[]>;
   createDepartment(orgId: string, name: string): Promise<Department>;
 }
@@ -40,6 +42,9 @@ export function createAccountApi(client: ApiClient): AccountApi {
     me: () => client.request<Me>("GET", "/forge/v1/accounts/me"),
     async consumeReset(capability, password) {
       await client.request("POST", "/forge/v1/accounts/password-reset/consume", { capability, password });
+    },
+    async requestReset(email) {
+      await client.request("POST", "/forge/v1/accounts/password-reset/request", { email });
     },
     createDepartment: (orgId, name) => client.request<Department>("POST", `/forge/v1/orgs/${encodeURIComponent(orgId)}/departments`, { name }),
     async departments(orgId) {

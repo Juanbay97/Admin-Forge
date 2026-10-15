@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import type { AccountApi } from "../api/account";
+import { cn } from "../lib/cn";
 import { ApiError } from "../api/client";
 import { defaultTheme } from "../brand/theme";
 import { z } from "../lib/zod";
 import { Alert } from "../ui/Alert";
-import { Button } from "../ui/Button";
+import { Button, buttonVariants } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Field } from "../ui/Field";
 import { useZodForm } from "../ui/form";
@@ -13,6 +15,8 @@ import { Input } from "../ui/Input";
 
 const MESSAGES: Record<number, string> = {
   401: "Email or password is incorrect.",
+  // The server refuses a password under its minimum length with 422 before looking the account up; sign-in must not reveal that rule.
+  422: "Email or password is incorrect.",
   429: "Too many sign-in attempts. Try again later.",
 };
 
@@ -66,6 +70,9 @@ export function Login({ api, onSignedIn, notice }: LoginProps) {
           <Button type="submit" size="lg" loading={isSubmitting}>
             Sign in
           </Button>
+          <Link to="/forgot-password" className={cn(buttonVariants({ variant: "link" }), "self-center")}>
+            Forgot password?
+          </Link>
         </form>
       </Card>
     </main>

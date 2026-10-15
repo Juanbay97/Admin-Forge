@@ -7,7 +7,7 @@ import { homeFor, loadIdentity, type Identity } from "../../src/shell/identity";
 
 const org = (id: string, roles: string[]) => ({ id, display_name: id, status: "active" as const, roles, departments: [] });
 const me = (...orgs: ReturnType<typeof org>[]): Me => ({ account: { id: "a1", email: "a@example.com", display_name: "Ada" }, organizations: orgs });
-const account = (value: Me): AccountApi => ({ login: async () => "", logout: async () => undefined, me: async () => value, consumeReset: async () => undefined, createDepartment: async () => ({ id: "d", name: "n" }), departments: async () => [] });
+const account = (value: Me): AccountApi => ({ login: async () => "", logout: async () => undefined, me: async () => value, consumeReset: async () => undefined, requestReset: async () => undefined, createDepartment: async () => ({ id: "d", name: "n" }), departments: async () => [] });
 const mfa = (state: "none" | "pending" | "active", verified = false) => ({ state, verified, fresh: verified });
 const owner = (state: "none" | "pending" | "active" = "active", verified = true): PlatformMe => ({ account_id: "a1", role: "platform_owner", mfa: mfa(state, verified) });
 const platform = (reply: () => Promise<PlatformMe>): Pick<PlatformApi, "me"> & { calls: number } => {

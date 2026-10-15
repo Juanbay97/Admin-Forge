@@ -136,10 +136,16 @@ export async function installBackend(page: Page, source: Backend) {
     if (path === "/forge/v1/accounts/login") {
       const body = request.postDataJSON() as { email: string; password: string };
       const found = backend.accounts[body.email];
+      // The real server refuses a password under 15 characters at the schema level, before it looks the account up.
+      if (body.password.length < 15) return reply(route, 422, envelope("INVALID_REQUEST", "Invalid request."));
       if (!found || found.password !== body.password) {
         return reply(route, 401, envelope("UNAUTHENTICATED", "Invalid credentials."));
       }
       return reply(route, 200, { access_token: found.token, expires_at: "2099-01-01T00:00:00Z", token_type: "Bearer" });
+    }
+    if (path === "/forge/v1/accounts/password-reset/request") {
+      // Public and neutral: the same 202 for a known and an unknown address.
+      return reply(route, 202, { status: "accepted", delivery_channel: "smtp" });
     }
     const assetMatch = path.match(/^\/forge\/v1\/branding\/assets\/([0-9a-f]{64})$/);
     if (assetMatch) {

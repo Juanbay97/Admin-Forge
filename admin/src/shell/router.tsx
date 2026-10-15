@@ -5,7 +5,7 @@ import { AreaGate, HomeRedirect } from "./AreaGate";
 import { IdentityBoundary } from "./IdentityBoundary";
 import { NotFoundPage } from "./NotFoundPage";
 import { RequireSession } from "./RequireSession";
-import { JoinRoute, ResetPasswordRoute } from "./publicRoutes";
+import { ForgotPasswordRoute, JoinRoute, ResetPasswordRoute } from "./publicRoutes";
 
 type PlatformRoutes = typeof import("../areas/platform/routes");
 const platform = (name: keyof PlatformRoutes) => async () => ({ Component: (await import("../areas/platform/routes"))[name] });
@@ -18,6 +18,7 @@ const company = (name: keyof CompanyRoutes) => async () => ({ Component: (await 
 export const routes: RouteObject[] = [
   // Public pages live outside RequireSession: they never call an authenticated endpoint.
   { path: "reset-password", element: <ResetPasswordRoute /> },
+  { path: "forgot-password", element: <ForgotPasswordRoute /> },
   { path: "join", element: <JoinRoute /> },
   {
     path: "/",
