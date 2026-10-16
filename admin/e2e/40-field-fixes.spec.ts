@@ -93,6 +93,8 @@ test("members and administrators both find Download Prometheon Forge in the navi
   const card = page.getByRole("region", { name: ENTRY });
   await expect(card).toContainText("v0.0.0-local");
   await nav.getByRole("button", { name: ENTRY }).click();
+  await expect(page.getByRole("main").getByRole("button", { name: ENTRY })).toBeVisible();
+  await page.getByText("Advanced", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Download configuration (forge-install.json)" })).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
 
@@ -103,6 +105,10 @@ test("members and administrators both find Download Prometheon Forge in the navi
   await nav.getByRole("button", { name: ENTRY }).click();
   await expect(page).toHaveURL(/\/admin\/company\/download$/);
   await expect(page.getByTestId("company-code")).toHaveText(company.slug);
+  const stamped = page.waitForEvent("download");
+  await page.getByRole("main").getByRole("button", { name: ENTRY }).click();
+  expect((await stamped).suggestedFilename()).toBe(`Prometheon-Forge-Setup-${company.slug}.exe`);
+  await page.getByText("Advanced", { exact: true }).click();
   const waiting = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download configuration (forge-install.json)" }).click();
   expect((await waiting).suggestedFilename()).toBe("forge-install.json");
