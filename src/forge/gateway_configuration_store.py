@@ -4,7 +4,8 @@ import math
 from psycopg.rows import tuple_row
 from psycopg.pq import TransactionStatus
 from forge.account_store import _ROLE,_KEYS
-from forge.gateway_configuration import GatewayRecord,GatewayDenied,GatewayConflict,GatewayUnavailable,GATEWAY_ENDPOINT
+from forge.gateway_configuration import (GatewayRecord,GatewayDenied,GatewayConflict,GatewayOutsideCeiling,GatewayUnavailable,
+    GATEWAY_ENDPOINT)
 
 class GatewayConnection:
     def __init__(self,pool,*,acquisition_timeout=1.0):
@@ -26,12 +27,13 @@ class GatewayConnection:
                     for key in _KEYS:
                         cursor.execute("SELECT set_config(%s,'',true)",('forge.'+key,))
                     yield cursor
-        except (GatewayDenied,GatewayConflict,GatewayUnavailable): raise
+        except (GatewayDenied,GatewayConflict,GatewayOutsideCeiling,GatewayUnavailable): raise
         except Exception as error:
             if getattr(error,'sqlstate',None)=='P0001':
                 message=getattr(getattr(error,'diag',None),'message_primary',None)
                 if message=='GATEWAY_DENIED': raise GatewayDenied() from None
                 if message=='GATEWAY_CONFLICT': raise GatewayConflict() from None
+                if message=='GATEWAY_OUTSIDE_CEILING': raise GatewayOutsideCeiling() from None
             raise GatewayUnavailable() from None
 
 class PostgresGatewayStore:

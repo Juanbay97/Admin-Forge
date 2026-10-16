@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'src'))
 from cryptography.fernet import Fernet
 from forge.gateway_configuration import GatewayCipher, GatewayRecord, GatewayUnavailable
-from forge.gateway_keys import GatewayKeyInfo, GatewayKeys, KeyAssignment
+from forge.gateway_keys import DiscoveryRequired, GatewayKeyInfo, GatewayKeys, KeyAssignment, ModelNotDiscovered
 from forge.gateway_origins import DEFAULT_ENDPOINT, OriginPolicy
 from forge.platform import PlatformInvalid
 
@@ -21,6 +21,7 @@ TOKEN = 'A' * 43
 class PoolStore:
     def __init__(self):
         self.calls, self.rows = [], {}
+        self.discovery = ['gpt-a', 'gpt-b', 'm1']
 
     def info(self, key_id):
         row = self.rows[key_id]
@@ -53,6 +54,9 @@ class PoolStore:
 
     def ceiling(self, digest, org):
         return ['m1']
+
+    def discovered(self, digest, org):
+        return self.discovery
 
     def set_ceiling(self, digest, org, models):
         self.calls.append(('ceiling', org, models))
@@ -155,11 +159,28 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(len(self.store.calls), before)
 
     def test_the_ceiling_is_a_distinct_bounded_list_of_upstream_ids(self):
+        self.store.discovery = ['gpt-a', 'gpt-b']
         self.assertEqual(self.service.set_ceiling(TOKEN, ORG, ['gpt-a', 'gpt-b']), ['gpt-a', 'gpt-b'])
         self.assertEqual(self.service.set_ceiling(TOKEN, ORG, []), [])
         for models in (['gpt-a', 'gpt-a'], ['has space'], [''], ['x' * 256], [1], 'gpt-a', ['m%d' % number for number in range(501)]):
             with self.subTest(models=repr(models)[:30]), self.assertRaises(PlatformInvalid):
                 self.service.set_ceiling(TOKEN, ORG, models)
+
+    def test_the_ceiling_is_chosen_from_the_discovered_models_and_never_free_text(self):
+        self.assertEqual(self.service.set_ceiling(TOKEN, ORG, ['gpt-b']), ['gpt-b'])
+        before = len(self.store.calls)
+        with self.assertRaises(ModelNotDiscovered) as caught:
+            self.service.set_ceiling(TOKEN, ORG, ['gpt-a', 'Deepseek'])
+        self.assertEqual((caught.exception.code, isinstance(caught.exception, PlatformInvalid)), ('MODEL_NOT_DISCOVERED', True))
+        self.assertEqual(len(self.store.calls), before, 'a refused ceiling never reaches the store write')
+
+    def test_a_ceiling_needs_a_current_discovery_except_the_empty_deny_everything_list(self):
+        self.store.discovery = None
+        with self.assertRaises(DiscoveryRequired) as caught:
+            self.service.set_ceiling(TOKEN, ORG, ['gpt-a'])
+        self.assertEqual(caught.exception.code, 'DISCOVERY_REQUIRED')
+        self.assertEqual([call for call in self.store.calls if call[0] == 'ceiling'], [])
+        self.assertEqual(self.service.set_ceiling(TOKEN, ORG, []), [], 'denying everything needs no discovery')
 
 
 if __name__ == '__main__':

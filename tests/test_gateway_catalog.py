@@ -36,7 +36,7 @@ if __name__ == '__main__':
     unittest.main()
 
 from dataclasses import replace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock,MagicMock
 from cryptography.fernet import Fernet
 from forge.gateway_configuration import GatewayCipher,GatewayRecord,GatewayConflict,GatewayUnavailable,GATEWAY_ENDPOINT
 from forge.gateway_catalog import GatewayCatalog,Discovery
@@ -51,7 +51,9 @@ class CatalogServiceTests(unittest.TestCase):
         self.store.gateway.return_value=self.record
         self.store.discovery.return_value=Discovery(self.record,('private/a','private/b'))
         self.store.publish.return_value=1
+        self.store.ceiling.return_value=None
         self.adapter.discover.return_value=('private/a','private/b')
+        self.adapter.discover_async=AsyncMock(return_value=('private/a','private/b'))
         self.service=GatewayCatalog(self.store,self.cipher,self.adapter)
         self.token='A'*43
 
@@ -61,6 +63,25 @@ class CatalogServiceTests(unittest.TestCase):
         self.assertEqual(result['verification'],'unverified')
         self.store.save_discovery.assert_called_once()
         self.assertNotIn('labelled-key',str(result))
+
+    def test_refresh_lists_only_the_discovered_models_inside_the_platform_ceiling_but_stores_the_whole_discovery(self):
+        for ceiling,listed in ((None,['private/a','private/b']),(['private/b','not-discovered'],['private/b']),([],[])):
+            with self.subTest(ceiling=ceiling):
+                self.store.ceiling.return_value=ceiling;self.store.save_discovery.reset_mock()
+                self.assertEqual(self.service.refresh(self.token,self.org)['model_ids'],listed)
+                self.assertEqual(self.store.save_discovery.call_args.args[3],('private/a','private/b'))
+
+    def test_the_asynchronous_refresh_applies_the_same_ceiling(self):
+        import asyncio
+        self.store.ceiling.return_value=['private/a']
+        result=asyncio.run(self.service.refresh_async(self.token,self.org))
+        self.assertEqual(result['model_ids'],['private/a'])
+        self.assertEqual(self.store.save_discovery.call_args.args[3],('private/a','private/b'))
+
+    def test_a_publication_the_database_refuses_for_the_ceiling_surfaces_as_its_own_error(self):
+        from forge.gateway_configuration import GatewayOutsideCeiling
+        self.store.publish.side_effect=GatewayOutsideCeiling()
+        with self.assertRaises(GatewayOutsideCeiling):self.service.publish(self.token,self.org,uuid4(),0,1,{'a':'private/a'},'a')
 
     def test_wrong_cipher_binding_never_calls_network(self):
         self.store.gateway.return_value=replace(self.record,binding_id=uuid4())

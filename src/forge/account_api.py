@@ -20,7 +20,8 @@ from forge.directory import (DirectoryService,DirectoryDenied,DirectorySuspended
     DirectoryLastAdmin,DirectoryUnavailable)
 from forge.gateway_inference import GatewayInference,TextRequest
 from forge.gateway_catalog import GatewayCatalog
-from forge.gateway_configuration import GatewayConfiguration,GatewayDenied,GatewayConflict,GatewayManaged,GatewayUnavailable
+from forge.gateway_configuration import (GatewayConfiguration,GatewayDenied,GatewayConflict,GatewayManaged,
+    GatewayOutsideCeiling,GatewayUnavailable)
 
 
 class ReadinessPort(Protocol):
@@ -321,6 +322,15 @@ def create_account_app(*,sessions: SessionService | None=None,
         return JSONResponse(status_code=403,content=envelope.model_dump(mode='json'),
                             headers={'Cache-Control':'no-store'})
 
+    @app.exception_handler(GatewayOutsideCeiling)
+    async def gateway_outside_ceiling(request,exc):
+        # Outside the pinned error list like GatewayManaged: the administrator is told the platform ceiling is the reason.
+        envelope=ErrorEnvelope(error=ErrorDetail(code=exc.code,
+            message='A selected model is not allowed by the platform for this company.',request_id=uuid4(),
+            retryable=False,retry_after_seconds=None,reset_at=None))
+        return JSONResponse(status_code=409,content=envelope.model_dump(mode='json'),
+                            headers={'Cache-Control':'no-store'})
+
     @app.exception_handler(DirectoryConflict)
     async def directory_conflict(request,exc):
         envelope=ErrorEnvelope(error=ErrorDetail(code='DEPARTMENT_EXISTS',
@@ -374,7 +384,7 @@ def create_account_app(*,sessions: SessionService | None=None,
             raise ApiFailure(404,'NOT_FOUND') from None
         except DirectorySuspended:
             raise ApiFailure(403,'MEMBERSHIP_SUSPENDED') from None
-        except (GatewayConflict,GatewayManaged,DirectoryConflict,DirectoryLastAdmin):
+        except (GatewayConflict,GatewayManaged,GatewayOutsideCeiling,DirectoryConflict,DirectoryLastAdmin):
             raise
         except (GatewayUnavailable,DirectoryUnavailable):
             raise ApiFailure(503,'SERVICE_UNAVAILABLE') from None

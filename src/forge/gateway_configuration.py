@@ -19,6 +19,11 @@ class GatewayManaged(Exception):
     code='GATEWAY_MANAGED_BY_PLATFORM'
     def __init__(self): super().__init__('The gateway is managed by the platform.')
 
+class GatewayOutsideCeiling(Exception):
+    """A publication named an upstream model outside the platform-set ceiling of the company."""
+    code='MODEL_NOT_ALLOWED'
+    def __init__(self): super().__init__('A selected model is not allowed by the platform for this company.')
+
 class GatewayConflict(Exception):
     def __init__(self): super().__init__('Gateway configuration revision changed.')
 

@@ -9,6 +9,7 @@ from forge.gateway_configuration import GatewayCipher
 from forge.gateway_keys import GatewayKeys
 from forge.gateway_keys_store import PostgresGatewayKeyStore
 from forge.gateway_origins import OriginPolicy
+from mvp_support import seed_discovery
 from platform_support import OWNER_EMAIL, add_owner, sign_in
 
 
@@ -23,9 +24,11 @@ def platform_keys(db, gateway_secret, origins):
 
 
 def assign_key(db, gateway_secret, origin, organization_id, key, models, *, label=None, priority=1):
-    """Create a pool key for ``origin``, assign it to the company and set its ceiling; returns the key id."""
+    """Create a pool key for ``origin``, assign it to the company, record the models its discovery would report and set the
+    ceiling to them (the platform chooses a ceiling among discovered models, never free text); returns the key id."""
     keys, token = platform_keys(db, gateway_secret, (origin,))
     info = keys.create(token, label or 'key-%s' % str(organization_id)[:8], origin, key)
     keys.assign(token, organization_id, [(info.id, priority, True)])
+    seed_discovery(db.admin, organization_id, models)
     keys.set_ceiling(token, organization_id, list(models))
     return info.id

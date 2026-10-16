@@ -10,9 +10,9 @@ from uuid import UUID
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from forge.gateway_keys import MAX_ASSIGNMENTS
+from forge.gateway_keys import MAX_ASSIGNMENTS, DiscoveryRequired, ModelNotDiscovered
 from forge.platform import MAX_REVISION
-from forge.platform_api import PREFIX, _document, _invalid
+from forge.platform_api import PREFIX, _Refusal, _document, _envelope, _invalid
 
 BODY_LIMIT = 8192  # a pasted key is up to 4096 characters
 _ENTRY_KEYS = {'key_id', 'priority', 'active'}
@@ -109,5 +109,9 @@ def mount_keys(app: FastAPI, *, keys, guarded, blocking):
             if (set(document) != {'models'} or type(document['models']) is not list
                     or any(type(model) is not str for model in document['models'])):
                 raise _invalid()
-            return JSONResponse({'models': await blocking(keys.set_ceiling, token, organization_id, document['models'])})
+            try:
+                return JSONResponse({'models': await blocking(keys.set_ceiling, token, organization_id, document['models'])})
+            except (DiscoveryRequired, ModelNotDiscovered) as error:
+                # The ceiling is chosen among discovered models: say which rule refused it (still a 422).
+                raise _Refusal(_envelope(422, error.code, error.message)) from None
         return await guarded(request, operation)

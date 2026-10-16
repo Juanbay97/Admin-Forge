@@ -13,7 +13,7 @@ from forge.account_readiness import catalog_fingerprint
 from forge.dev_accounts import MIGRATIONS
 from forge.mvp_profile import F31, F32, GATEWAY_KEY_POOL_MIGRATION, MVP_ADDITIONS, MVP_CHECKPOINTS, MVP_PROFILE
 from forge.provisioning import SEED, provision
-from mvp_support import at, mvp_database
+from mvp_support import WITH_CEILING, at, mvp_database, seed_discovery
 from platform_support import add_owner, call, refusal, sign_in
 from test_postgres_gateway_origin import migration_text, separate_database
 from test_postgres_platform_schema import drop_platform_roles
@@ -163,16 +163,19 @@ class AssignmentTests(PoolWorld):
             self.assertEqual(db.admin.execute('SELECT key_id,priority FROM forge.organization_gateway_keys').fetchall(), [(key, 1)])
 
     def test_the_ceiling_is_set_whole_and_audited_and_an_empty_list_denies_everything(self):
-        with mvp_database() as db:
+        with mvp_database(migrations=WITH_CEILING) as db:
             self.build(db)
             org = self.orgs['org-b']
+            key, _ = self.create()
+            self.assign(org, (key, 1, True))
+            seed_discovery(db.admin, org, ['gpt-a', 'gpt-b', 'gpt-c'])
             call(db, 'SELECT * FROM forge.platform_company_model_access_set(%s,%s,%s)', (self.digest, org, ['gpt-a', 'gpt-b']))
             self.assertEqual(call(db, 'SELECT * FROM forge.platform_company_model_access_get(%s,%s)', (self.digest, org)), [(['gpt-a', 'gpt-b'],)])
             call(db, 'SELECT * FROM forge.platform_company_model_access_set(%s,%s,%s)', (self.digest, org, []))
             self.assertEqual(call(db, 'SELECT * FROM forge.platform_company_model_access_get(%s,%s)', (self.digest, org)), [([],)])
             self.assertEqual(refusal(self, lambda: call(db, 'SELECT * FROM forge.platform_company_model_access_set(%s,%s,%s)',
                                                         (self.digest, org, ['has space']))), 'PLATFORM_INVALID')
-            self.assertEqual([row[0] for row in self.audit()], ['company.model_access_set'] * 2)
+            self.assertEqual([row[0] for row in self.audit()][2:], ['company.model_access_set'] * 2, 'after the key and its assignment')
 
 
 class IsolationTests(PoolWorld):

@@ -4,6 +4,7 @@ Only for tests run through scripts/test-postgres.ps1; the database and the clust
 roles it creates are removed on exit, and nothing outside the owned cluster is touched.
 """
 from contextlib import ExitStack, contextmanager
+import json
 import secrets
 
 from psycopg import sql
@@ -13,6 +14,19 @@ from forge.dev_accounts import MIGRATIONS
 from forge.mvp_profile import MVP_ADDITIONS
 from postgres_support import connect, settings
 from test_postgres_gateway_origin import migration_text, separate_database
+
+CEILING_MIGRATION = '0049_model_ceiling_validation.sql'
+# The profile plus the model-ceiling validation; once 0049 joins MVP_ADDITIONS this equals the plain profile.
+WITH_CEILING = (*MIGRATIONS, *MVP_ADDITIONS, *(() if CEILING_MIGRATION in MVP_ADDITIONS else (CEILING_MIGRATION,)))
+
+
+def seed_discovery(admin, organization_id, models):
+    """Record the discovery the platform owner's refresh would store for the company's current profile (superuser, no HTTP)."""
+    admin.execute('INSERT INTO forge.gateway_model_discoveries(organization_id,gateway_revision,binding_id,model_ids) '
+                  'SELECT organization_id,revision,binding_id,%s::jsonb FROM forge.organization_gateway_profiles WHERE organization_id=%s '
+                  'ON CONFLICT(organization_id) DO UPDATE SET gateway_revision=excluded.gateway_revision,binding_id=excluded.binding_id,'
+                  'model_ids=excluded.model_ids', (json.dumps(list(models)), organization_id))
+
 
 def at(name):
     """Position of a migration in the profile, so tail pins never shift when a later migration is appended."""

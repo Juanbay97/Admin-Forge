@@ -13,7 +13,7 @@ from forge.gateway_keys_store import PostgresGatewayKeyStore
 from forge.gateway_origins import DEFAULT_ENDPOINT, OriginPolicy
 from forge.platform import KeyConflict, MfaRequired, PlatformDenied, PlatformInvalid, PlatformNotFound, RevisionConflict
 from forge.provisioning import SEED, provision
-from mvp_support import mvp_database
+from mvp_support import mvp_database, seed_discovery
 from platform_support import add_owner, sign_in
 
 KEY = 'pool-fixture-key-ABCD'
@@ -71,6 +71,7 @@ class PostgresKeyServiceTests(unittest.TestCase):
             self.assertEqual(self.service.ceiling(self.token, self.org), [], 'a new profile allows no model until the platform sets one')
             other = db.admin.execute("SELECT id FROM forge.organizations WHERE id<>%s", (self.org,)).fetchone()[0]
             self.assertIsNone(self.service.ceiling(self.token, other), 'no profile row is read as nothing configured')
+            seed_discovery(db.admin, self.org, ['gpt-a', 'gpt-b'])
             self.assertEqual(self.service.set_ceiling(self.token, self.org, ['gpt-a']), ['gpt-a'])
             self.assertEqual(self.service.ceiling(self.token, self.org), ['gpt-a'])
             with self.assertRaises(PlatformNotFound):

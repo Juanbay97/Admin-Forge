@@ -39,6 +39,10 @@ class PostgresGatewayCatalogStore:
             except IntegrityError:
                 raise GatewayConflict() from None
 
+    def ceiling(self, digest, org):
+        # The retained single-key profile has no platform ceiling.
+        return None
+
     def member_catalog(self, digest, org):
         with self.connection.cursor() as cursor:
             cursor.execute('SELECT * FROM forge.gateway_catalog_member(%s,%s)', (digest, org))

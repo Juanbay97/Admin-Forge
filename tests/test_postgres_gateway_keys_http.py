@@ -6,6 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 sys.path.insert(0, str(ROOT/'tests'))
+from mvp_support import seed_discovery
 from platform_support import OWNER_EMAIL, PASSWORD, add_owner
 from test_postgres_mvp_local import GATEWAY, login, stack
 from test_postgres_platform_http import BASE, Person, code_for
@@ -37,6 +38,11 @@ class PostgresKeyPoolHttpTests(unittest.TestCase):
             assigned = client.put(BASE + '/companies/%s/gateway-keys' % org, headers=owner, json={'keys': [
                 {'key_id': ids[1], 'priority': 2, 'active': True}, {'key_id': ids[0], 'priority': 1, 'active': True}]})
             self.assertEqual([item['label'] for item in assigned.json()['keys']], ['primary', 'backup'])
+            refused = client.put(BASE + '/companies/%s/model-access' % org, headers=owner, json={'models': ['fake-model']})
+            self.assertEqual((refused.status_code, refused.json()['error']['code']), (422, 'DISCOVERY_REQUIRED'))
+            seed_discovery(db.admin, org, ['fake-model', 'other-model'])
+            undiscovered = client.put(BASE + '/companies/%s/model-access' % org, headers=owner, json={'models': ['Deepseek']})
+            self.assertEqual((undiscovered.status_code, undiscovered.json()['error']['code']), (422, 'MODEL_NOT_DISCOVERED'))
             ceiling = client.put(BASE + '/companies/%s/model-access' % org, headers=owner, json={'models': ['fake-model']})
             self.assertEqual(ceiling.json(), {'models': ['fake-model']})
             seen += [listed.text, assigned.text, ceiling.text]

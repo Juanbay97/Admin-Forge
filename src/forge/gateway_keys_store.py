@@ -1,7 +1,9 @@
 """PostgreSQL adapter for ``forge.gateway_keys``: migration 0032 functions on the dedicated platform pool."""
 import json
 
-from forge.gateway_keys import GatewayKeyInfo, KeyAssignment
+from psycopg import Error
+
+from forge.gateway_keys import GatewayKeyInfo, KeyAssignment, ModelNotDiscovered
 from forge.platform import PlatformUnavailable
 from forge.platform_store import PlatformConnection
 
@@ -52,7 +54,20 @@ class PostgresGatewayKeyStore:
             row = cursor.fetchone()
         return None if row is None else row[0]
 
+    def discovered(self, digest, org):
+        """The current discovery of the company (the one matching its profile), or ``None`` while there is none."""
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM forge.platform_catalog_status(%s,%s)', (digest, org))
+            row = cursor.fetchone()
+        return None if row is None else row[3]
+
     def set_ceiling(self, digest, org, models):
         with self.connection.cursor() as cursor:
-            cursor.execute('SELECT forge.platform_company_model_access_set(%s,%s,%s)', (digest, org, models))
+            try:
+                cursor.execute('SELECT forge.platform_company_model_access_set(%s,%s,%s)', (digest, org, models))
+            except Error as error:
+                if (getattr(error, 'sqlstate', None) == 'P0001'
+                        and getattr(getattr(error, 'diag', None), 'message_primary', None) == 'MODEL_NOT_DISCOVERED'):
+                    raise ModelNotDiscovered() from None
+                raise
             return cursor.fetchone()[0]

@@ -57,6 +57,8 @@ mocked UI tests serve. A server-side change of shape fails a unit test with the 
 | Daily series | `GET /usage/days?from&to` | `{days:[{day, <the seven counters>, active_users}]}`: every UTC day of the range in order, zeros included, so the charts need no gap filling. |
 | Audit | `GET /audit?before=&page=` | Entries have the actor, action, company id and time. |
 
+**The model ceiling is chosen, never typed.** `PUT /companies/{id}/model-access` accepts only models the company's keys were discovered to reach (migration 0049): `422 DISCOVERY_REQUIRED` while the company has no current discovery, `422 MODEL_NOT_DISCOVERED` for any model outside it, and the empty list still denies everything. The Models tab therefore offers a checklist of the discovered models, and the usual way to set the ceiling is the platform catalog publish, which sets it to exactly the selected models. A company administrator can only narrow the published catalog inside the ceiling: the catalogue refresh lists just the models inside it, and a publication outside it answers `409 MODEL_NOT_ALLOWED`, shown as a message that names the platform ceiling as the reason.
+
 ### Differences from the original plan (PC1 to PC11)
 
 The sibling changes landed with a smaller surface than the plan assumed, so some screens are narrower:

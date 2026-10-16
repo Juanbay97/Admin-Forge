@@ -20,6 +20,18 @@ MAX_MODELS = 500
 MAX_PRIORITY = 1000
 
 
+class DiscoveryRequired(PlatformInvalid):
+    """The ceiling is chosen from discovered models, and the company has no current discovery yet."""
+    code = 'DISCOVERY_REQUIRED'
+    message = 'Discover the models of the company keys before choosing the allowed ones.'
+
+
+class ModelNotDiscovered(PlatformInvalid):
+    """A ceiling entry is not among the models the company's keys were discovered to reach."""
+    code = 'MODEL_NOT_DISCOVERED'
+    message = 'A selected model was not discovered for this company.'
+
+
 @dataclass(frozen=True)
 class GatewayKeyInfo:
     """What a platform caller may see of a key; the sealed value and the key text never appear here."""
@@ -52,6 +64,7 @@ class KeyStore(Protocol):
     def assignments(self, digest, org) -> list: ...
     def assign(self, digest, org, entries) -> list: ...
     def ceiling(self, digest, org) -> list | None: ...
+    def discovered(self, digest, org) -> list | None: ...
     def set_ceiling(self, digest, org, models) -> list: ...
 
 
@@ -123,11 +136,19 @@ class GatewayKeys:
         return self._store.ceiling(capability_digest(token), org)
 
     def set_ceiling(self, token, org, models):
+        """The ceiling is never free text: every entry must be among the models discovered for the company (migration 0049)."""
         self._org(org)
         if (type(models) is not list or len(models) > MAX_MODELS or len(set(models)) != len(models)
                 or any(type(model) is not str or not MODEL.fullmatch(model) for model in models)):
             raise PlatformInvalid()
-        return self._store.set_ceiling(capability_digest(token), org, models)
+        digest = capability_digest(token)
+        if models:  # the empty ceiling denies everything and so needs no discovery
+            found = self._store.discovered(digest, org)
+            if found is None:
+                raise DiscoveryRequired()
+            if not set(models) <= set(found):
+                raise ModelNotDiscovered()
+        return self._store.set_ceiling(digest, org, models)
 
     @staticmethod
     def _org(org):

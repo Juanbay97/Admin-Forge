@@ -23,6 +23,7 @@ class CatalogStore(Protocol):
     def gateway(self, digest: str, org: UUID) -> GatewayRecord | None: ...
     def save_discovery(self, digest: str, org: UUID, gateway: GatewayRecord, ids: tuple[str, ...]) -> None: ...
     def discovery(self, digest: str, org: UUID) -> Discovery: ...
+    def ceiling(self, digest: str, org: UUID) -> list | None: ...
     def publish(self, digest: str, org: UUID, operation: UUID, expected: int,
         discovery: Discovery, mapping: dict[str, str], default: str,
         payload: str, checksum: str, selection_sha: str) -> int: ...
@@ -43,6 +44,12 @@ def valid_selection(operation, expected, gateway_revision, mapping, default):
         return False
     return all(type(alias) is str and ALIAS.fullmatch(alias) and type(upstream) is str and UPSTREAM.fullmatch(upstream)
                for alias, upstream in mapping.items())
+
+
+def within_ceiling(ids, ceiling):
+    """The discovered models the platform allows the company to publish; no ceiling (NULL) allows every one."""
+    allowed = None if ceiling is None else set(ceiling)
+    return [model for model in ids if allowed is None or model in allowed]
 
 
 def publication_material(org, binding_id, expected, gateway_revision, mapping, default):
@@ -80,7 +87,7 @@ class GatewayCatalog:
             raise GatewayUnavailable()
         ids = validated_ids(self._adapter.discover(self._cipher.open_key(org, record)))
         self._store.save_discovery(digest, org, record, ids)
-        return {'gateway_revision': record.revision, 'model_ids': list(ids),
+        return {'gateway_revision': record.revision, 'model_ids': within_ceiling(ids, self._store.ceiling(digest, org)),
                 'capability_state': 'unknown', 'verification': 'unverified'}
 
     async def refresh_async(self, token: str, org: UUID):
@@ -97,7 +104,8 @@ class GatewayCatalog:
         key = self._cipher.open_key(org, record)
         ids = validated_ids(await self._adapter.discover_async(key))
         await run_sync(self._store.save_discovery, digest, org, record, ids, abandon_on_cancel=False)
-        return {'gateway_revision': record.revision, 'model_ids': list(ids),
+        ceiling = await run_sync(self._store.ceiling, digest, org, abandon_on_cancel=False)
+        return {'gateway_revision': record.revision, 'model_ids': within_ceiling(ids, ceiling),
                 'capability_state': 'unknown', 'verification': 'unverified'}
 
     def publish(self, token: str, org: UUID, operation: UUID, expected: int,

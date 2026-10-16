@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from forge import contract
 from forge.account_api import create_account_app
 from forge.foundation import AuthenticatedIdentity
-from forge.gateway_keys import GatewayKeyInfo, KeyAssignment
+from forge.gateway_keys import DiscoveryRequired, GatewayKeyInfo, KeyAssignment, ModelNotDiscovered
 from forge.platform import KeyConflict, MfaRequired, PlatformDenied, PlatformInvalid, PlatformNotFound, RevisionConflict
 from forge.platform_api import mount_platform
 
@@ -110,6 +110,14 @@ class KeyRouteTests(unittest.TestCase):
         self.assertEqual(http.get(company + '/gateway-keys', headers=HEADERS).json()['keys'][0]['key_id'], str(KEY_ID))
         self.assertEqual(http.put(company + '/model-access', headers=HEADERS, json={'models': ['gpt-a']}).json(), {'models': ['gpt-a']})
         self.assertEqual(http.get(company + '/model-access', headers=HEADERS).json(), {'models': ['gpt-a']})
+
+    def test_a_ceiling_outside_the_discovered_models_is_refused_with_its_own_code(self):
+        for failure, code in ((ModelNotDiscovered(), 'MODEL_NOT_DISCOVERED'), (DiscoveryRequired(), 'DISCOVERY_REQUIRED')):
+            with self.subTest(code=code):
+                http, _ = client(FakeKeys(fail=failure))
+                response = http.put(BASE + '/companies/%s/model-access' % ORG, headers=HEADERS, json={'models': ['Deepseek']})
+                self.assertEqual((response.status_code, response.json()['error']['code']), (422, code))
+                self.assertNotIn('Deepseek', response.text, 'the refused value is never echoed')
 
     def test_malformed_bodies_are_refused_before_the_service(self):
         keys = FakeKeys()
