@@ -135,8 +135,10 @@ test("the platform owner discovers the company's models through its key, selects
   await shot(page, "console", "70-company-catalog");
   await page.getByRole("button", { name: "Publish catalog" }).click();
   await expect(page.getByText("Catalog published")).toBeVisible();
-  await expect(page.getByRole("table", { name: "Allowed models" }).getByRole("row", { name: /fake-nousage/ })).toBeVisible();
-  await expect(page.getByRole("table", { name: "Allowed models" }).getByRole("row", { name: /fake-slow/ })).toHaveCount(0);
+  // Publishing sets the ceiling to exactly the selected models; the others stay listed, unchecked.
+  await expect(page.getByLabel("Allow fake-nousage")).toBeChecked();
+  await expect(page.getByLabel("Allow fake-fast")).toBeChecked();
+  await expect(page.getByLabel("Allow fake-slow")).not.toBeChecked();
 
   // What the company sees and uses is exactly what the owner published.
   const member = await tokenFor(request, { email: MEMBER.email, role: "member", password: MEMBER.fresh });

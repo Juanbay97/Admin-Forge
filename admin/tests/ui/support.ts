@@ -91,6 +91,8 @@ export interface CatalogFixture {
   gatewayRevision: number;
   /** Models the gateway reports; null = no usable gateway, refresh fails. */
   upstream: string[] | null;
+  /** The platform ceiling: refresh lists only the models inside it and publishing outside it is refused (null = unrestricted). */
+  ceiling?: string[] | null;
   revision: number;
   state: "CURRENT" | "UNPUBLISHED" | "STALE_GATEWAY";
   defaultModel: string | null;
@@ -261,7 +263,7 @@ export async function installBackend(page: Page, source: Backend) {
           if (!catalog.upstream) return reply(route, 503, envelope("SERVICE_UNAVAILABLE", "Unavailable."));
           return reply(route, 200, {
             gateway_revision: catalog.gatewayRevision,
-            model_ids: catalog.upstream,
+            model_ids: catalog.ceiling ? catalog.upstream.filter((id) => catalog.ceiling!.includes(id)) : catalog.upstream,
             capability_state: "unknown",
             verification: "unverified",
           });
@@ -289,6 +291,9 @@ export async function installBackend(page: Page, source: Backend) {
           ([alias, id]) => /^[a-z][a-z0-9_-]{0,63}$/.test(alias) && catalog.upstream?.includes(id),
         );
         if (!valid || !(body.default_alias in body.aliases)) return reply(route, 422, envelope("INVALID_REQUEST", "Invalid."));
+        if (catalog.ceiling && Object.values(body.aliases).some((id) => !catalog.ceiling!.includes(id))) {
+          return reply(route, 409, envelope("MODEL_NOT_ALLOWED", "Not allowed."));
+        }
         Object.assign(catalog, {
           revision: catalog.revision + 1,
           state: "CURRENT",
@@ -365,6 +370,11 @@ export async function installBackend(page: Page, source: Backend) {
     bumpCatalog(orgId: string) {
       const catalog = backend.catalogs?.[orgId];
       if (catalog) catalog.gatewayRevision += 1;
+    },
+    /** The platform narrows the company's ceiling behind this page's back. */
+    setCeiling(orgId: string, models: string[] | null) {
+      const catalog = backend.catalogs?.[orgId];
+      if (catalog) catalog.ceiling = models;
     },
     /** Another administrator changes the gateway behind this page's back. */
     bumpGateway(orgId: string) {

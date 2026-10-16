@@ -222,7 +222,14 @@ async function handlers(key: string, url: URL, body: Json | undefined, world: Wo
       return reply(route, 200, { keys: world.assignments[id] ?? [] });
     }
     if (what === "model-access") {
-      if (method === "PUT") world.models[id] = (body as { models: string[] }).models;
+      if (method === "PUT") {
+        // The server's rule: a ceiling is chosen among the discovered models (the empty list denies everything and needs none).
+        const models = (body as { models: string[] }).models;
+        const found = world.catalogs[id]?.discovered?.ids ?? null;
+        if (models.length > 0 && found === null) return reply(route, 422, envelope("DISCOVERY_REQUIRED"));
+        if (models.some((model) => !found?.includes(model))) return reply(route, 422, envelope("MODEL_NOT_DISCOVERED"));
+        world.models[id] = models;
+      }
       return reply(route, 200, { models: world.models[id] ?? [] });
     }
     const current = (world.branding[id] ??= { ...DEFAULT_BRANDING });

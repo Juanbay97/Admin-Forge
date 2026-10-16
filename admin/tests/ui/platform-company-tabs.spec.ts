@@ -170,16 +170,29 @@ test.describe("company keys tab", () => {
   });
 });
 
+const DISCOVERED = { ids: ["claude-3-5-sonnet", "gpt-4o", "gpt-4o-mini"], at: "2026-10-14T12:00:00+00:00" };
+
+/** The company's keys were discovered, so the allowed models can be chosen. */
+function discoveredWorld() {
+  const state = world();
+  state.catalogs[ACME]!.discovered = { ...DISCOVERED };
+  return state;
+}
+
 test.describe("company models tab", () => {
-  test("shows the allowed models with their prices, adds, removes and saves one PUT", async ({ page, adminUrl }) => {
-    const { requests } = await open(page, adminUrl, `platform/companies/${ACME}?tab=models`);
+  test("chooses the allowed models among the discovered ones, shows their prices and saves one PUT", async ({ page, adminUrl }) => {
+    const { requests } = await open(page, adminUrl, `platform/companies/${ACME}?tab=models`, discoveredWorld());
     const table = page.getByRole("table", { name: "Allowed models" });
     await expect(table.getByRole("row", { name: /gpt-4o\b/ }).getByText("$2.50")).toBeVisible();
     await expect(table.getByRole("row", { name: /gpt-4o\b/ }).getByText("$10.00")).toBeVisible();
     await expect(table.getByRole("row", { name: /gpt-4o-mini/ }).getByText("No price").first()).toBeVisible();
-    await page.getByLabel("Add a model").fill("claude-3-5-sonnet");
-    await page.getByRole("button", { name: "Add model" }).click();
-    await page.getByRole("button", { name: "Remove gpt-4o-mini" }).click();
+    await expect(page.getByLabel("Add a model")).toHaveCount(0); // the ceiling is never typed
+    await expect(page.getByLabel("Allow gpt-4o", { exact: true })).toBeChecked();
+    await expect(page.getByLabel("Allow claude-3-5-sonnet")).not.toBeChecked();
+    await expect(page.getByRole("button", { name: "Save models" })).toBeDisabled();
+    await page.getByLabel("Allow claude-3-5-sonnet").check();
+    await page.getByLabel("Allow gpt-4o-mini").uncheck();
+    await expect(page.getByText("2 of 3 allowed")).toBeVisible();
     await page.getByRole("button", { name: "Save models" }).click();
     await expect(page.getByText("Allowed models saved")).toBeVisible();
     const puts = requests.filter((request) => request.method === "PUT" && request.path.endsWith("/model-access"));
@@ -187,15 +200,51 @@ test.describe("company models tab", () => {
     expect(puts[0]?.body).toEqual({ models: ["gpt-4o", "claude-3-5-sonnet"] });
   });
 
+  test("before any discovery it asks for a refresh and offers no editor", async ({ page, adminUrl }) => {
+    const { requests } = await open(page, adminUrl, `platform/companies/${ACME}?tab=models`);
+    await expect(page.getByText("Refresh the models from the company's keys first; allowed models are chosen from what the keys can reach.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save models" })).toHaveCount(0);
+    await expect(page.getByLabel("Add a model")).toHaveCount(0);
+    await expect(page.getByLabel("Allow gpt-4o", { exact: true })).toHaveCount(0);
+    expect(requests.filter((request) => request.method === "PUT")).toHaveLength(0);
+    await expectAccessible(page);
+  });
+
+  test("a saved model the keys no longer reach is flagged and can be cleared", async ({ page, adminUrl }) => {
+    const state = discoveredWorld();
+    state.models[ACME] = ["gpt-4o", "Deepseek"];
+    const { requests } = await open(page, adminUrl, `platform/companies/${ACME}?tab=models`, state);
+    const row = page.getByRole("table", { name: "Allowed models" }).getByRole("row", { name: /Deepseek/ });
+    await expect(row.getByText("Not reachable")).toBeVisible();
+    await page.getByLabel("Allow Deepseek").uncheck();
+    await page.getByRole("button", { name: "Save models" }).click();
+    await expect(page.getByText("Allowed models saved")).toBeVisible();
+    expect(requests.find((request) => request.method === "PUT" && request.path.endsWith("/model-access"))?.body).toEqual({ models: ["gpt-4o"] });
+  });
+
+  test("a refusal of the ceiling says why in fixed copy", async ({ page, adminUrl }) => {
+    const state = discoveredWorld();
+    state.failOnce[`PUT /companies/${ACME}/model-access`] = { status: 422, code: "MODEL_NOT_DISCOVERED" };
+    await open(page, adminUrl, `platform/companies/${ACME}?tab=models`, state);
+    await page.getByLabel("Allow claude-3-5-sonnet").check();
+    await page.getByRole("button", { name: "Save models" }).click();
+    await expect(page.getByRole("alert")).toContainText("not reachable through this company's keys");
+  });
+
   test("a suspended company's model list is read-only", async ({ page, adminUrl }) => {
-    await open(page, adminUrl, `platform/companies/${GLOBEX}?tab=models`);
+    const state = discoveredWorld();
+    state.catalogs[GLOBEX] = { gatewayRevision: 1, discovered: { ...DISCOVERED }, revision: 0, defaultAlias: null, aliases: {} };
+    state.models[GLOBEX] = ["gpt-4o"];
+    await open(page, adminUrl, `platform/companies/${GLOBEX}?tab=models`, state);
     await expect(page.getByText("This company is suspended")).toBeVisible();
     await expect(page.getByRole("button", { name: "Save models" })).toHaveCount(0);
     await expect(page.getByLabel("Add a model")).toHaveCount(0);
+    await expect(page.getByLabel("Allow gpt-4o", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("table", { name: "Allowed models" }).getByRole("row", { name: /gpt-4o/ })).toBeVisible();
   });
 
   test("is accessible on every viewport", async ({ page, adminUrl }) => {
-    await open(page, adminUrl, `platform/companies/${ACME}?tab=models`);
+    await open(page, adminUrl, `platform/companies/${ACME}?tab=models`, discoveredWorld());
     await expect(page.getByRole("table", { name: "Allowed models" })).toBeVisible();
     for (const size of Object.values(viewports)) {
       await page.setViewportSize(size);

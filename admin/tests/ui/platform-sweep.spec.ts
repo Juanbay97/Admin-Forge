@@ -22,6 +22,8 @@ const ROUTES: Array<[string, string, RegExp]> = [
 async function signIn(page: Page, adminUrl: string, path: string) {
   const world = newWorld();
   world.mfa.verified = true;
+  // The company's keys were discovered, so the Models tab is swept with its editor rather than the "refresh first" notice.
+  world.catalogs[ACME]!.discovered = { ids: ["gpt-4o", "gpt-4o-mini"], at: "2026-10-14T12:00:00+00:00" };
   await installPlatform(page, world);
   await page.goto(adminUrl + path);
   await page.getByLabel("Email").fill(OWNER.email);
@@ -34,7 +36,7 @@ for (const [name, path, heading] of ROUTES) {
     test.setTimeout(120_000);
     await signIn(page, adminUrl, path);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
-    await expect(page.getByRole("status")).toHaveCount(0, { timeout: 8000 }); // skeletons gone
+    await expect(page.getByRole("status").filter({ hasText: /Loading/ })).toHaveCount(0, { timeout: 8000 }); // loading notices gone (an informational status may stay)
     for (const dark of [false, true]) {
       if (dark) await page.getByRole("button", { name: "Switch to dark mode" }).click();
       for (const size of Object.values(viewports)) {

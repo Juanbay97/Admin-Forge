@@ -120,6 +120,30 @@ test.describe("refresh and publish", () => {
     expect(api.catalog(ORG_A)?.revision).toBe(1);
   });
 
+  test("refresh lists only the models inside the platform ceiling", async ({ page, adminUrl }) => {
+    const ceilinged = { ...ADMIN_BACKEND.catalogs?.[ORG_A], ceiling: ["gpt-4o-mini"] } as NonNullable<typeof ADMIN_BACKEND.catalogs>[string];
+    await installBackend(page, { ...ADMIN_BACKEND, catalogs: { [ORG_A]: ceilinged } });
+    await openCatalog(page, adminUrl);
+    await page.getByRole("button", { name: "Refresh models" }).click();
+    await expect(page.getByLabel("Alias for gpt-4o-mini", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Alias for gpt-4o", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Alias for 4o-realtime", { exact: true })).toHaveCount(0);
+  });
+
+  test("a publication outside a ceiling the platform just narrowed says the ceiling is the reason", async ({ page, adminUrl }) => {
+    const api = await installBackend(page, ADMIN_BACKEND);
+    await openCatalog(page, adminUrl);
+    await page.getByRole("button", { name: "Refresh models" }).click();
+    await expect(page.getByLabel("Alias for gpt-4o", { exact: true })).toBeVisible();
+    api.setCeiling(ORG_A, ["gpt-4o-mini"]);
+    await page.getByRole("button", { name: "Publish catalog" }).click();
+    await expect(page.getByRole("alert")).toHaveText(
+      "One or more selected models are not allowed by the platform for this company. Refresh the models and choose from the allowed ones.",
+    );
+    await expect(page.getByText("Not published")).toBeVisible();
+    expect(api.catalog(ORG_A)?.aliases).toEqual({});
+  });
+
   test("an unreachable gateway is reported without detail", async ({ page, adminUrl }) => {
     const unreachable = { ...ADMIN_BACKEND.catalogs?.[ORG_A], upstream: null } as NonNullable<typeof ADMIN_BACKEND.catalogs>[string];
     await installBackend(page, { ...ADMIN_BACKEND, catalogs: { [ORG_A]: unreachable } });

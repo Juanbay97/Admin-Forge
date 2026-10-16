@@ -1,6 +1,5 @@
-import { Plus, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { DEFAULT_BRANDING, draftFrom, type Draft } from "../../../../brand/branding";
 import { isCompanyCode, slugFromName } from "../../../../platform/companies";
 import { errorMessage } from "../../../../shell/errors";
@@ -98,24 +97,18 @@ export function AdminStepForm({ value, onNext, onBack }: { value: AdminStep | nu
   );
 }
 
-export function KeysModelsStepForm({ keys, models, onNext, onBack }: { keys: string[]; models: string[]; onNext: (keys: string[], models: string[]) => void; onBack: () => void }) {
+/**
+ * Gateway keys only. The model ceiling is never typed: it is set when the owner publishes the catalog from the company's Models
+ * tab, among the models the company's keys can reach. ``models`` is accepted and ignored so the wizard's state shape is unchanged.
+ */
+export function KeysModelsStepForm({ keys, onNext, onBack }: { keys: string[]; models?: string[]; onNext: (keys: string[], models: string[]) => void; onBack: () => void }) {
   const { platform } = useServices();
   const pool = useQuery({ queryKey: ["platform", "keys"], queryFn: () => platform.keys() });
-  const prices = useQuery({ queryKey: ["platform", "prices"], queryFn: () => platform.prices() });
   const [chosen, setChosen] = useState<string[]>(keys);
-  const [allowed, setAllowed] = useState<string[]>(models);
-  const [draft, setDraft] = useState("");
   const usable = (pool.data?.keys ?? []).filter((key) => key.status === "active" && key.has_key);
-  const known = useMemo(() => [...new Set((prices.data?.prices ?? []).map((price) => price.upstream_id))].filter((id) => !allowed.includes(id)), [prices.data, allowed]);
-  useEffect(() => setDraft((current) => current), []);
 
-  const add = (id: string) => {
-    const clean = id.trim();
-    if (clean && clean.length <= 255 && !allowed.includes(clean)) setAllowed([...allowed, clean]);
-    setDraft("");
-  };
   return (
-    <form noValidate className="flex flex-col gap-6" onSubmit={(event) => { event.preventDefault(); if (chosen.length > 0 && allowed.length > 0) onNext(chosen, allowed); }}>
+    <form noValidate className="flex flex-col gap-6" onSubmit={(event) => { event.preventDefault(); if (chosen.length > 0) onNext(chosen, []); }}>
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-body font-medium text-fg">Gateway keys</legend>
         <p className="text-body text-muted">The company uses these platform keys, in this order; the first is tried first.</p>
@@ -131,33 +124,8 @@ export function KeysModelsStepForm({ keys, models, onNext, onBack }: { keys: str
           />
         ))}
       </fieldset>
-      <fieldset className="flex flex-col gap-3">
-        <legend className="mb-1 text-body font-medium text-fg">Allowed models</legend>
-        <p className="text-body text-muted">The ceiling for what this company's administrators can publish to its members.</p>
-        <div className="flex gap-2">
-          <Field label="Add a model" className="flex-1">
-            {(control) => <Input {...control} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); add(draft); } }} autoComplete="off" spellCheck={false} placeholder="e.g. gpt-4o" />}
-          </Field>
-          <Button variant="outline" className="self-end" onClick={() => add(draft)} aria-label="Add model" disabled={!draft.trim()}><Plus aria-hidden="true" className="size-4" />Add</Button>
-        </div>
-        {known.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 text-caption text-muted">
-            Priced models:
-            {known.map((id) => <Button key={id} size="sm" variant="secondary" onClick={() => add(id)}>{id}</Button>)}
-          </div>
-        )}
-        {allowed.length > 0 && (
-          <ul aria-label="Allowed models" className="flex flex-wrap gap-2">
-            {allowed.map((id) => (
-              <li key={id} className="inline-flex items-center gap-1 rounded-full bg-action-soft py-1 pl-3 pr-1 text-body text-on-action-soft">
-                {id}
-                <button type="button" aria-label={`Remove ${id}`} onClick={() => setAllowed(allowed.filter((item) => item !== id))} className="inline-flex size-6 items-center justify-center rounded-full outline-focus hover:bg-surface focus-visible:outline-2"><X aria-hidden="true" className="size-3.5" /></button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </fieldset>
-      <Nav onBack={onBack} nextDisabled={chosen.length === 0 || allowed.length === 0} />
+      <p className="text-body text-muted">Models are published from the company's Models tab after it is created; the models you publish there are the ones the company may use.</p>
+      <Nav onBack={onBack} nextDisabled={chosen.length === 0} />
     </form>
   );
 }

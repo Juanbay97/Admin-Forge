@@ -71,6 +71,9 @@ export function describeCatalogFailure(failure: unknown, action: CatalogAction):
   if (action === "publish" && error?.code === "REVISION_CONFLICT") {
     return "The catalog or gateway changed since the models were refreshed. Refresh the models and try again.";
   }
+  if (action === "publish" && error?.code === "MODEL_NOT_ALLOWED") {
+    return "One or more selected models are not allowed by the platform for this company. Refresh the models and choose from the allowed ones.";
+  }
   if (action === "publish" && error?.status === 422) {
     return "The selection was not accepted. Refresh the models, then check the aliases.";
   }

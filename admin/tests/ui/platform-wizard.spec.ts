@@ -31,8 +31,6 @@ async function admin(page: Page) {
 }
 async function keysAndModels(page: Page) {
   await page.getByRole("checkbox", { name: /Primary/ }).check();
-  await page.getByLabel("Add a model").fill("gpt-4o");
-  await page.getByRole("button", { name: "Add model" }).click();
   await next(page).click();
 }
 
@@ -49,6 +47,10 @@ test.describe("create-company wizard", () => {
     await expect(stepper.locator("[aria-current=step]")).toHaveText(/Branding/);
     await brandingDefault(page);
     await admin(page);
+    // The ceiling is never typed here: models are published from the company's Models tab after creation.
+    await expect(page.getByLabel("Add a model")).toHaveCount(0);
+    await expect(page.getByText("Models are published from the company's Models tab after it is created")).toBeVisible();
+    await expect(next(page)).toBeDisabled();
     await keysAndModels(page);
     await expect(page.getByRole("heading", { name: "Review and create" })).toBeVisible();
     const review = page.getByRole("region", { name: "Summary" });
@@ -56,7 +58,6 @@ test.describe("create-company wizard", () => {
     await expect(review.getByText("initech", { exact: true })).toBeVisible();
     await expect(review.getByText("ada@initech.test")).toBeVisible();
     await expect(review.getByText("Default Prometheon look")).toBeVisible();
-    await expect(review.getByText("gpt-4o")).toBeVisible();
     await page.getByRole("button", { name: "Create company" }).click();
     await expect(page.getByRole("heading", { name: "Initech Corp is ready" })).toBeVisible();
     await expect(page.getByText("Invitation sent to ada@initech.test")).toBeVisible();
@@ -64,6 +65,7 @@ test.describe("create-company wizard", () => {
     await expect(page.getByRole("link", { name: "Open company" })).toHaveAttribute("href", /\/admin\/platform\/companies\/99999999/);
     const writes = requests.filter((request) => request.method !== "GET" && request.path.includes("/companies")).map((request) => `${request.method} ${request.path.replace(/99999999-9999-4999-8999-\d+/, "{id}").replace("/forge/v1/platform", "")}`);
     expect(writes).toEqual(["POST /companies", "PUT /companies/{id}/gateway-keys", "PUT /companies/{id}/model-access"]);
+    expect(requests.find((request) => request.method === "PUT" && request.path.endsWith("/model-access"))?.body).toEqual({ models: [] }); // nothing is allowed until the owner publishes
   });
 
   test("the stepper and the form data survive going back", async ({ page, adminUrl }) => {

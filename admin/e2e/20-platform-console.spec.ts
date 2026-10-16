@@ -92,10 +92,8 @@ test("the wizard creates a company, applies keys and models and mails the first 
   const keys = page.getByRole("group", { name: "Gateway keys" }).getByRole("checkbox");
   await expect(keys.first()).toBeVisible();
   await keys.first().check();
-  await page.getByLabel("Add a model").fill("fake-fast");
-  await page.getByRole("button", { name: "Add model" }).click();
-  await page.getByLabel("Add a model").fill("fake-slow");
-  await page.getByRole("button", { name: "Add model" }).click();
+  // The ceiling is never typed in the wizard: it is chosen from the discovered models on the company's Models tab.
+  await expect(page.getByLabel("Add a model")).toHaveCount(0);
   await shot(page, "console", "32-wizard-keys-models");
   await page.getByRole("button", { name: "Next" }).click();
   await shot(page, "console", "33-wizard-review");
@@ -110,9 +108,9 @@ test("the wizard creates a company, applies keys and models and mails the first 
   writeCompany({ id, slug: "e2e-initech", name: "E2E Initech", adminEmail: "ada@e2e-initech.test" });
   await page.getByRole("link", { name: "Open company" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "E2E Initech" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Setup" }).getByText("2 allowed")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Setup" }).getByText("0 allowed")).toBeVisible();
   await expect(page.getByRole("region", { name: "Setup" }).getByText("1 assigned")).toBeVisible();
-  await expect(page.getByText("Finish setup")).toHaveCount(0);
+  await expect(page.getByText("Finish setup")).toBeVisible(); // no model is allowed until the owner chooses among the discovered ones
 });
 test("branding, keys and models tabs apply to the company and the public branding follows", async ({ page, request }) => {
   const company = readCompany();
@@ -133,8 +131,10 @@ test("branding, keys and models tabs apply to the company and the public brandin
   await shot(page, "console", "41-company-keys");
 
   await page.getByRole("tab", { name: "Models" }).click();
-  await page.getByLabel("Add a model").fill("fake-nousage");
-  await page.getByRole("button", { name: "Add model" }).click();
+  await expect(page.getByText("Refresh the models from the company's keys first")).toBeVisible();
+  await page.getByRole("button", { name: "Discover models" }).click();
+  await expect(page.getByRole("list", { name: "Key discovery" }).getByRole("listitem").first()).toContainText("Reachable");
+  for (const model of ["fake-fast", "fake-slow", "fake-nousage"]) await page.getByLabel(`Allow ${model}`).check();
   await page.getByRole("button", { name: "Save models" }).click();
   await expect(page.getByText("Allowed models saved")).toBeVisible();
   await shot(page, "console", "42-company-models");

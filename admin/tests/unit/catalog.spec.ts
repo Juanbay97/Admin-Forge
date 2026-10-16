@@ -117,6 +117,10 @@ test.describe("catalog messages", () => {
     expect(describeCatalogFailure(new ApiError(409, "REVISION_CONFLICT", "x"), "publish")).toBe(
       "The catalog or gateway changed since the models were refreshed. Refresh the models and try again.",
     );
+    expect(describeCatalogFailure(new ApiError(409, "MODEL_NOT_ALLOWED", "x"), "publish")).toBe(
+      "One or more selected models are not allowed by the platform for this company. Refresh the models and choose from the allowed ones.",
+    );
+    expect(describeCatalogFailure(new ApiError(409, "MODEL_NOT_ALLOWED", "x"), "refresh")).not.toContain("not allowed by the platform");
     expect(describeCatalogFailure(new ApiError(422, "INVALID_REQUEST", "x"), "publish")).toBe(
       "The selection was not accepted. Refresh the models, then check the aliases.",
     );
