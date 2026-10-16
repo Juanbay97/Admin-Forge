@@ -29,7 +29,7 @@ async function admin(page: Page) {
   await page.getByLabel("Administrator name").fill("Ada Lovelace");
   await next(page).click();
 }
-async function keysAndModels(page: Page) {
+async function keys(page: Page) {
   await page.getByRole("checkbox", { name: /Primary/ }).check();
   await next(page).click();
 }
@@ -47,25 +47,26 @@ test.describe("create-company wizard", () => {
     await expect(stepper.locator("[aria-current=step]")).toHaveText(/Branding/);
     await brandingDefault(page);
     await admin(page);
-    // The ceiling is never typed here: models are published from the company's Models tab after creation.
+    // The wizard has no models concept: they are published from the company's Models tab after creation.
     await expect(page.getByLabel("Add a model")).toHaveCount(0);
+    await expect(stepper.locator("li").filter({ hasText: "Gateway keys" })).toHaveAttribute("aria-current", "step");
     await expect(page.getByText("Models are published from the company's Models tab after it is created")).toBeVisible();
     await expect(next(page)).toBeDisabled();
-    await keysAndModels(page);
+    await keys(page);
     await expect(page.getByRole("heading", { name: "Review and create" })).toBeVisible();
     const review = page.getByRole("region", { name: "Summary" });
     await expect(review.getByText("Initech Corp")).toBeVisible();
     await expect(review.getByText("initech", { exact: true })).toBeVisible();
     await expect(review.getByText("ada@initech.test")).toBeVisible();
     await expect(review.getByText("Default Prometheon look")).toBeVisible();
+    await expect(review.getByText("Models")).toHaveCount(0);
     await page.getByRole("button", { name: "Create company" }).click();
     await expect(page.getByRole("heading", { name: "Initech Corp is ready" })).toBeVisible();
     await expect(page.getByText("Invitation sent to ada@initech.test")).toBeVisible();
     await expect(page.getByText("initech", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Open company" })).toHaveAttribute("href", /\/admin\/platform\/companies\/99999999/);
     const writes = requests.filter((request) => request.method !== "GET" && request.path.includes("/companies")).map((request) => `${request.method} ${request.path.replace(/99999999-9999-4999-8999-\d+/, "{id}").replace("/forge/v1/platform", "")}`);
-    expect(writes).toEqual(["POST /companies", "PUT /companies/{id}/gateway-keys", "PUT /companies/{id}/model-access"]);
-    expect(requests.find((request) => request.method === "PUT" && request.path.endsWith("/model-access"))?.body).toEqual({ models: [] }); // nothing is allowed until the owner publishes
+    expect(writes).toEqual(["POST /companies", "PUT /companies/{id}/gateway-keys"]); // no ceiling is written: nothing is allowed until the owner publishes
   });
 
   test("the stepper and the form data survive going back", async ({ page, adminUrl }) => {
@@ -98,12 +99,12 @@ test.describe("create-company wizard", () => {
     await company(page);
     await brandingDefault(page);
     await admin(page);
-    await keysAndModels(page);
+    await keys(page);
     await page.getByRole("button", { name: "Create company" }).click();
     const progress = page.getByRole("list", { name: "Setup steps" });
     await expect(progress.getByRole("listitem").filter({ hasText: "Company" })).toContainText("Done");
     await expect(progress.getByRole("listitem").filter({ hasText: "Gateway keys" })).toContainText("Failed");
-    await expect(progress.getByRole("listitem").filter({ hasText: "Models" })).toContainText("Waiting");
+    await expect(progress.getByRole("listitem")).toHaveCount(3);
     await expect(page.getByRole("alert")).toContainText("The company exists");
     await page.getByRole("button", { name: "Retry failed steps" }).click();
     await expect(page.getByRole("heading", { name: "Initech is ready" })).toBeVisible();
@@ -117,7 +118,7 @@ test.describe("create-company wizard", () => {
     await company(page);
     await brandingDefault(page);
     await admin(page);
-    await keysAndModels(page);
+    await keys(page);
     await page.getByRole("button", { name: "Create company" }).click();
     await expect(page.getByRole("heading", { name: "Initech is ready" })).toBeVisible();
     await expect(page.getByText("The invitation email could not be sent")).toBeVisible();
@@ -135,7 +136,7 @@ test.describe("create-company wizard", () => {
     await expect(page.getByLabel("Logos")).toHaveCount(0); // the platform API has no logo upload
     await next(page).click();
     await admin(page);
-    await keysAndModels(page);
+    await keys(page);
     await page.getByRole("button", { name: "Create company" }).click();
     await expect(page.getByRole("heading", { name: "Initech is ready" })).toBeVisible();
     expect(requests.some((request) => request.method === "PUT" && request.path.endsWith("/branding"))).toBe(true);

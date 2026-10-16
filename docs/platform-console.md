@@ -27,7 +27,7 @@ mode and shows a persistent "Platform console" badge.
 |-------|--------------|
 | `/platform` | Overview: companies, requests, tokens, cost for 7/30/90 days with the change against the previous period, top companies by cost, tokens by model, key pool health, recent activity. |
 | `/platform/companies` | Search, status filter (both in the URL), cost and tokens for 30 days. |
-| `/platform/companies/new` | Wizard: company, branding (optional), first administrator, keys and models, review. A resumable saga: a failed step is named and retried alone. |
+| `/platform/companies/new` | Wizard: company, branding (optional), first administrator, gateway keys, review. The wizard never touches models (they are chosen from the company's Models tab after creation). A resumable saga: a failed step is named and retried alone. |
 | `/platform/companies/:id` | Tabs (in the URL): Overview with the setup checklist, Branding, Keys, Models, Members (read-only), Usage. Suspend needs the company code typed; suspended companies are read-only. |
 | `/platform/keys` | The key pool: add (write-only), rotate, disable/enable. Only label and last four characters are ever shown. |
 | `/platform/prices` | Versioned USD-per-million-token prices with history; an edit appends a version. |

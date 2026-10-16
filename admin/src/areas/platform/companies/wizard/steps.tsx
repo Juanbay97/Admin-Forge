@@ -98,17 +98,17 @@ export function AdminStepForm({ value, onNext, onBack }: { value: AdminStep | nu
 }
 
 /**
- * Gateway keys only. The model ceiling is never typed: it is set when the owner publishes the catalog from the company's Models
- * tab, among the models the company's keys can reach. ``models`` is accepted and ignored so the wizard's state shape is unchanged.
+ * Gateway keys only. The wizard knows nothing about models: the owner chooses them from the models the company's keys can reach
+ * when publishing the catalog from the company's Models tab after creation.
  */
-export function KeysModelsStepForm({ keys, onNext, onBack }: { keys: string[]; models?: string[]; onNext: (keys: string[], models: string[]) => void; onBack: () => void }) {
+export function KeysStepForm({ keys, onNext, onBack }: { keys: string[]; onNext: (keys: string[]) => void; onBack: () => void }) {
   const { platform } = useServices();
   const pool = useQuery({ queryKey: ["platform", "keys"], queryFn: () => platform.keys() });
   const [chosen, setChosen] = useState<string[]>(keys);
   const usable = (pool.data?.keys ?? []).filter((key) => key.status === "active" && key.has_key);
 
   return (
-    <form noValidate className="flex flex-col gap-6" onSubmit={(event) => { event.preventDefault(); if (chosen.length > 0) onNext(chosen, []); }}>
+    <form noValidate className="flex flex-col gap-6" onSubmit={(event) => { event.preventDefault(); if (chosen.length > 0) onNext(chosen); }}>
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-body font-medium text-fg">Gateway keys</legend>
         <p className="text-body text-muted">The company uses these platform keys, in this order; the first is tried first.</p>

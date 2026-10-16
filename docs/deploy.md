@@ -242,7 +242,7 @@ administrators see only whether a gateway is usable; they cannot read or write a
 | `POST /forge/v1/platform/gateway-keys/<id>/rotate` `{"expected_revision","key"}` | New key text, same id; takes effect for new requests, in-flight streams finish on the old value |
 | `POST /forge/v1/platform/gateway-keys/<id>/disable`, `.../enable` | A disabled key is never selected |
 | `PUT /forge/v1/platform/companies/<id>/gateway-keys` `{"keys":[{"key_id","priority","active"}]}` | The company's whole key list; the lowest priority number serves first |
-| `PUT /forge/v1/platform/companies/<id>/model-access` `{"models":["upstream-id"]}` | The upstream models the company may publish and use (an empty list denies everything; a shrink applies on the next request) |
+| `PUT /forge/v1/platform/companies/<id>/model-access` `{"models":["upstream-id"]}` | The upstream models the company may publish and use, chosen among the models its keys were discovered to reach (`POST .../companies/<id>/catalog/discover`): `422 DISCOVERY_REQUIRED` before any discovery, `422 MODEL_NOT_DISCOVERED` for an entry outside it; an empty list denies everything and a shrink applies on the next request. A company administrator publishing outside the ceiling gets `409 MODEL_NOT_ALLOWED` |
 | `POST /forge/v1/platform/prices` `{"upstream_id","input_micros","output_micros","effective_from"}` | A new price version, integer micro-USD per million tokens; `GET /forge/v1/platform/prices?upstream_id=` lists versions |
 
 Routing tries the active keys in priority order and moves to the next only when the gateway answers 401, 429, 5xx or cannot be

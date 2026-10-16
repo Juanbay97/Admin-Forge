@@ -221,11 +221,11 @@ If saving the key fails with an origin error, the origin is not in `FORGE_GATEWA
 ## 9. Create the first company
 
 In the console choose **Companies, New** (`/platform/companies/new`). The wizard walks through: the company (its **code** is the short
-name employees will see, for example `acme`), optional branding, the first administrator (name and email), the gateway key and the models the
-company may use, then a review. A failed step is named and retried on its own.
+name employees will see, for example `acme`), optional branding, the first administrator (name and email), the gateway keys the company uses, then a review. Models
+are chosen afterwards (see below). A failed step is named and retried on its own.
 
 Expected: the administrator receives an invitation email whose link opens the join page for that company; the company page shows a
-checklist that turns green as keys and models are assigned. If delivery says `failed`, the company exists: fix the mail relay and use the
+checklist that turns green as keys are assigned and models are published. If delivery says `failed`, the company exists: fix the mail relay and use the
 check in [deploy.md](deploy.md#email-delivery-smtp). The administrator signs in at `https://forge.prometheonlab.com/admin/`, invites the
 people, and each person lands on a download page.
 

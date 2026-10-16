@@ -14,11 +14,10 @@ export const adminSchema = z.object({
   name: text("the administrator's name", 120),
 });
 
-export const keysModelsSchema = z.object({
+export const keysSchema = z.object({
   keys: z.array(z.string().uuid()).min(1, "Select at least one gateway key.").max(16, "A company can have at most 16 keys."),
-  models: z.array(z.string().min(1).max(255)).min(1, "Allow at least one model.").max(500),
 });
 
 export type CompanyStep = z.infer<typeof companySchema>;
 export type AdminStep = z.infer<typeof adminSchema>;
-export type KeysModelsStep = z.infer<typeof keysModelsSchema>;
+export type KeysStep = z.infer<typeof keysSchema>;

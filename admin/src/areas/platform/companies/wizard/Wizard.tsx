@@ -12,17 +12,16 @@ import { Card } from "../../../../ui/Card";
 import { PageHeader } from "../../../../ui/PageHeader";
 import { initialProgress, runSaga, type Progress, type SagaPorts, type StepId, type StepStatus } from "./saga";
 import type { AdminStep, CompanyStep } from "./schema";
-import { AdminStepForm, BrandingStepForm, CompanyStepForm, KeysModelsStepForm } from "./steps";
+import { AdminStepForm, BrandingStepForm, CompanyStepForm, KeysStepForm } from "./steps";
 
-const STEPS = ["Company", "Branding", "First admin", "Keys and models", "Review"] as const;
-const LABELS: Record<StepId, string> = { company: "Company", branding: "Branding", keys: "Gateway keys", models: "Models" };
+const STEPS = ["Company", "Branding", "First admin", "Gateway keys", "Review"] as const;
+const LABELS: Record<StepId, string> = { company: "Company", branding: "Branding", keys: "Gateway keys" };
 
 interface State {
   company: CompanyStep | null;
   branding: Draft | null;
   admin: AdminStep | null;
   keys: string[];
-  models: string[];
 }
 
 function Stepper({ current }: { current: number }) {
@@ -52,7 +51,7 @@ export function Wizard() {
   const { platform } = useServices();
   const client = useQueryClient();
   const [index, setIndex] = useState(0);
-  const [state, setState] = useState<State>({ company: null, branding: null, admin: null, keys: [], models: [] });
+  const [state, setState] = useState<State>({ company: null, branding: null, admin: null, keys: [] });
   const [progress, setProgress] = useState<Progress | null>(null);
   const [running, setRunning] = useState(false);
 
@@ -65,9 +64,6 @@ export function Wizard() {
       },
       async assignKeys(id, entries) {
         await platform.assignKeys(id, entries);
-      },
-      async setModels(id, models) {
-        await platform.setModelAccess(id, models);
       },
     }),
     [platform],
@@ -83,7 +79,6 @@ export function Wizard() {
         company: { slug: state.company.code, display_name: state.company.name.trim(), department: state.company.department.trim(), admin_email: state.admin.email.trim(), admin_name: state.admin.name.trim() },
         branding: state.branding ? draftToDocument(state.branding) : null,
         keys: state.keys.map((key_id, order) => ({ key_id, priority: order + 1, active: true })),
-        models: state.models,
       },
       previous,
     );
@@ -151,7 +146,7 @@ export function Wizard() {
   } else if (index === 2) {
     body = <AdminStepForm value={state.admin} onBack={() => setIndex(1)} onNext={(admin) => { setState((current) => ({ ...current, admin })); setIndex(3); }} />;
   } else if (index === 3) {
-    body = <KeysModelsStepForm keys={state.keys} models={state.models} onBack={() => setIndex(2)} onNext={(keys, models) => { setState((current) => ({ ...current, keys, models })); setIndex(4); }} />;
+    body = <KeysStepForm keys={state.keys} onBack={() => setIndex(2)} onNext={(keys) => { setState((current) => ({ ...current, keys })); setIndex(4); }} />;
   } else {
     body = (
       <div className="flex flex-col gap-4">
@@ -164,7 +159,6 @@ export function Wizard() {
             <dt className="text-muted">Branding</dt><dd className="text-fg">{state.branding ? `Custom: ${state.branding.name}` : "Default Prometheon look"}</dd>
             <dt className="text-muted">First administrator</dt><dd className="text-fg">{state.admin?.name} · {state.admin?.email}</dd>
             <dt className="text-muted">Gateway keys</dt><dd className="text-fg">{state.keys.length}</dd>
-            <dt className="text-muted">Models</dt><dd className="text-fg">{state.models.join(", ")}</dd>
           </dl>
         </section>
         <div className="flex justify-between gap-3 pt-2">
@@ -181,7 +175,7 @@ export function Wizard() {
       <Stepper current={progress ? 4 : index} />
       <Card className="max-w-3xl">
         <div className="flex flex-col gap-4 p-5 sm:p-6">
-          {!progress && index < 4 && <h2 className="font-title text-section font-semibold text-fg">{["Company", "Branding", "First administrator", "Gateway keys and models"][index]}</h2>}
+          {!progress && index < 4 && <h2 className="font-title text-section font-semibold text-fg">{["Company", "Branding", "First administrator", "Gateway keys"][index]}</h2>}
           {body}
         </div>
       </Card>
