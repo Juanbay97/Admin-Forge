@@ -75,7 +75,7 @@ function Invoke-Curl([string]$Path, [string[]]$Arguments = @(), [switch]$Insecur
     foreach ($line in (Get-Content -LiteralPath $headerFile)) {
         if ($line -match '^([^:]+):\s*(.*)$') { $headers[$Matches[1].ToLowerInvariant()] = $Matches[2].Trim() }
     }
-    return [pscustomobject]@{ Status = [int]$status; Headers = $headers; Body = (Get-Content -LiteralPath $bodyFile -Raw) }
+    return [pscustomobject]@{ Status = [int]$status; Headers = $headers; Body = (Get-Content -LiteralPath $bodyFile -Raw); BodyFile = $bodyFile }
 }
 
 function Get-ProjectResources([string]$Name) {
@@ -103,7 +103,13 @@ try {
     $null = New-Item -ItemType Directory -Force -Path $work, (Join-Path $work 'downloads'), (Join-Path $work 'credentials'), (Join-Path $work 'backups')
     $work = (Resolve-Path -LiteralPath $work).Path
     & (Join-Path $PSScriptRoot 'deploy-secrets.ps1') -Directory (Join-Path $work 'secrets') | Out-Null
-    Set-Content -LiteralPath (Join-Path $work 'downloads/latest.json') -Value '{"version":"0.0.0-smoke"}' -Encoding ascii
+    # A published release: an installer stand-in and the manifest naming it (the company download streams exactly these bytes).
+    $installerBytes = [byte[]]::new(70000)
+    [System.Random]::new(7).NextBytes($installerBytes)
+    [System.IO.File]::WriteAllBytes((Join-Path $work 'downloads/Prometheon-Forge-Setup.exe'), $installerBytes)
+    $installerSha = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $work 'downloads/Prometheon-Forge-Setup.exe')).Hash.ToLowerInvariant()
+    Set-Content -LiteralPath (Join-Path $work 'downloads/latest.json') -Encoding ascii -Value (@{ version = '0.0.0-smoke'; released_at = '2026-01-01T00:00:00Z'; platforms = @{ windows = @{
+        url = '/downloads/Prometheon-Forge-Setup.exe'; sha256 = $installerSha; size_bytes = $installerBytes.Length } } } | ConvertTo-Json -Depth 5 -Compress)
     $httpPort, $httpsPort, $mailpitPort = (Get-FreePort), (Get-FreePort), (Get-FreePort)
     while ($httpsPort -eq $httpPort) { $httpsPort = Get-FreePort }
     while ($mailpitPort -eq $httpPort -or $mailpitPort -eq $httpsPort) { $mailpitPort = Get-FreePort }
@@ -481,6 +487,13 @@ try {
     $installerDocument = if ($installer.Status -eq 200) { $installer.Body | ConvertFrom-Json } else { $null }
     Assert-True ($installer.Status -eq 200 -and $installerDocument.schema -eq 'forge.installer-config.v1' -and $installerDocument.company_code -eq 'smoke-co' -and $installerDocument.control_plane_origin -eq $origin -and @($installerDocument.policy_keys.keys | Where-Object { $_.status -eq 'active' }).Count -eq 1 -and $installerDocument.policy_keys.keys[0].kid -eq $pinned.keys[0].kid -and $installer.Body -notmatch 'password|secret|seed') "the installer configuration carries the company code, the origin and the pinned keys: it does not ($($installer.Status) $($installer.Body))"
     Write-Pass 'governance: the pinning set is public and the installer configuration carries the company code, the origin and the pinned keys'
+
+    # The company-stamped download: the published installer bytes (the digest in latest.json), named for the member's company, for a session only.
+    Assert-True ((Invoke-Curl '/forge/v1/downloads/company' -Arguments @('-H', "Origin: $origin")).Status -eq 401) 'the company download was served without a session'
+    $stamped = Invoke-Authenticated '/forge/v1/downloads/company' $memberToken
+    $published = ((Get-Content -LiteralPath (Join-Path $work 'downloads/latest.json') -Raw) | ConvertFrom-Json).platforms.windows
+    Assert-True ($stamped.Status -eq 200 -and $stamped.Headers['content-disposition'] -eq 'attachment; filename="Prometheon-Forge-Setup-smoke-co.exe"' -and $stamped.Headers['cache-control'] -eq 'no-store' -and (Get-FileHash -Algorithm SHA256 -LiteralPath $stamped.BodyFile).Hash.ToLowerInvariant() -eq $published.sha256 -and (Get-Item -LiteralPath $stamped.BodyFile).Length -eq $published.size_bytes) "the company download is not the published installer named for the company ($($stamped.Status) $($stamped.Headers['content-disposition']))"
+    Write-Pass 'the company download streams the published installer bytes, named for the member company, behind the proxy'
 
     $epochBefore = ($level2.Body | ConvertFrom-Json).org_epoch
     $lock = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/capabilities/connector:github" @{ state = $null; lock = 'forced_off' } $ownerToken

@@ -535,6 +535,14 @@ class PolicyKeyRotationPolicy(unittest.TestCase):
             with self.subTest(needle=needle):
                 self.assertIn(needle, script)
 
+    def test_the_smoke_proves_the_company_stamped_download_through_the_proxy_with_the_published_digest(self):
+        script = text('scripts/deploy-smoke.ps1')
+        for needle in ('/forge/v1/downloads/company', 'Prometheon-Forge-Setup-smoke-co.exe', 'Get-FileHash', 'platforms',
+                       'the company download was served without a session',
+                       'the company download is not the published installer named for the company'):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, script)
+
     def test_the_runbook_chains_the_new_key_to_the_pinned_one_and_documents_the_distribution(self):
         doc = text('docs/deploy.md')
         section = doc.split('## Rotate the policy signing key')[1].split('\n## ')[0]
