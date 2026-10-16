@@ -2,8 +2,6 @@
 
 The retained 0015-0018 stores stay as they are for the retained demo profile; the composed MVP application uses these.
 """
-from psycopg.errors import UndefinedFunction
-
 from forge.gateway_catalog import Discovery
 from forge.gateway_catalog_store import PostgresGatewayCatalogStore
 from forge.gateway_configuration import GatewayDenied, GatewayManaged, GatewayRecord, GatewayStatus, GatewayUnavailable
@@ -44,10 +42,7 @@ class PostgresPoolCatalogStore(PostgresGatewayCatalogStore):
     def ceiling(self, digest, org):
         """The platform ceiling of the administrator's company (migration 0049); ``None`` means unrestricted."""
         with self.connection.cursor() as cursor:
-            try:
-                cursor.execute('SELECT forge.gateway_catalog_ceiling(%s,%s)', (digest, org))
-            except UndefinedFunction:
-                return None  # a schema without 0049 lists every discovered model; publishing is still bounded by the database
+            cursor.execute('SELECT forge.gateway_catalog_ceiling(%s,%s)', (digest, org))
             row = cursor.fetchone()
         return None if row is None else row[0]
 

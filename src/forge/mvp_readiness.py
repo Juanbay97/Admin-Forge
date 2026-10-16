@@ -1,4 +1,4 @@
-"""Static MVP readiness: attests exactly the reviewed 0001-0005+0010-0048 profile (F48).
+"""Static MVP readiness: attests exactly the reviewed 0001-0005+0010-0049 profile (F49).
 
 Same shape as the retained 0018 profile checks, pinned to the latest MVP checkpoint
 from ``forge.mvp_profile``; nothing is learned at runtime and any drift is not ready.
@@ -9,7 +9,7 @@ from psycopg.rows import tuple_row
 from forge.account_readiness import catalog_fingerprint, _SERVICE_PRIVILEGES
 from forge.account_store import EnrollmentConnection
 from forge.gateway_configuration_store import GatewayConnection
-from forge.mvp_profile import F48
+from forge.mvp_profile import F49
 from forge.postgres import _ROLE_CHECK
 
 _AUTHORITIES = ("SELECT count(*)=7 AND bool_and(NOT rolcanlogin) FROM pg_roles WHERE rolname IN "
@@ -30,7 +30,7 @@ class MvpReadiness:
                 with connection.cursor() as cursor:
                     cursor.execute(_SERVICE_PRIVILEGES + " AND current_setting('server_version_num')::integer "
                                    "BETWEEN 170000 AND 179999 AND (" + _AUTHORITIES + ")")
-                    if cursor.fetchone() != (True,) or catalog_fingerprint(cursor) != F48:
+                    if cursor.fetchone() != (True,) or catalog_fingerprint(cursor) != F49:
                         return False
             with self._bootstrap.connection(timeout=self._timeout) as connection:
                 if not connection.autocommit or connection.info.transaction_status is not TransactionStatus.IDLE:

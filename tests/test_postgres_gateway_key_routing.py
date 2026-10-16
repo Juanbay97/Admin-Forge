@@ -27,7 +27,7 @@ from forge.gateway_pool_store import PostgresPoolCatalogStore, PostgresPoolInfer
 from forge.invitations import capability_digest
 from forge.mvp_profile import F32, F33, GATEWAY_KEY_ROUTING_MIGRATION, MVP_ADDITIONS, MVP_CHECKPOINTS
 from forge.provisioning import SEED, provision
-from mvp_support import WITH_CEILING, at, mvp_database, seed_discovery
+from mvp_support import at, mvp_database, seed_discovery
 from platform_support import add_owner, sign_in
 from test_postgres_gateway_origin import migration_text, separate_database
 from test_postgres_platform_schema import drop_platform_roles
@@ -159,7 +159,7 @@ class PoolRoutingTests(World):
         return [(record.key_id, record.key_revision, str(self.cipher.open_key(self.org_a, record))) for record in route.candidates]
 
     def test_a_company_without_legacy_publishes_on_the_pool_and_routes_every_active_key_by_priority(self):
-        with mvp_database(migrations=WITH_CEILING) as db:
+        with mvp_database() as db:
             self.setup_pool(db)
             self.assertEqual(self.status(), 'CURRENT')
             self.assertEqual(self.candidates(), [(self.k2.id, 1, TWO), (self.k1.id, 1, ONE)])
@@ -167,7 +167,7 @@ class PoolRoutingTests(World):
             self.assertEqual(self.catalog.read(self.member_token, self.org_a)['default_model'], 'assistant')
 
     def test_rotation_reorder_and_disabling_never_stale_the_catalog_and_disabled_keys_are_never_selected(self):
-        with mvp_database(migrations=WITH_CEILING) as db:
+        with mvp_database() as db:
             self.setup_pool(db)
             self.keys.rotate(self.owner_token, self.k2.id, 1, 'rotated-fixture-key-R002')
             self.assertEqual((self.status(), self.candidates()[0]), ('CURRENT', (self.k2.id, 2, 'rotated-fixture-key-R002')))
@@ -185,7 +185,7 @@ class PoolRoutingTests(World):
                 self.route()  # a key without a sealed value is never routed
 
     def test_a_ceiling_shrink_denies_the_next_request_and_publishing_outside_it_is_refused_unchanged(self):
-        with mvp_database(migrations=WITH_CEILING) as db:
+        with mvp_database() as db:
             self.setup_pool(db)
             self.assertEqual(self.route().upstream_id, MODELS[0])
             self.keys.set_ceiling(self.owner_token, self.org_a, [MODELS[1]])
@@ -202,7 +202,7 @@ class PoolRoutingTests(World):
                 self.route('assistant')
 
     def test_another_company_cannot_route_use_or_read_the_pool_assignment_of_this_one(self):
-        with mvp_database(migrations=WITH_CEILING) as db:
+        with mvp_database() as db:
             self.setup_pool(db)
             outsider, _ = sign_in(db, self.admin_b.email, self.admin_b.password)
             with self.assertRaises(GatewayDenied):

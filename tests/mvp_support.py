@@ -15,10 +15,6 @@ from forge.mvp_profile import MVP_ADDITIONS
 from postgres_support import connect, settings
 from test_postgres_gateway_origin import migration_text, separate_database
 
-CEILING_MIGRATION = '0049_model_ceiling_validation.sql'
-# The profile plus the model-ceiling validation; once 0049 joins MVP_ADDITIONS this equals the plain profile.
-WITH_CEILING = (*MIGRATIONS, *MVP_ADDITIONS, *(() if CEILING_MIGRATION in MVP_ADDITIONS else (CEILING_MIGRATION,)))
-
 
 def seed_discovery(admin, organization_id, models):
     """Record the discovery the platform owner's refresh would store for the company's current profile (superuser, no HTTP)."""
