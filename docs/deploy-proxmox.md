@@ -242,23 +242,26 @@ tab as platform owner:
 
 ## 10. Publish the installer
 
-The Windows installer is built once, from the client repository on a Windows machine, **for your control plane's origin**. The origin
-is compiled in, so build it with your host name:
+The Windows installer is built once, from the client repository on a Windows machine, **for your control plane's origin**. The origin and the
+policy public keys are compiled in, so the person who installs it needs nothing but the one file. Build it with your host name and let the
+build read the keys from the running server (a TLS request to `GET /forge/v1/capabilities/pinning`, so run it from your own machine once the
+stack is up):
 
 ```powershell
-$env:FORGE_DEFAULT_CP_ORIGIN = "https://forge.prometheonlab.com"
-$env:FORGE_ALLOWED_ORIGINS   = "https://forge.prometheonlab.com"
-npm run build:desktop        # in the client repository; see its docs/desktop-installer.md
+cd clients\openyak       # the client repository; see its docs/desktop-installer.md
+npm run build:desktop -- --origins https://forge.prometheonlab.com --policy-keys-from-origin
 ```
 
-The result is `Prometheon-Forge_<version>_x64-setup.exe` and `SHA256SUMS.md`. The installer is unsigned, so Windows SmartScreen will
+The build refuses to start without keys (`--policy-keys <file>` takes a saved pinning document instead; `--allow-unpinned-dev` is for development
+only). The result is `Prometheon Forge_<version>_x64-setup.exe` and `SHA256SUMS.md`. The installer is unsigned, so Windows SmartScreen will
 warn on first run ("More info", then "Run anyway").
 
-Copy it to the server and describe it in `latest.json`, which the download page reads (the URL must be on the same origin and the hash must be the
-real SHA-256):
+Copy it to the downloads volume and describe it in `latest.json`, which the download pages read and which the server checks before it streams the
+company download (the URL must be on the same origin, a plain `*.exe` name without spaces, and the hash and size must be the real ones). Rename the
+file first: the build's name has a space.
 
 ```bash
-scp Prometheon-Forge_1.5.0_x64-setup.exe you@forge-vm:/opt/forge/deploy/downloads/
+scp "Prometheon Forge_1.5.0_x64-setup.exe" you@forge-vm:/opt/forge/deploy/downloads/Prometheon-Forge_1.5.0_x64-setup.exe
 ssh you@forge-vm
 cd /opt/forge/deploy/downloads
 F=Prometheon-Forge_1.5.0_x64-setup.exe
@@ -266,8 +269,13 @@ printf '{"version":"1.5.0","released_at":"%s","platforms":{"windows":{"url":"/do
   "$(date -u +%FT%TZ)" "$F" "$(sha256sum "$F" | cut -d' ' -f1)" "$(stat -c %s "$F")" > latest.json
 curl -fsS https://forge.prometheonlab.com/downloads/latest.json
 ```
+Caddy serves `deploy/downloads/` read-only and the control plane mounts the same directory read-only (`FORGE_INSTALLER_DIR`); no restart is needed and `latest.json` is never cached, so a new release shows up at once.
 
-Caddy serves `deploy/downloads/` read-only; no restart is needed and `latest.json` is never cached, so a new release shows up at once.
+**The company download.** A signed-in member or company administrator who presses **Download Prometheon Forge** gets the published installer, byte for
+byte (its SHA-256 matches `latest.json`), named `Prometheon-Forge-Setup-<company code>.exe` by `GET /forge/v1/downloads/company` (a member session,
+never public). The installer reads the company code from that file name (a browser's ` (1)` suffix is fine), so nothing else has to be handed over.
+The landing page, where no company is known, keeps offering the plain installer. If the file does not match `latest.json` (a half-copied upload)
+the route answers 503 instead of streaming it.
 
 **What `latest.json` says.** It is the only thing the web reads to decide what to offer; the installer file itself is never inspected.
 
@@ -280,7 +288,7 @@ Caddy serves `deploy/downloads/` read-only; no restart is needed and `latest.jso
 | `"sha256"` | The file's SHA-256 in lowercase hex | Shown next to the button so people can verify the file; `sha256sum` prints it |
 | `"size_bytes"` | The file size in bytes | Shown as MB |
 
-It appears in three places, all reading `/downloads/latest.json`: the **Download for Windows** section of the public landing page at `/`,
+It appears in three places, all reading `/downloads/latest.json` (the landing links the plain file; the two signed-in pages use the company download): the **Download for Windows** section of the public landing page at `/`,
 the **Download Prometheon Forge** page every signed-in person finds in the navigation (company administrators at `/admin/company/download`,
 members at `/admin/portal/download`), and the card on each dashboard. While no `latest.json` exists (or it is not valid) all three say that the
 installer is not published yet, and nothing else breaks. To publish a new version, copy the new file, rewrite `latest.json` with the commands
@@ -292,21 +300,21 @@ Each person does this from the download page after accepting their invitation; a
 
 1. Open the invitation link, choose a password, and the **Download Prometheon Forge** page opens at `https://forge.prometheonlab.com/admin/portal/download` (administrators find the same page
    in their navigation at `/admin/company/download`).
-2. Download **the installer** and click **Download configuration (forge-install.json)**. The second file, `forge-install.json`, holds the company code, the
-   control plane origin and the public policy keys the app pins. It holds no secret.
-3. Put both files in one folder and run the installer: it finds `forge-install.json` next to itself. For a silent or scripted install name
-   the file explicitly (quote a path with spaces):
+2. Press the one big **Download Prometheon Forge** button. The file is named for the company (`Prometheon-Forge-Setup-<code>.exe`); keep that name.
+3. Run it. Nothing else is needed: the control plane origin and the policy public keys are compiled into the installer, and it binds to the
+   company from its own file name. For a scripted install an explicit `/CODE=<code>` or `/CONFIG=` still wins over the file name:
 
 ```powershell
-.\Prometheon-Forge_1.5.0_x64-setup.exe /S /CONFIG="C:\Users\ana\Downloads\forge-install.json"
+.\Prometheon-Forge-Setup-acme.exe /S
 ```
 
-4. Start *Prometheon Forge*. On first start the app reads the configuration: it binds to the company, accepts the control plane
-   origin only if it is on the build's allow-list, and pins the policy keys. A file that is invalid or for another company is set aside, never
-   applied. The page's **Open Forge** button (`prometheon-forge://join?cp=...&code=...`) does the binding without the file but pins no
-   keys, so use the file for a first install.
-5. Sign in with the account from the invitation. Models appear and a chat answers through OmniRoute.
+4. Start *Prometheon Forge* and sign in with the account from the invitation. (The page's **Open Forge** button, `prometheon-forge://join?cp=...&code=...`,
+   only proposes the company to an installed app and asks for confirmation.) After sign-in the organization comes from the account; a member of
+   several organizations gets the picker. Models appear and a chat answers through OmniRoute.
 
+*Advanced.* Under **Advanced** on the same page, **Download configuration (forge-install.json)** saves the optional company configuration (company
+code, control plane origin and the public policy keys). It is only needed for a managed install that must pin different keys; `/CONFIG="C:\path\forge-install.json"`
+hands it to the installer, which finds a `forge-install.json` next to itself too. It holds no secret.
 The client repository's `docs/policy-key-pinning.md` has the rules and limits; its `docs/desktop-installer.md` covers building.
 
 ## Reset a password
@@ -385,7 +393,7 @@ the pre-upgrade dump (see [deploy.md](deploy.md#upgrade-and-roll-back)). Publish
 | Owner or invitation `delivery: failed` | Resend refused the message | Run the check in [deploy.md](deploy.md#email-delivery-smtp): `SMTP_AUTH` means a wrong key or a user other than `resend`; `SMTP_SENDER` means the domain is not verified |
 | The OmniRoute key is refused | The origin is not in `FORGE_GATEWAY_ORIGINS`, or it has a path or a different scheme | Use exactly `https://ia.prometheonlab.com`, then `docker compose up -d control-plane` |
 | Chats say models are unavailable | No key assigned to the company, no model access, or OmniRoute unreachable from the VM | Check the company's Keys and Models tabs; `curl -sI https://ia.prometheonlab.com` from the VM |
-| The installer shows a company or origin error | It was built for another origin, or `forge-install.json` belongs to a different company | Rebuild with `FORGE_DEFAULT_CP_ORIGIN` and `FORGE_ALLOWED_ORIGINS` set to your origin; download the file again |
+| The installer shows a company or origin error | It was built for another origin, or `forge-install.json` belongs to a different company | Rebuild with `--origins` set to your origin (step 10); download the installer again |
 | Certificates fail after a power cut | The VM clock is wrong | `timedatectl`, then restart `chrony` or `systemd-timesyncd` |
 | Docker does not start | The service failed | `journalctl -u docker --since "10 minutes ago"` |
 | `permission denied` writing `backups/` | `FORGE_UID` and `FORGE_GID` do not match the directory owner | Set them to `id -u` and `id -g` and recreate the service |
@@ -407,5 +415,5 @@ JSON with a request id and route, never an identifier or a secret.
 - [ ] `https://forge.prometheonlab.com/` shows the landing page and its Sign in button opens `/admin`
 - [ ] The company's Models tab discovered models through OmniRoute and a catalog is published
 - [ ] *Forgot password?* sends a reset mail that arrives and works
-- [ ] A second PC installed with `forge-install.json`, signed in and received a chat answer
+- [ ] A second PC installed from the company download (`Prometheon-Forge-Setup-<code>.exe`), signed in and received a chat answer
 - [ ] A dump exists, `pg_restore --list` reads it, and `deploy/backups/` is copied off the VM

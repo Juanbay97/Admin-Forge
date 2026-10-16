@@ -86,7 +86,8 @@ class Guide(unittest.TestCase):
         for needle in ('qemu-guest-agent', 'snapshot', '80/tcp', '443/tcp', 'FORGE_TLS=acme', 'FORGE_TLS=internal', 'CGNAT',
                        'docker compose up -d --build --wait', '/status', 'bootstrap-owner', 'TOTP', 'recovery codes', '/admin/platform',
                        '/platform/keys', '/platform/companies/new', 'deploy/downloads/', 'latest.json', 'sha256sum', 'platforms',
-                       'forge-install.json', '/CONFIG=', 'FORGE_DEFAULT_CP_ORIGIN', 'FORGE_ALLOWED_ORIGINS', 'prometheon-forge://join',
+                       'forge-install.json', '/CONFIG=', '--origins https://forge.prometheonlab.com', '--policy-keys-from-origin', 'FORGE_INSTALLER_DIR',
+                       '/forge/v1/downloads/company', 'Prometheon-Forge-Setup-<company code>.exe', 'Advanced', 'prometheon-forge://join',
                        'vzdump', 'offline copy', 'restore', 'FORGE_MIGRATE_SEED=0', 'git pull', 'journalctl', 'Let\'s Encrypt'):
             with self.subTest(needle=needle):
                 self.assertIn(needle, self.doc)
