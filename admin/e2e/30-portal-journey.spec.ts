@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { ensureCatalogue, meteredChat, releaseTokens, tokenFor } from "./support/api";
 import { mailTo, readCompany, shot } from "./support/stack";
@@ -47,7 +48,7 @@ test("the first administrator joins from the mailed link on the branded page and
   await page.getByRole("button", { name: "Create password and continue" }).click();
   await expect(page).toHaveURL(/\/admin\/portal\/download/);
   await expect(page.getByTestId("company-code")).toHaveText(company.slug);
-  await expect(page.getByRole("link", { name: "Download for Windows" })).toHaveAttribute("href", "/downloads/Forge-Setup-0.0.0-local.exe");
+  await expect(page.getByRole("main").getByRole("button", { name: "Download Prometheon Forge" })).toBeVisible();
   await shot(page, "portal", "02-download");
 
   // The installer is really served, and its hash is the one the page shows.
@@ -56,8 +57,13 @@ test("the first administrator joins from the mailed link on the branded page and
   expect(file.ok()).toBe(true);
   expect(createHash("sha256").update(await file.body()).digest("hex")).toBe(manifest.platforms.windows.sha256);
   expect((await request.get("/downloads/%2e%2e/secret.txt")).status()).toBe(404);
-  await page.getByText("Verify the download").click();
   await expect(page.getByTestId("sha256")).toHaveText(manifest.platforms.windows.sha256);
+  // The one big button saves the company-stamped installer: the very bytes the manifest describes, named for the company.
+  const saving = page.waitForEvent("download");
+  await page.getByRole("main").getByRole("button", { name: "Download Prometheon Forge" }).click();
+  const saved = await saving;
+  expect(saved.suggestedFilename()).toBe(`Prometheon-Forge-Setup-${company.slug}.exe`);
+  expect(createHash("sha256").update(readFileSync((await saved.path())!)).digest("hex")).toBe(manifest.platforms.windows.sha256);
   // The invitation is single-use: the same link no longer works, and the page says so before anything is typed (one generic message).
   await page.goto(mail.link);
   await expect(page.getByRole("heading", { name: "This invitation can no longer be used" })).toBeVisible();
