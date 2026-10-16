@@ -15,8 +15,9 @@ from uuid import UUID
 
 from anyio.to_thread import run_sync
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
+from forge.company_download import STAMPED_NAME
 from forge.capability_model import (CapabilityConflict, CapabilityDenied, CapabilityInvalid, CapabilityLocked, CapabilityNotFound)
 from forge.invitations import capability_digest
 from forge.platform_api import PREFIX, _UNAVAILABLE, _Refusal, _document, _envelope, _invalid
@@ -210,9 +211,10 @@ async def _session_company(request, token, organizations, blocking):
     raise _invalid()  # several companies: the member must say which
 
 
-def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations, installer=None):
+def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations, installer=None, downloads=None):
     """``GET /forge/v1/capabilities/effective`` (a member session, ``sandbox_level`` 0..4 optional, ``org`` optional when the
-    session has exactly one company) and the public ``GET /forge/v1/capabilities/keys``. Both are 503 without a signing key."""
+    session has exactly one company) and the public ``GET /forge/v1/capabilities/keys``. Both are 503 without a signing key.
+    With ``installer`` and ``downloads`` (``forge.company_download.PublishedInstaller``) it also serves the company-stamped download."""
     def blocking(function, *arguments):
         return run_sync(lambda: function(*arguments), abandon_on_cancel=False)
 
@@ -257,6 +259,27 @@ def mount_effective(app: FastAPI, *, policy, sessions, readiness, organizations,
                 org = await _session_company(request, token, organizations, blocking)
                 document = await blocking(installer.document, token, org)
                 return JSONResponse(document, headers={**headers, 'Content-Disposition': 'attachment; filename="forge-install.json"'})
+            except _Refusal as refusal:
+                return refusal.response
+            except Exception as error:
+                return company_failure(error)
+
+    if installer is not None and downloads is not None:
+        @app.get('/forge/v1/downloads/company', include_in_schema=False)
+        async def company_download(request: Request):
+            """The published installer bytes, named ``Prometheon-Forge-Setup-<company code>.exe``, for a member of that company."""
+            try:
+                token = await authenticate(request)
+                if set(request.query_params) - {'org'} or len(request.query_params.getlist('org')) > 1:
+                    raise _invalid()
+                org = await _session_company(request, token, organizations, blocking)
+                code = await blocking(installer.company_code, token, org)
+                try:
+                    published = await blocking(downloads.published)
+                except LookupError:
+                    raise _Refusal(_envelope(503, *_UNAVAILABLE)) from None
+                return FileResponse(published.path, media_type='application/octet-stream', filename=STAMPED_NAME.format(code),
+                                    headers={**headers, 'X-Content-Type-Options': 'nosniff'})
             except _Refusal as refusal:
                 return refusal.response
             except Exception as error:
