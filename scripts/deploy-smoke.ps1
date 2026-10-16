@@ -374,9 +374,17 @@ try {
     Assert-True ($evil.Status -eq 422) "a key for an origin outside the deployment allow-list was not refused ($($evil.Status))"
     $assigned = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/gateway-keys" @{ keys = @(@{ key_id = $goodId; priority = 1; active = $true }) } $ownerToken
     Assert-True ($assigned.Status -eq 200) "the owner could not assign the key ($($assigned.Status) $($assigned.Body))"
-    Assert-True ((Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/model-access" @{ models = @('fake-fast', 'fake-nousage') } $ownerToken).Status -eq 200) 'the owner could not set the model ceiling'
+    # The ceiling is chosen among the models the company's keys were discovered to reach: nothing discovered yet, or an entry outside
+    # the discovery, is a 422 naming the rule; after the owner discovers the models the ceiling is set from discovered ids.
+    $noDiscovery = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/model-access" @{ models = @('fake-fast') } $ownerToken
+    Assert-True ($noDiscovery.Status -eq 422 -and $noDiscovery.Body -match 'DISCOVERY_REQUIRED') "a ceiling was accepted before any discovery ($($noDiscovery.Status) $($noDiscovery.Body))"
+    $discovered = Invoke-Send 'POST' "/forge/v1/platform/companies/$smokeOrg/catalog/discover" $null $ownerToken
+    Assert-True ($discovered.Status -eq 200 -and $discovered.Body -match 'fake-fast' -and $discovered.Body -match 'fake-nousage' -and $discovered.Body -match 'fake-slow') "the owner could not discover the company models ($($discovered.Status) $($discovered.Body))"
+    $notDiscovered = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/model-access" @{ models = @('fake-fast', 'fake-not-served') } $ownerToken
+    Assert-True ($notDiscovered.Status -eq 422 -and $notDiscovered.Body -match 'MODEL_NOT_DISCOVERED') "a ceiling entry outside the discovery was accepted ($($notDiscovered.Status) $($notDiscovered.Body))"
+    Assert-True ((Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/model-access" @{ models = @('fake-fast', 'fake-nousage') } $ownerToken).Status -eq 200) 'the owner could not set the model ceiling from the discovered models'
     Assert-True ((Invoke-Send 'POST' '/forge/v1/platform/prices' @{ upstream_id = 'fake-fast'; input_micros = 1000000; output_micros = 2000000 } $ownerToken).Status -eq 201) 'the owner could not set a price'
-    Write-Pass 'the owner created two gateway keys (never echoed), refused a foreign origin, assigned one to the company, set its ceiling and a price'
+    Write-Pass 'the owner created two gateway keys (never echoed), refused a foreign origin, assigned one to the company, discovered its models, set its ceiling from them (no discovery or an unknown model is a 422) and a price'
 
     $smokeLogin = Invoke-Json '/forge/v1/accounts/login' @{ email = $administrator.email; password = $administrator.password }
     $smokeAdmin = ($smokeLogin.Body | ConvertFrom-Json).access_token
@@ -394,8 +402,9 @@ try {
     Assert-True ((Invoke-Send 'POST' "/forge/v1/orgs/$smokeOrg/models/publish" $publish $smokeAdmin).Status -eq 200) 'the administrator could not publish within the ceiling'
     $outside = @{ operation_id = [Guid]::NewGuid().ToString(); expected_catalogue_revision = 1; expected_gateway_revision = 1
         aliases = @{ assistant = 'fake-fast'; slow = 'fake-slow' }; default_alias = 'assistant' }
-    Assert-True ((Invoke-Send 'POST' "/forge/v1/orgs/$smokeOrg/models/publish" $outside $smokeAdmin).Status -eq 404) 'a model outside the platform ceiling was published'
-    Write-Pass 'the administrator sees status only (PUT is 403), refreshed the catalogue through the platform key and published within the ceiling (outside it is refused)'
+    $outsideReply = Invoke-Send 'POST' "/forge/v1/orgs/$smokeOrg/models/publish" $outside $smokeAdmin
+    Assert-True ($outsideReply.Status -eq 409 -and $outsideReply.Body -match 'MODEL_NOT_ALLOWED') "a model outside the platform ceiling was not refused with MODEL_NOT_ALLOWED ($($outsideReply.Status) $($outsideReply.Body))"
+    Write-Pass 'the administrator sees status only (PUT is 403), refreshed the catalogue through the platform key and published within the ceiling (outside it is a 409 MODEL_NOT_ALLOWED)'
 
     # Failover: the rejected key becomes the primary; rotation or reordering never stales the published catalogue.
     $reordered = Invoke-Send 'PUT' "/forge/v1/platform/companies/$smokeOrg/gateway-keys" @{ keys = @(@{ key_id = $badId; priority = 1; active = $true }, @{ key_id = $goodId; priority = 2; active = $true }) } $ownerToken
