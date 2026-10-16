@@ -73,7 +73,7 @@ def add_status(app, readiness, admin_dir):
 
 
 def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery_key, gateway_key, platform_key,
-              gateway_policy, gateway_ca_file=None, policy_key=None, connector_key=None, connector_fixtures=None, public_origin=None, policy_retired_keys=(), policy_rotations=()):
+              gateway_policy, gateway_ca_file=None, policy_key=None, connector_key=None, connector_fixtures=None, public_origin=None, policy_retired_keys=(), policy_rotations=(), installer_dir=None):
     import ssl
     from forge.account_api import create_account_app
     from forge.account_sessions import PostgresSessionStore, SessionService
@@ -175,7 +175,10 @@ def build_app(pools, *, readiness, delivery_adapter, onboarding_origin, delivery
     effective = EffectivePolicy(PostgresCapabilityStore(capability), signer)
     # The per-company installer configuration needs the public origin the desktop client will talk to; without it the route is not mounted.
     installer = None if public_origin is None else InstallerConfig(effective, public_origin, lambda token, organization: branding_store.read(capability_digest(token), organization).code)
-    mount_effective(app, policy=effective, sessions=sessions, readiness=readiness, organizations=companies, installer=installer)
+    # The company-stamped installer download streams the published installer, so it needs its directory as well; without one it is not mounted.
+    from forge.company_download import PublishedInstaller
+    mount_effective(app, policy=effective, sessions=sessions, readiness=readiness, organizations=companies, installer=installer,
+                    downloads=None if installer_dir is None else PublishedInstaller(installer_dir))
     mount_invocation_audit(app, log=InvocationLog(PostgresCapabilityStore(capability)), sessions=sessions, readiness=readiness, organizations=companies)
     mount_client_attestation(app, reports=AttestationReports(PostgresCapabilityStore(capability)), sessions=sessions, readiness=readiness, organizations=companies)
     mount_connectors(app, service=connectors, oauth=oauth, broker=broker_proxy, sessions=sessions, readiness=readiness, organizations=companies)

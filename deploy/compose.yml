@@ -132,6 +132,9 @@ services:
       <<: [*forge-env, *forge-smtp]
       # Null: only passed when deploy/.env sets it (a private gateway CA, see docs/deploy.md).
       FORGE_GATEWAY_CA_FILE:
+      # The published installer (the same read-only volume the edge serves): GET /forge/v1/downloads/company streams it, stamped with
+      # the member's company code.
+      FORGE_INSTALLER_DIR: /srv/downloads
     secrets:  # no database administrator secret: the serving process never holds DDL rights
       - forge_account_service
       - forge_enrollment
@@ -149,6 +152,7 @@ services:
       - smtp_password
     volumes:
       - ${FORGE_GATEWAY_CA_DIR:-./gateway-ca}:/run/gateway-ca:ro  # empty unless a private gateway CA certificate is placed there
+      - ${FORGE_DOWNLOADS_DIR:-./downloads}:/srv/downloads:ro
     depends_on:
       postgres:
         condition: service_healthy

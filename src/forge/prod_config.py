@@ -29,7 +29,8 @@ _SECRETS = ('FORGE_DELIVERY_KEY', 'FORGE_GATEWAY_KEY', 'FORGE_PLATFORM_KEY', 'FO
 _PLAIN = ('FORGE_PUBLIC_ORIGIN', 'FORGE_DB_HOST', 'FORGE_DB_PORT', 'FORGE_DB_NAME', 'FORGE_DB_SSLMODE',
           'FORGE_DB_ADMIN_USER', 'FORGE_ROLE_PASSWORDS_DIR', 'FORGE_ADMIN_DIR', 'FORGE_PORT', 'FORGE_BIND_HOST',
           'FORGE_WORKERS', 'FORGE_LOG_LEVEL', ORIGINS_VARIABLE, 'FORGE_GATEWAY_CA_FILE', 'FORGE_CONNECTOR_TEST_FIXTURES_FILE',
-          'FORGE_POLICY_RETIRED_KEYS', 'FORGE_POLICY_RETIRED_KEYS_FILE', 'FORGE_POLICY_ROTATIONS', 'FORGE_POLICY_ROTATIONS_FILE', 'FORGE_MIGRATE_SEED')
+          'FORGE_POLICY_RETIRED_KEYS', 'FORGE_POLICY_RETIRED_KEYS_FILE', 'FORGE_POLICY_ROTATIONS', 'FORGE_POLICY_ROTATIONS_FILE', 'FORGE_MIGRATE_SEED',
+          'FORGE_INSTALLER_DIR')
 # Later changes that add settings extend this tuple; any other FORGE_* name is a typo and refused.
 KNOWN_KEYS = (*_PLAIN, *_SECRETS, *(name + '_FILE' for name in _SECRETS), *SMTP_KEYS)
 _DB_HOST = re.compile(r'[A-Za-z0-9]([A-Za-z0-9._-]{0,251}[A-Za-z0-9])?')
@@ -67,6 +68,7 @@ class ProdConfig:
     policy_retired_keys: tuple = ()  # retired PUBLIC policy keys of a rotation, kept in the published key set
     policy_rotations: tuple = ()  # signed rotation statements (old key -> new key) published for client pinning
     migrate_seed: bool = True  # the migrate job seeds the capability catalog; 0 only while restoring a dump into an empty database
+    installer_dir: str | None = None  # the published installer directory (read-only) behind the company-stamped download; None = no such route
 
     @property
     def trusted_hosts(self):
@@ -306,4 +308,7 @@ def load_prod_config(environ):
     gateway_ca = env.get('FORGE_GATEWAY_CA_FILE')
     if gateway_ca is not None and (not Path(gateway_ca).is_absolute() or not Path(gateway_ca).is_file()):
         _fail('FORGE_GATEWAY_CA_FILE')
-    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key, connector_key, connector_fixtures, policy_retired, policy_rotations, migrate_seed)
+    installer_dir = env.get('FORGE_INSTALLER_DIR')
+    if installer_dir is not None and not Path(installer_dir).is_absolute():
+        _fail('FORGE_INSTALLER_DIR')
+    return ProdConfig(public, db, roles, delivery, gateway, platform, policy, admin_dir, port, bind, level, smtp, gateway_ca, policy_key, connector_key, connector_fixtures, policy_retired, policy_rotations, migrate_seed, installer_dir)

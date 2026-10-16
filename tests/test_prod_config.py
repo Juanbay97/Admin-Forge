@@ -222,6 +222,13 @@ class LoadTests(unittest.TestCase):
             f.refused(self, 'FORGE_PORT', FORGE_PORT='70000')
             f.refused(self, 'FORGE_ADMIN_DIR', FORGE_ADMIN_DIR='relative/admin')
 
+    def test_the_published_installer_directory_is_optional_and_absolute(self):
+        with Fixture() as f:
+            self.assertIsNone(f.load().installer_dir)
+            self.assertEqual(f.load(FORGE_INSTALLER_DIR=str(f.root)).installer_dir, str(f.root))
+            f.refused(self, 'FORGE_INSTALLER_DIR', FORGE_INSTALLER_DIR='downloads')
+            f.refused(self, 'FORGE_INSTALLER_DIR', FORGE_INSTALLER_DIR='')
+
     def test_legacy_demo_ports_are_never_served(self):
         with Fixture() as f:
             for port in FORBIDDEN_PORTS:

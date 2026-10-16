@@ -464,6 +464,27 @@ class CaddyfilePolicy(unittest.TestCase):
         self.assertRegex(self.source, r'@latest path /latest\.json\n\s+header @latest Cache-Control "no-cache"')
         self.assertIn('/srv/downloads:ro', text(COMPOSE))
 
+    def test_the_company_stamped_download_is_forwarded_to_the_control_plane_and_not_served_from_the_downloads_volume(self):
+        # GET /forge/v1/downloads/company needs a member session, so it must reach the control plane (the /forge/* matcher) and must not be
+        # shadowed by the public static /downloads/* handler; the control plane reads the same read-only volume to stream the bytes.
+        from fnmatch import fnmatchcase
+        route = '/forge/v1/downloads/company'
+        match = re.search(r'@app path ([^\n]+)\n\s+handle @app \{\n(?:.*\n)*?\s+reverse_proxy control-plane:3410', self.source)
+        self.assertIsNotNone(match)
+        self.assertTrue(any(fnmatchcase(route, pattern) for pattern in match.group(1).split()), 'the application matcher covers the route')
+        self.assertFalse(fnmatchcase(route, '/downloads/*'))
+        self.assertNotIn('Prometheon-Forge-Setup', self.source, 'the proxy serves no per-company installer by name')
+        compose = services(text(COMPOSE))
+        control_plane = compose['control-plane']
+        self.assertIn('- ${FORGE_DOWNLOADS_DIR:-./downloads}:/srv/downloads:ro', control_plane)
+        self.assertRegex(control_plane, r'(?m)^      FORGE_INSTALLER_DIR: /srv/downloads$')
+        for name, other in compose.items():
+            if name not in ('control-plane', 'caddy'):
+                with self.subTest(service=name):
+                    self.assertNotIn('/srv/downloads', other)
+        from forge.prod_config import KNOWN_KEYS
+        self.assertIn('FORGE_INSTALLER_DIR', KNOWN_KEYS)
+
     def test_an_unknown_host_is_answered_by_the_proxy_itself(self):
         self.assertRegex(self.source, r'(?m)^:443 \{\n(?:.*\n)*?\s+respond "Misdirected request" 421')
 

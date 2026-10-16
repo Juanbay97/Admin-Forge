@@ -208,7 +208,8 @@ def compose(config, secrets, pools, *, connector_fixtures=None):
         owned, readiness=readiness, delivery_adapter=LocalTestMailbox(mailbox, sender='forge@local.test'),
         onboarding_origin=config.client_origin, delivery_key=secrets.delivery_key, gateway_key=secrets.gateway_key, platform_key=secrets.platform_key,
         gateway_policy=config.gateway_policy, policy_key=secrets.policy_key, policy_retired_keys=secrets.policy_retired_keys, connector_key=secrets.connector_key,
-        connector_fixtures=connector_fixtures, public_origin=config.admin_origin)
+        connector_fixtures=connector_fixtures, public_origin=config.admin_origin,
+        installer_dir=str(Path(config.mailbox_dir).with_name('downloads')))  # staged by forge.mvp_up; PublishedInstaller answers 503 until published
     return assemble(app, config, readiness)
 
 
