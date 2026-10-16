@@ -22,6 +22,6 @@ export const services: Services = {
   platform: createPlatformApi(client),
   invitations: createInvitationsApi(client),
   downloads: createDownloadsApi(),
-  installer: createInstallerApi(client),
+  installer: createInstallerApi(client, client),
   usage: createUsageApi(client),
 };

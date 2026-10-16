@@ -98,6 +98,27 @@ test.describe("api client", () => {
     expect(calls[0]?.init.credentials).toBe("omit");
   });
 
+  test("download returns the bytes and the server's file name, with the bearer token and no credentials", async () => {
+    const bytes = new Uint8Array([77, 90, 0, 255]);
+    const { client, calls } = authed(() => new Response(bytes, { status: 200, headers: { "Content-Disposition": 'attachment; filename="Prometheon-Forge-Setup-org-a.exe"' } }));
+    const file = await client.download("/forge/v1/downloads/company?org=x");
+    expect(new Uint8Array(await file.blob.arrayBuffer())).toEqual(bytes);
+    expect(file.disposition).toBe('attachment; filename="Prometheon-Forge-Setup-org-a.exe"');
+    const headers = new Headers(calls[0]?.init.headers);
+    expect(calls[0]?.init.method).toBe("GET");
+    expect(headers.get("Authorization")).toBe("Bearer secret-token");
+    expect(calls[0]?.init.credentials).toBe("omit");
+    expect(calls[0]?.init.referrerPolicy).toBe("no-referrer");
+  });
+
+  test("download errors map to the typed ApiError and an expired session is ended", async () => {
+    const { client, session } = authed(() => json(401, { error: { code: "UNAUTHENTICATED", message: "A valid Forge bearer token is required." } }));
+    await expect(client.download("/x")).rejects.toMatchObject({ status: 401, code: "UNAUTHENTICATED" });
+    expect(session.token()).toBeNull();
+    const { client: offline } = authed(() => { throw new TypeError("fetch failed"); });
+    await expect(offline.download("/x")).rejects.toMatchObject({ status: 0, code: "NETWORK" });
+  });
+
   test("upload errors map to the same typed ApiError", async () => {
     const { client } = authed(() => json(415, { error: { code: "UNSUPPORTED_MEDIA_TYPE", message: "Only PNG and WebP images are accepted." } }));
     const error = await client.upload("/x", new Uint8Array(1), "image/svg+xml").catch((e: unknown) => e);
