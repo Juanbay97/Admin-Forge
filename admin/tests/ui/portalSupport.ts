@@ -9,6 +9,7 @@ export const INVITATION = "3f2c1a9e-8b7d-4c6a-9e5f-0a1b2c3d4e5f";
 export const CAPABILITY = "A".repeat(43);
 export const PASSWORD = "a-long-enough-password";
 export const MEMBER = { email: "newhire@acme.test", token: "m".repeat(43), name: "Nina Newhire" };
+export const STAMPED_BYTES = "MZ stamped installer stand-in";
 type Json = Record<string, unknown>;
 
 export interface PortalWorld {
@@ -21,6 +22,8 @@ export interface PortalWorld {
   manifest: Json | null;
   /** The per-company installer configuration; null is a 404. */
   installer: Json | null;
+  /** The company-stamped installer download: its bytes, or `null` for a server that cannot serve it (503). */
+  stamped: string | null;
   /** `usage/me`: null means this server has no such route (404). */
   usageMe: Json | null;
   roles: string[];
@@ -40,6 +43,7 @@ export const newPortalWorld = (): PortalWorld => ({
   invitations: { [CAPABILITY]: "valid" },
   manifest: fixture("manifest"),
   installer: fixture("installer-config"),
+  stamped: STAMPED_BYTES,
   usageMe: null,
   roles: ["member"],
   members: fixture<{ members: Json[] }>("usage-members").members,
@@ -100,6 +104,11 @@ export async function installPortal(page: Page, world: PortalWorld = newPortalWo
     if (authorization !== `Bearer ${MEMBER.token}`) return reply(route, 401, envelope("UNAUTHENTICATED"));
     if (path === "/forge/v1/platform/me") return reply(route, 403, envelope("PLATFORM_DENIED"));
     if (path === "/forge/v1/accounts/logout") return reply(route, 204);
+    if (path === "/forge/v1/downloads/company") {
+      return world.stamped === null
+        ? reply(route, 503, envelope("SERVICE_UNAVAILABLE"))
+        : route.fulfill({ status: 200, contentType: "application/octet-stream", headers: { "Content-Disposition": 'attachment; filename="Prometheon-Forge-Setup-acme.exe"' }, body: world.stamped });
+    }
     if (path === "/forge/v1/capabilities/installer-config") return world.installer ? reply(route, 200, world.installer) : reply(route, 503, envelope("SERVICE_UNAVAILABLE"));
     if (path === "/forge/v1/accounts/me") {
       return reply(route, 200, { account: { id: INVITATION, email: MEMBER.email, display_name: MEMBER.name }, organizations: [{ id: ORG, display_name: "Acme Corp", status: "active", roles: world.roles, departments: world.departments }] });
