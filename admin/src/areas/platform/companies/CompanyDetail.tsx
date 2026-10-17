@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PauseCircle, PlayCircle } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router";
 import type { Company } from "../../../api/platform";
 import { ApiError } from "../../../api/client";
@@ -22,16 +23,18 @@ import { OverviewTab } from "./OverviewTab";
 import { companyTabs } from "./tabs";
 
 export function CompanyDetail() {
+  const { t } = useTranslation(["platform", "common"]);
   const { id = "" } = useParams();
   const { platform } = useServices();
   const company = useQuery({ queryKey: ["platform", "company", id], queryFn: () => platform.company(id), retry: false });
   if (company.isError && company.error instanceof ApiError && company.error.status === 404) return <NotFound />;
-  if (company.isError) return <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void company.refetch()}>Try again</Button>}>{errorMessage(company.error)}</Alert>;
-  if (!company.data) return <div role="status" aria-label="Loading company"><Skeleton className="h-10 w-64" /><Skeleton className="mt-6 h-40 w-full" /></div>;
+  if (company.isError) return <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void company.refetch()}>{t("common:actions.tryAgain")}</Button>}>{errorMessage(company.error)}</Alert>;
+  if (!company.data) return <div role="status" aria-label={t("companies.detail.loading")}><Skeleton className="h-10 w-64" /><Skeleton className="mt-6 h-40 w-full" /></div>;
   return <Detail company={company.data} />;
 }
 
 function Detail({ company }: { company: Company }) {
+  const { t } = useTranslation(["platform", "common"]);
   const { platform } = useServices();
   const client = useQueryClient();
   const toast = useToast();
@@ -51,8 +54,8 @@ function Detail({ company }: { company: Company }) {
     void client.invalidateQueries({ queryKey: ["platform", "companies"] });
     toast.push({ tone: "success", title: message });
   };
-  const suspend = useMutation({ mutationFn: () => platform.suspend(id), onSuccess: () => { setSuspending(false); setRefusal(null); changed(`${company.display_name} suspended`); }, onError: (error) => setRefusal(errorMessage(error)) });
-  const reactivate = useMutation({ mutationFn: () => platform.reactivate(id), onSuccess: () => changed(`${company.display_name} reactivated`) });
+  const suspend = useMutation({ mutationFn: () => platform.suspend(id), onSuccess: () => { setSuspending(false); setRefusal(null); changed(t("companies.detail.toast.suspended", { name: company.display_name })); }, onError: (error) => setRefusal(errorMessage(error)) });
+  const reactivate = useMutation({ mutationFn: () => platform.reactivate(id), onSuccess: () => changed(t("companies.detail.toast.reactivated", { name: company.display_name })) });
 
   const checklist = keys.data && models.data && branding.data ? setupChecklist({ brandingRevision: branding.data.revision, keyCount: keys.data.keys.length, modelCount: models.data.models.length }) : null;
   const overview = (
@@ -66,28 +69,28 @@ function Detail({ company }: { company: Company }) {
       }}
     />
   );
-  const tabs = [{ id: "overview", label: "Overview", render: () => overview }, ...companyTabs(company)];
+  const tabs = [{ id: "overview", label: t("companies.detail.tabs.overview"), render: () => overview }, ...companyTabs(company, t)];
   const selected = tabs.find((tab) => tab.id === params.get("tab"))?.id ?? "overview";
 
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
         title={company.display_name}
-        description={`Code: ${company.slug}`}
+        description={t("companies.detail.code", { slug: company.slug })}
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <Badge tone={company.active ? "success" : "warning"}>{company.active ? "Active" : "Suspended"}</Badge>
+            <Badge tone={company.active ? "success" : "warning"}>{company.active ? t("companies.status.active") : t("companies.status.suspended")}</Badge>
             {company.active ? (
-              <Button variant="outline" onClick={() => setSuspending(true)}><PauseCircle aria-hidden="true" className="size-4" />Suspend company</Button>
+              <Button variant="outline" onClick={() => setSuspending(true)}><PauseCircle aria-hidden="true" className="size-4" />{t("companies.detail.suspend")}</Button>
             ) : (
-              <Button onClick={() => setReactivating(true)}><PlayCircle aria-hidden="true" className="size-4" />Reactivate company</Button>
+              <Button onClick={() => setReactivating(true)}><PlayCircle aria-hidden="true" className="size-4" />{t("companies.detail.reactivate")}</Button>
             )}
           </div>
         }
       />
-      {!company.active && <Alert tone="warning" title="This company is suspended">Its members and administrators cannot sign in or use the gateway. Nothing was deleted; reactivate it to restore access.</Alert>}
+      {!company.active && <Alert tone="warning" title={t("companies.detail.suspendedTitle")}>{t("companies.detail.suspendedBody")}</Alert>}
       <Tabs value={selected} onValueChange={(value) => setParams((current) => { const next = new URLSearchParams(current); next.set("tab", value); return next; }, { replace: true })}>
-        <TabsList aria-label="Company sections" className="overflow-x-auto">
+        <TabsList aria-label={t("companies.detail.sections")} className="overflow-x-auto">
           {tabs.map((tab) => <TabsTrigger key={tab.id} value={tab.id}>{tab.label}</TabsTrigger>)}
         </TabsList>
         {tabs.map((tab) => <TabsContent key={tab.id} value={tab.id}>{tab.render()}</TabsContent>)}
@@ -95,14 +98,14 @@ function Detail({ company }: { company: Company }) {
       <TypedConfirm
         open={suspending}
         onOpenChange={(open) => { setSuspending(open); if (!open) setRefusal(null); }}
-        title={`Suspend ${company.display_name}?`}
-        effect="Members lose access immediately: sign-in, the admin console and every model request stop until you reactivate the company. Nothing is deleted."
+        title={t("companies.detail.suspendDialog.title", { name: company.display_name })}
+        effect={t("companies.detail.suspendDialog.effect")}
         phrase={company.slug}
-        confirmLabel="Suspend"
+        confirmLabel={t("companies.detail.suspendDialog.confirm")}
         error={refusal}
         onConfirm={async () => { await suspend.mutateAsync().catch(() => undefined); }}
       />
-      <AlertDialog open={reactivating} onOpenChange={setReactivating} title={`Reactivate ${company.display_name}?`} description="Members and administrators regain access immediately." confirmLabel="Reactivate" onConfirm={() => reactivate.mutateAsync().then(() => undefined)} />
+      <AlertDialog open={reactivating} onOpenChange={setReactivating} title={t("companies.detail.reactivateDialog.title", { name: company.display_name })} description={t("companies.detail.reactivateDialog.description")} confirmLabel={t("companies.detail.reactivateDialog.confirm")} onConfirm={() => reactivate.mutateAsync().then(() => undefined)} />
     </section>
   );
 }

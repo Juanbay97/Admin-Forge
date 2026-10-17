@@ -1,8 +1,9 @@
 import { Activity } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { BarChart } from "../../../charts/BarChart";
 import type { Company } from "../../../api/platform";
-import { formatCostMicros, formatTokens } from "../../../lib/format";
+import { formatCostMicros, formatNumber, formatTokens } from "../../../lib/format";
 import { changeOf, previousWindow, windowFor } from "../../../platform/range";
 import { tokensOf } from "../../../platform/usage";
 import { errorMessage } from "../../../shell/errors";
@@ -18,6 +19,7 @@ import { useDays } from "../../../components/usage/useDays";
 
 /** The platform reports usage per company per window (no per-day series, per-model or per-person view for a platform owner). */
 export function UsageTab({ company }: { company: Company }) {
+  const { t } = useTranslation(["platform", "common"]);
   const { platform } = useServices();
   const [days, setDays] = useDays();
   const current = windowFor(days);
@@ -30,29 +32,29 @@ export function UsageTab({ company }: { company: Company }) {
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-body text-muted">Usage metered through the gateway for this company, by UTC day.</p>
+        <p className="text-body text-muted">{t("companies.usageTab.intro")}</p>
         <RangePicker days={days} onChange={setDays} />
       </div>
-      {now.isError && <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void now.refetch()}>Try again</Button>}>{errorMessage(now.error)}</Alert>}
+      {now.isError && <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void now.refetch()}>{t("common:actions.tryAgain")}</Button>}>{errorMessage(now.error)}</Alert>}
       {now.isPending && <Skeleton className="h-40 w-full" />}
-      {now.isSuccess && !row && <EmptyState icon={Activity} title="No usage yet" hint="Usage appears here after the company's members send their first request through the gateway." />}
+      {now.isSuccess && !row && <EmptyState icon={Activity} title={t("companies.usageTab.emptyTitle")} hint={t("companies.usageTab.emptyHint")} />}
       {row && (
         <>
-          {row.unpriced_requests > 0 && <Alert tone="warning">{row.unpriced_requests} {row.unpriced_requests === 1 ? "request" : "requests"} had no model price; their cost is not included. Set prices under Prices.</Alert>}
-          <section aria-label="Company usage">
+          {row.unpriced_requests > 0 && <Alert tone="warning">{t("companies.usageTab.unpriced", { count: row.unpriced_requests })}</Alert>}
+          <section aria-label={t("companies.usageTab.usageLabel")}>
             <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat label="Tokens"><span className="flex flex-wrap items-center gap-2">{formatTokens(tokensOf(row))}<Delta change={changeOf(tokensOf(row), earlier ? tokensOf(earlier) : 0)} /></span></Stat>
-              <Stat label="Cost"><span className="flex flex-wrap items-center gap-2">{formatCostMicros(row.cost_micros)}<Delta change={changeOf(row.cost_micros, earlier?.cost_micros ?? 0)} /></span></Stat>
-              <Stat label="Requests">{row.requests.toLocaleString("en-US")}</Stat>
-              <Stat label="Failed requests">{row.error_requests.toLocaleString("en-US")}</Stat>
+              <Stat label={t("companies.usageTab.tokens")}><span className="flex flex-wrap items-center gap-2">{formatTokens(tokensOf(row))}<Delta change={changeOf(tokensOf(row), earlier ? tokensOf(earlier) : 0)} /></span></Stat>
+              <Stat label={t("companies.usageTab.cost")}><span className="flex flex-wrap items-center gap-2">{formatCostMicros(row.cost_micros)}<Delta change={changeOf(row.cost_micros, earlier?.cost_micros ?? 0)} /></span></Stat>
+              <Stat label={t("companies.usageTab.requests")}>{formatNumber(row.requests)}</Stat>
+              <Stat label={t("companies.usageTab.failed")}>{formatNumber(row.error_requests)}</Stat>
             </dl>
           </section>
           <BarChart
             id="company-token-split"
-            title="Prompt and completion tokens"
-            items={[{ label: "Prompt", value: row.prompt_tokens }, { label: "Completion", value: row.completion_tokens }]}
+            title={t("companies.usageTab.splitTitle")}
+            items={[{ label: t("companies.usageTab.prompt"), value: row.prompt_tokens }, { label: t("companies.usageTab.completion"), value: row.completion_tokens }]}
           />
-          {row.estimated_requests > 0 && <p className="text-caption text-muted">{row.estimated_requests} {row.estimated_requests === 1 ? "request was" : "requests were"} measured by estimate because the gateway did not report usage.</p>}
+          {row.estimated_requests > 0 && <p className="text-caption text-muted">{t("companies.usageTab.estimated", { count: row.estimated_requests })}</p>}
         </>
       )}
     </section>

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CircleDashed, Loader2, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { draftToDocument, type Draft } from "../../../../brand/branding";
 import { ApiError } from "../../../../api/client";
@@ -14,8 +15,8 @@ import { initialProgress, runSaga, type Progress, type SagaPorts, type StepId, t
 import type { AdminStep, CompanyStep } from "./schema";
 import { AdminStepForm, BrandingStepForm, CompanyStepForm, KeysStepForm } from "./steps";
 
-const STEPS = ["Company", "Branding", "First admin", "Gateway keys", "Review"] as const;
-const LABELS: Record<StepId, string> = { company: "Company", branding: "Branding", keys: "Gateway keys" };
+const STEPS = ["company", "branding", "admin", "keys", "review"] as const;
+const SETUP_STEPS: readonly StepId[] = ["company", "branding", "keys"];
 
 interface State {
   company: CompanyStep | null;
@@ -25,29 +26,31 @@ interface State {
 }
 
 function Stepper({ current }: { current: number }) {
+  const { t } = useTranslation(["platform", "common"]);
   return (
-    <ol aria-label="Steps" className="flex flex-wrap gap-x-6 gap-y-2">
-      {STEPS.map((label, index) => (
-        <li key={label} aria-current={index === current ? "step" : undefined} className="flex items-center gap-2 text-body aria-[current=step]:font-semibold aria-[current=step]:text-fg">
+    <ol aria-label={t("wizard.stepsLabel")} className="flex flex-wrap gap-x-6 gap-y-2">
+      {STEPS.map((step, index) => (
+        <li key={step} aria-current={index === current ? "step" : undefined} className="flex items-center gap-2 text-body aria-[current=step]:font-semibold aria-[current=step]:text-fg">
           <span className={index < current ? "flex size-6 items-center justify-center rounded-full bg-action text-caption text-on-action" : index === current ? "flex size-6 items-center justify-center rounded-full border-2 border-action text-caption text-fg" : "flex size-6 items-center justify-center rounded-full border border-line-strong text-caption text-muted"}>
             {index < current ? <Check aria-hidden="true" className="size-3.5" /> : index + 1}
           </span>
-          <span className={index === current ? "" : "text-muted"}>{label}</span>
+          <span className={index === current ? "" : "text-muted"}>{t(`wizard.steps.${step}`)}</span>
         </li>
       ))}
     </ol>
   );
 }
 
-const ICON: Record<StepStatus | "running", { icon: typeof Check; label: string }> = {
-  ok: { icon: Check, label: "Done" },
-  skipped: { icon: Check, label: "Skipped (default look)" },
-  failed: { icon: TriangleAlert, label: "Failed" },
-  pending: { icon: CircleDashed, label: "Waiting" },
-  running: { icon: Loader2, label: "Working…" },
+const ICON: Record<StepStatus | "running", { icon: typeof Check; label: "wizard.status.done" | "wizard.status.skipped" | "wizard.status.failed" | "wizard.status.waiting" | "wizard.status.working" }> = {
+  ok: { icon: Check, label: "wizard.status.done" },
+  skipped: { icon: Check, label: "wizard.status.skipped" },
+  failed: { icon: TriangleAlert, label: "wizard.status.failed" },
+  pending: { icon: CircleDashed, label: "wizard.status.waiting" },
+  running: { icon: Loader2, label: "wizard.status.working" },
 };
 
 export function Wizard() {
+  const { t } = useTranslation(["platform", "common"]);
   const { platform } = useServices();
   const client = useQueryClient();
   const [index, setIndex] = useState(0);
@@ -96,45 +99,45 @@ export function Wizard() {
     const delivered = progress.invitation?.delivery_state === "delivered";
     body = (
       <div className="flex flex-col gap-4">
-        <h2 className="font-title text-section font-semibold text-fg">{progress.company.display_name} is ready</h2>
-        <p className="text-body text-muted">Company code: <code className="rounded-control bg-subtle px-2 py-1 font-mono text-fg">{progress.company.slug}</code></p>
+        <h2 className="font-title text-section font-semibold text-fg">{t("wizard.ready", { name: progress.company.display_name })}</h2>
+        <p className="text-body text-muted">{t("wizard.companyCode")} <code className="rounded-control bg-subtle px-2 py-1 font-mono text-fg">{progress.company.slug}</code></p>
         {delivered ? (
-          <Alert tone="success">Invitation sent to {state.admin?.email}</Alert>
+          <Alert tone="success">{t("wizard.invitationSent", { email: state.admin?.email })}</Alert>
         ) : (
-          <Alert tone="warning" title="The invitation email could not be sent">The company exists. Share the company code and ask {state.admin?.email} to use a password reset, or contact support to resend the invitation.</Alert>
+          <Alert tone="warning" title={t("wizard.invitationFailedTitle")}>{t("wizard.invitationFailedBody", { email: state.admin?.email })}</Alert>
         )}
         <div className="flex flex-wrap gap-3">
-          <Link to={`/platform/companies/${progress.company.id}`} className={buttonVariants({})}>Open company</Link>
-          <Link to="/platform/companies" className={buttonVariants({ variant: "outline" })}>Back to companies</Link>
+          <Link to={`/platform/companies/${progress.company.id}`} className={buttonVariants({})}>{t("wizard.openCompany")}</Link>
+          <Link to="/platform/companies" className={buttonVariants({ variant: "outline" })}>{t("wizard.backToCompanies")}</Link>
         </div>
       </div>
     );
   } else if (progress) {
     body = (
       <div className="flex flex-col gap-4">
-        <h2 className="font-title text-section font-semibold text-fg">Creating {state.company?.name}</h2>
-        <ul aria-label="Setup steps" className="divide-y divide-line rounded-card border border-line">
-          {(Object.keys(LABELS) as StepId[]).map((step) => {
-            const status = running && progress.steps[step] === "pending" && (step === "company" || progress.steps[(Object.keys(LABELS) as StepId[])[(Object.keys(LABELS) as StepId[]).indexOf(step) - 1]!] !== "pending") ? "running" : progress.steps[step];
+        <h2 className="font-title text-section font-semibold text-fg">{t("wizard.creating", { name: state.company?.name })}</h2>
+        <ul aria-label={t("wizard.setupSteps")} className="divide-y divide-line rounded-card border border-line">
+          {SETUP_STEPS.map((step) => {
+            const status = running && progress.steps[step] === "pending" && (step === "company" || progress.steps[SETUP_STEPS[SETUP_STEPS.indexOf(step) - 1]!] !== "pending") ? "running" : progress.steps[step];
             const { icon: Icon, label } = ICON[status];
             return (
               <li key={step} className="flex items-center gap-3 px-4 py-3 text-body">
                 <Icon aria-hidden="true" className={status === "failed" ? "size-5 text-danger" : status === "running" ? "size-5 animate-spin text-muted" : "size-5 text-muted"} />
-                <span className="font-medium text-fg">{LABELS[step]}</span>
-                <span className="ml-auto text-muted">{label}</span>
+                <span className="font-medium text-fg">{t(`wizard.steps.${step}`)}</span>
+                <span className="ml-auto text-muted">{t(label)}</span>
               </li>
             );
           })}
         </ul>
         {failed && (
-          <Alert tone="destructive" title={`${LABELS[failed.step]} could not be set up`}>
-            {failed.step === "company" ? errorMessage(failed.error) : `The company exists. ${errorMessage(failed.error)} Retry the failed steps, or finish setup from the company page.`}
+          <Alert tone="destructive" title={t("wizard.failedTitle", { step: t(`wizard.steps.${failed.step}`) })}>
+            {failed.step === "company" ? errorMessage(failed.error) : t("wizard.failedBody", { message: errorMessage(failed.error) })}
           </Alert>
         )}
         {failed && (
           <div className="flex flex-wrap gap-3">
-            {conflict ? <Button onClick={() => { setProgress(null); setIndex(0); }}>Change the company code</Button> : <Button loading={running} onClick={() => void create(progress)}>Retry failed steps</Button>}
-            {progress.company && <Link to={`/platform/companies/${progress.company.id}`} className={buttonVariants({ variant: "outline" })}>Open company</Link>}
+            {conflict ? <Button onClick={() => { setProgress(null); setIndex(0); }}>{t("wizard.changeCode")}</Button> : <Button loading={running} onClick={() => void create(progress)}>{t("wizard.retry")}</Button>}
+            {progress.company && <Link to={`/platform/companies/${progress.company.id}`} className={buttonVariants({ variant: "outline" })}>{t("wizard.openCompany")}</Link>}
           </div>
         )}
       </div>
@@ -150,20 +153,20 @@ export function Wizard() {
   } else {
     body = (
       <div className="flex flex-col gap-4">
-        <h2 className="font-title text-section font-semibold text-fg">Review and create</h2>
-        <section aria-label="Summary">
+        <h2 className="font-title text-section font-semibold text-fg">{t("wizard.review.title")}</h2>
+        <section aria-label={t("wizard.review.summary")}>
           <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-[10rem_1fr]">
-            <dt className="text-muted">Company</dt><dd className="font-medium text-fg">{state.company?.name}</dd>
-            <dt className="text-muted">Code</dt><dd className="font-mono text-fg">{state.company?.code}</dd>
-            <dt className="text-muted">First department</dt><dd className="text-fg">{state.company?.department}</dd>
-            <dt className="text-muted">Branding</dt><dd className="text-fg">{state.branding ? `Custom: ${state.branding.name}` : "Default Prometheon look"}</dd>
-            <dt className="text-muted">First administrator</dt><dd className="text-fg">{state.admin?.name} · {state.admin?.email}</dd>
-            <dt className="text-muted">Gateway keys</dt><dd className="text-fg">{state.keys.length}</dd>
+            <dt className="text-muted">{t("wizard.review.company")}</dt><dd className="font-medium text-fg">{state.company?.name}</dd>
+            <dt className="text-muted">{t("wizard.review.code")}</dt><dd className="font-mono text-fg">{state.company?.code}</dd>
+            <dt className="text-muted">{t("wizard.review.firstDepartment")}</dt><dd className="text-fg">{state.company?.department}</dd>
+            <dt className="text-muted">{t("wizard.review.branding")}</dt><dd className="text-fg">{state.branding ? t("wizard.review.brandingCustom", { name: state.branding.name }) : t("wizard.review.brandingDefault")}</dd>
+            <dt className="text-muted">{t("wizard.review.firstAdmin")}</dt><dd className="text-fg">{state.admin?.name} · {state.admin?.email}</dd>
+            <dt className="text-muted">{t("wizard.review.keys")}</dt><dd className="text-fg">{state.keys.length}</dd>
           </dl>
         </section>
         <div className="flex justify-between gap-3 pt-2">
-          <Button variant="outline" onClick={() => setIndex(3)}>Back</Button>
-          <Button loading={running} onClick={() => void create()}>Create company</Button>
+          <Button variant="outline" onClick={() => setIndex(3)}>{t("common:actions.back")}</Button>
+          <Button loading={running} onClick={() => void create()}>{t("wizard.review.create")}</Button>
         </div>
       </div>
     );
@@ -171,11 +174,11 @@ export function Wizard() {
 
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Create a company" description="Name it, brand it, give it gateway keys and invite its first administrator." />
+      <PageHeader title={t("wizard.title")} description={t("wizard.description")} />
       <Stepper current={progress ? 4 : index} />
       <Card className="max-w-3xl">
         <div className="flex flex-col gap-4 p-5 sm:p-6">
-          {!progress && index < 4 && <h2 className="font-title text-section font-semibold text-fg">{["Company", "Branding", "First administrator", "Gateway keys"][index]}</h2>}
+          {!progress && index < 4 && <h2 className="font-title text-section font-semibold text-fg">{t(`wizard.headings.${(["company", "branding", "admin", "keys"] as const)[index]!}`)}</h2>}
           {body}
         </div>
       </Card>

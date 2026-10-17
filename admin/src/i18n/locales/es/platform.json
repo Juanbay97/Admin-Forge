@@ -1,1 +1,548 @@
-{}
+{
+  "layout": {
+    "badge": "Consola de la plataforma",
+    "lightMode": "Cambiar a modo claro",
+    "darkMode": "Cambiar a modo oscuro"
+  },
+  "overview": {
+    "title": "Resumen de la plataforma",
+    "description": "Empresas, uso y estado del gateway en toda la plataforma.",
+    "firstCompanyTitle": "Crear la primera empresa",
+    "firstCompanyHint": "Agregar una empresa, definir su marca, asignarle claves del gateway e invitar a su primer administrador. El uso aparece aquí en cuanto sus personas empiecen a trabajar.",
+    "createCompany": "Crear empresa",
+    "keyFigures": "Cifras clave",
+    "stats": {
+      "companies": "Empresas",
+      "activeCompanies_one": "{{count}} activa",
+      "activeCompanies_other": "{{count}} activas",
+      "suspendedCompanies_one": "{{count}} suspendida",
+      "suspendedCompanies_other": "{{count}} suspendidas",
+      "activePeople": "Personas activas",
+      "requests": "Solicitudes",
+      "tokens": "Tokens",
+      "cost": "Costo"
+    },
+    "unpriced_one": "{{count, number}} solicitud de este rango no tenía precio de modelo, por lo que el costo mostrado no la incluye. Definir los precios en Precios.",
+    "unpriced_other": "{{count, number}} solicitudes de este rango no tenían precio de modelo, por lo que el costo mostrado no las incluye. Definir los precios en Precios.",
+    "charts": {
+      "tokensPerDay": "Tokens por día",
+      "costPerDay": "Costo por día",
+      "noUsage": "Aún no hay uso",
+      "seriesTokens": "Tokens",
+      "seriesCost": "Costo",
+      "topCompanies": "Principales empresas por costo",
+      "tokensByModel": "Tokens por modelo"
+    },
+    "keyPool": {
+      "title": "Conjunto de claves del gateway",
+      "empty": "Aún no hay claves. <link>Agregar la primera clave</link> para que las empresas lleguen al gateway.",
+      "active_one": "{{count}} activa",
+      "active_other": "{{count}} activas",
+      "inactive_one": "{{count}} deshabilitada o vacía",
+      "inactive_other": "{{count}} deshabilitadas o vacías",
+      "manage": "Administrar claves"
+    },
+    "recent": {
+      "title": "Actividad reciente",
+      "none": "Aún no hay nada registrado.",
+      "open": "Abrir el registro de auditoría"
+    }
+  },
+  "audit": {
+    "title": "Registro de auditoría",
+    "description": "Todo lo que hizo el propietario de la plataforma, de lo más reciente a lo más antiguo. Solo lectura.",
+    "columns": {
+      "when": "Cuándo",
+      "action": "Acción",
+      "company": "Empresa",
+      "by": "Por"
+    },
+    "unknownCompany": "Empresa desconocida",
+    "platformTarget": "Plataforma",
+    "actor": "Propietario de la plataforma",
+    "filters": {
+      "action": "Acción",
+      "allActions": "Todas las acciones",
+      "company": "Empresa",
+      "allCompanies": "Todas las empresas",
+      "from": "Desde",
+      "to": "Hasta"
+    },
+    "empty": {
+      "noMatchTitle": "No hay eventos que coincidan",
+      "nothingTitle": "Aún no hay nada registrado",
+      "noMatchHint": "Ningún evento cargado coincide con estos filtros. Cargar eventos anteriores o quitar un filtro.",
+      "nothingHint": "Las acciones realizadas en esta consola aparecen aquí."
+    },
+    "clearFilters": "Quitar filtros",
+    "loadMore": "Cargar más",
+    "actions": {
+      "company_created": "Empresa creada",
+      "company_suspended": "Empresa suspendida",
+      "company_reactivated": "Empresa reactivada",
+      "company_branding_saved": "Marca guardada",
+      "company_gateway_assigned": "Claves del gateway asignadas",
+      "company_model_access_set": "Acceso a modelos definido",
+      "gateway_key_created": "Clave del gateway agregada",
+      "gateway_key_rotated": "Clave del gateway rotada",
+      "gateway_key_status_changed": "Clave del gateway habilitada o deshabilitada",
+      "company_models_discovered": "Modelos descubiertos",
+      "company_catalog_published": "Catálogo publicado",
+      "model_price_set": "Precio del modelo definido",
+      "owner_mfa_enrolled": "Segundo factor configurado",
+      "owner_mfa_recovery_used": "Código de recuperación usado"
+    }
+  },
+  "keys": {
+    "title": "Claves del gateway",
+    "description": "Las claves que posee la plataforma. Las empresas las usan mediante sus asignaciones; nadie más las ve.",
+    "columns": {
+      "label": "Etiqueta",
+      "gateway": "Gateway",
+      "key": "Clave",
+      "status": "Estado",
+      "companies": "Empresas",
+      "actions": "Acciones"
+    },
+    "noKeyStored": "Sin clave guardada",
+    "status": {
+      "active": "Activa",
+      "disabled": "Deshabilitada"
+    },
+    "rotate": "Rotar",
+    "rotateAria": "Rotar {{label}}",
+    "disable": "Deshabilitar",
+    "disableAria": "Deshabilitar {{label}}",
+    "enable": "Habilitar",
+    "enableAria": "Habilitar {{label}}",
+    "add": "Agregar clave",
+    "keyWord": "clave",
+    "toast": {
+      "enabled": "{{label}} habilitada",
+      "disabled": "{{label}} deshabilitada",
+      "notChanged": "No se modificó la clave",
+      "added": "{{label}} agregada",
+      "rotated": "{{label}} rotada"
+    },
+    "empty": {
+      "title": "Aún no hay claves del gateway",
+      "hint": "Agregar la primera clave para que las empresas lleguen al gateway de modelos. La clave se guarda cifrada y solo se muestran sus últimos cuatro caracteres."
+    },
+    "disableDialog": {
+      "title": "¿Deshabilitar {{label}}?",
+      "used_one": "{{count}} empresa usa esta clave. Pasa a usar sus otras claves asignadas; una empresa sin otra clave activa pierde el acceso al gateway.",
+      "used_other": "{{count}} empresas usan esta clave. Pasan a usar sus otras claves asignadas; una empresa sin otra clave activa pierde el acceso al gateway.",
+      "unused": "Ninguna empresa usa esta clave.",
+      "confirm": "Deshabilitar clave"
+    },
+    "addDialog": {
+      "title": "Agregar una clave del gateway",
+      "description": "La clave se guarda cifrada y no vuelve a mostrarse.",
+      "label": "Etiqueta",
+      "labelHint": "Un nombre dentro del conjunto, por ejemplo Principal o Respaldo.",
+      "gateway": "Gateway",
+      "apiKey": "Clave de API",
+      "submit": "Agregar clave"
+    },
+    "rotateDialog": {
+      "title": "Rotar {{label}}",
+      "description": "Reemplazar el texto de la clave guardada. Las empresas conservan su asignación.",
+      "newKey": "Nueva clave de API",
+      "submit": "Rotar clave"
+    }
+  },
+  "prices": {
+    "title": "Precios de los modelos",
+    "description": "Lo que cuesta un millón de tokens, por modelo. Los informes de uso aplican el precio vigente cuando se hizo la solicitud; una edición agrega una versión nueva y nunca reescribe el historial.",
+    "columns": {
+      "model": "Modelo",
+      "input": "Entrada / 1 M de tokens",
+      "output": "Salida / 1 M de tokens",
+      "from": "Vigente desde",
+      "version": "Versión",
+      "actions": "Acciones"
+    },
+    "edit": "Editar",
+    "editAria": "Editar {{model}}",
+    "history": "Historial",
+    "historyAria": "Historial de {{model}}",
+    "add": "Agregar precio",
+    "versionBadge": "v{{version}}",
+    "empty": {
+      "title": "Aún no hay precios",
+      "hint": "Sin precio, las solicitudes se miden pero su costo aparece como cero. Agregar los modelos que usan las empresas."
+    },
+    "toast": {
+      "saved": "Precio guardado para {{model}} (v{{version}})"
+    },
+    "dialog": {
+      "editTitle": "Editar {{model}}",
+      "addTitle": "Agregar un precio de modelo",
+      "description": "Los montos son dólares estadounidenses por millón de tokens, con hasta seis decimales.",
+      "model": "Modelo",
+      "input": "Entrada, USD por 1 M de tokens",
+      "output": "Salida, USD por 1 M de tokens",
+      "effective": "Vigente desde",
+      "effectiveHint": "Dejar vacío para aplicarlo ahora. Una fecha futura programa el cambio.",
+      "submit": "Guardar precio"
+    },
+    "historySheet": {
+      "title": "Historial de precios · {{model}}",
+      "caption": "Versiones de {{model}}",
+      "version": "Versión",
+      "input": "Entrada",
+      "output": "Salida",
+      "from": "Desde"
+    },
+    "errors": {
+      "model": "Ingresar el id del modelo exactamente como lo nombra el gateway (sin espacios).",
+      "amount": "Usar un monto no negativo, con como máximo 6 decimales y no mayor de {{max}}.",
+      "invalidDate": "Ingresar una fecha válida.",
+      "pastDate": "La fecha no puede estar en el pasado."
+    }
+  },
+  "companies": {
+    "list": {
+      "title": "Empresas",
+      "description": "Todas las empresas de la plataforma.",
+      "create": "Crear empresa",
+      "columns": {
+        "company": "Empresa",
+        "status": "Estado",
+        "tokens": "Tokens (30 d)",
+        "cost": "Costo (30 d)"
+      },
+      "search": "Buscar empresas",
+      "searchPlaceholder": "Nombre o código",
+      "statusFilter": "Estado",
+      "statusAll": "Todas",
+      "empty": {
+        "noneTitle": "Aún no hay empresas",
+        "noneHint": "Crear la primera empresa: asignarle un nombre, definir su marca, darle claves del gateway e invitar a su administrador.",
+        "noMatchTitle": "Ninguna empresa coincide",
+        "noMatchHint": "Probar con otro nombre o código, o quitar los filtros.",
+        "clear": "Quitar filtros"
+      }
+    },
+    "status": {
+      "active": "Activa",
+      "suspended": "Suspendida"
+    },
+    "detail": {
+      "loading": "Cargando la empresa",
+      "code": "Código: {{slug}}",
+      "suspend": "Suspender empresa",
+      "reactivate": "Reactivar empresa",
+      "suspendedTitle": "Esta empresa está suspendida",
+      "suspendedBody": "Sus miembros y administradores no pueden iniciar sesión ni usar el gateway. No se eliminó nada; reactivarla para restablecer el acceso.",
+      "sections": "Secciones de la empresa",
+      "tabs": {
+        "overview": "Resumen",
+        "branding": "Marca",
+        "keys": "Claves",
+        "models": "Modelos",
+        "members": "Miembros",
+        "usage": "Uso"
+      },
+      "toast": {
+        "suspended": "{{name}} suspendida",
+        "reactivated": "{{name}} reactivada"
+      },
+      "suspendDialog": {
+        "title": "¿Suspender {{name}}?",
+        "effect": "Los miembros pierden el acceso de inmediato: el inicio de sesión, la consola de administración y todas las solicitudes a modelos se detienen hasta que se reactive la empresa. No se elimina nada.",
+        "confirm": "Suspender"
+      },
+      "reactivateDialog": {
+        "title": "¿Reactivar {{name}}?",
+        "description": "Los miembros y administradores recuperan el acceso de inmediato.",
+        "confirm": "Reactivar"
+      }
+    },
+    "overviewTab": {
+      "finishTitle": "Terminar la configuración",
+      "finishBody": "Los miembros no pueden usar Forge hasta que esta empresa tenga al menos una clave del gateway y un conjunto de modelos permitidos.",
+      "usageLabel": "Uso, últimos 30 días",
+      "tokens": "Tokens (30 días)",
+      "cost": "Costo (30 días)",
+      "requests": "Solicitudes (30 días)",
+      "setup": "Configuración",
+      "branding": "Marca",
+      "brandingCustom": "Marca personalizada",
+      "brandingDefault": "Aspecto predeterminado de Prometheon (opcional)",
+      "keys": "Claves del gateway",
+      "keysAssigned_one": "{{count}} asignada",
+      "keysAssigned_other": "{{count}} asignadas",
+      "models": "Modelos",
+      "modelsAllowed_one": "{{count}} permitido",
+      "modelsAllowed_other": "{{count}} permitidos"
+    },
+    "brandingTab": {
+      "loadError": "No se pudo cargar la marca.",
+      "intro": "Revisión {{revision}}. Los miembros de la empresa ven este aspecto en su aplicación y en la página para unirse.",
+      "readOnly": "Reactivar la empresa para cambiar su marca.",
+      "editorTitle": "Editor de marca",
+      "editorDescription": "Las vistas previas siguen cada cambio. Esta consola conserva su propio aspecto.",
+      "saved": "Marca guardada (revisión {{revision}}).",
+      "save": "Guardar marca",
+      "reset": "Restablecer a lo predeterminado",
+      "reload": "Recargar la marca",
+      "resetTitle": "¿Restablecer la marca?",
+      "resetDescription": "¿Restablecer al aspecto predeterminado de Prometheon? Esto publica una revisión nueva; el historial se conserva.",
+      "resetConfirm": "Confirmar restablecimiento",
+      "resetDone": "Marca restablecida al aspecto predeterminado de Prometheon (revisión {{revision}})."
+    },
+    "keysTab": {
+      "intro": "La empresa llega al gateway mediante estas claves de la plataforma, probadas en orden. Solo se muestran la etiqueta y los últimos cuatro caracteres.",
+      "emptyTitle": "Sin claves asignadas",
+      "emptyHint": "Sin una clave, los miembros de la empresa no pueden usar ningún modelo.",
+      "assigned": "Claves asignadas",
+      "unknownKey": "Clave desconocida",
+      "disabledInPool": "Deshabilitada en el conjunto",
+      "activeSwitch": "activa",
+      "moveUp": "Subir {{label}}",
+      "moveDown": "Bajar {{label}}",
+      "removeAria": "Quitar {{label}}",
+      "on": "Activa",
+      "off": "Inactiva",
+      "readOnly": "Reactivar la empresa para cambiar sus claves.",
+      "noneActive": "Ninguna clave asignada está activa, por lo que la empresa no tiene acceso al gateway.",
+      "addField": "Agregar una clave del conjunto",
+      "noMore": "No quedan más claves en el conjunto",
+      "choose": "Elegir una clave…",
+      "addButton": "Agregar clave",
+      "save": "Guardar claves",
+      "saved": "Claves del gateway guardadas",
+      "removeTitle": "¿Quitar {{label}}?",
+      "removeLast": "Esta es la última clave. La empresa perderá el acceso al gateway hasta que se asigne otra clave.",
+      "removeOther": "La empresa dejará de usar esta clave al guardar.",
+      "removeConfirm": "Quitar clave"
+    },
+    "membersTab": {
+      "intro": "Las personas de esta empresa, tal como las ven sus administradores. Los cambios los hacen los propios administradores de la empresa.",
+      "caption": "Miembros de la empresa",
+      "loading": "Cargando miembros",
+      "columns": {
+        "name": "Nombre",
+        "role": "Rol",
+        "departments": "Departamentos",
+        "status": "Estado"
+      },
+      "search": "Buscar miembros",
+      "searchPlaceholder": "Nombre o correo electrónico",
+      "emptyNoneTitle": "Aún no hay miembros",
+      "emptyNoneHint": "Las personas aparecen aquí cuando aceptan su invitación.",
+      "emptyNoMatchTitle": "Ningún miembro coincide",
+      "emptyNoMatchHint": "Probar con otro nombre o correo electrónico."
+    },
+    "modelsTab": {
+      "notDiscovered": "Primero actualizar los modelos desde las claves de la empresa; los modelos permitidos se eligen entre los que las claves pueden alcanzar.",
+      "catalogHeading": "Catálogo",
+      "catalogIntro": "Descubrir los modelos que pueden alcanzar las claves de esta empresa, elegir cuáles puede usar y con qué nombres, y publicar. Los administradores de la empresa ven el catálogo publicado y solo pueden restringirlo.",
+      "allowedHeading": "Modelos permitidos",
+      "notReachableFailure": "Uno o más de los modelos seleccionados no se pueden alcanzar con las claves de esta empresa. Actualizar los modelos y elegir de la lista.",
+      "table": {
+        "allowed": "Permitido",
+        "allowAria": "Permitir {{id}}",
+        "model": "Modelo",
+        "notReachable": "No accesible",
+        "input": "Entrada / 1 M de tokens",
+        "output": "Salida / 1 M de tokens",
+        "noPrice": "Sin precio",
+        "caption": "Modelos permitidos",
+        "emptyTitle": "Ningún modelo permitido",
+        "emptyHint": "Mientras no haya al menos un modelo permitido, la empresa no puede publicar un catálogo."
+      },
+      "editorIntro": "Lo máximo que los administradores de esta empresa pueden publicar para sus miembros. Elegir entre los modelos que las claves de la empresa pueden alcanzar. Un modelo sin precio se mide, pero no genera costo en los informes hasta que se defina uno en Precios.",
+      "readOnly": "Reactivar la empresa para cambiar sus modelos.",
+      "count": "{{selected}} de {{total}} permitidos",
+      "save": "Guardar modelos",
+      "saved": "Modelos permitidos guardados"
+    },
+    "usageTab": {
+      "intro": "Uso medido a través del gateway para esta empresa, por día UTC.",
+      "emptyTitle": "Aún no hay uso",
+      "emptyHint": "El uso aparece aquí cuando los miembros de la empresa envían su primera solicitud a través del gateway.",
+      "unpriced_one": "{{count, number}} solicitud no tenía precio de modelo; su costo no está incluido. Definir los precios en Precios.",
+      "unpriced_other": "{{count, number}} solicitudes no tenían precio de modelo; su costo no está incluido. Definir los precios en Precios.",
+      "usageLabel": "Uso de la empresa",
+      "tokens": "Tokens",
+      "cost": "Costo",
+      "requests": "Solicitudes",
+      "failed": "Solicitudes fallidas",
+      "splitTitle": "Tokens de entrada y de respuesta",
+      "prompt": "Entrada",
+      "completion": "Respuesta",
+      "estimated_one": "{{count, number}} solicitud se midió por estimación porque el gateway no informó el uso.",
+      "estimated_other": "{{count, number}} solicitudes se midieron por estimación porque el gateway no informó el uso."
+    }
+  },
+  "catalogPanel": {
+    "label": "Catálogo",
+    "noKeyTitle": "Sin clave del gateway asignada",
+    "noKeyBody": "Asignar al menos una clave del gateway a esta empresa en la pestaña Claves y volver para descubrir los modelos que puede usar.",
+    "published": "Catálogo publicado",
+    "publishedDetail_one": "{{count}} modelo, predeterminado {{default}}.",
+    "publishedDetail_other": "{{count}} modelos, predeterminado {{default}}.",
+    "revision": "Revisión del catálogo {{revision}}",
+    "lastDiscovered": "Último descubrimiento: {{when}}",
+    "never": "nunca",
+    "discover": "Descubrir modelos",
+    "noKeyAnswered": "Ninguna clave respondió, por lo que no se guardó nada. Los modelos de abajo provienen del último descubrimiento correcto.",
+    "emptyTitle": "Aún no se descubrió ningún modelo",
+    "emptyHintReadOnly": "Reactivar la empresa para descubrir modelos.",
+    "emptyHint": "Usar «Descubrir modelos» para preguntar a las claves asignadas qué pueden alcanzar.",
+    "search": "Buscar modelos",
+    "searchPlaceholder": "p. ej., gpt o combo",
+    "selectShown": "Seleccionar los mostrados",
+    "clearShown": "Quitar los mostrados",
+    "selected": "{{selected}} de {{total}} seleccionados",
+    "selectedFiltered": "{{selected}} de {{total}} seleccionados · {{shown}} mostrados",
+    "noMatch": "Ningún modelo coincide con «{{query}}».",
+    "discovered": "Modelos descubiertos",
+    "selectAria": "Seleccionar {{id}}",
+    "aliasAria": "Alias de {{id}}",
+    "defaultAria": "Modelo predeterminado {{id}}",
+    "default": "Predeterminado",
+    "missing": "Publicados, pero que no están en el último descubrimiento: {{models}}. Volver a publicar los elimina.",
+    "checkSelection": "Revisar la selección",
+    "readOnly": "Reactivar la empresa para cambiar su catálogo.",
+    "publish": "Publicar catálogo",
+    "keyDiscovery": "Descubrimiento por clave",
+    "noKeys": "Esta empresa no tiene claves asignadas.",
+    "models_one": "{{count}} modelo",
+    "models_other": "{{count}} modelos"
+  },
+  "wizard": {
+    "title": "Crear una empresa",
+    "description": "Asignarle un nombre, definir su marca, darle claves del gateway e invitar a su primer administrador.",
+    "stepsLabel": "Pasos",
+    "steps": {
+      "company": "Empresa",
+      "branding": "Marca",
+      "admin": "Primer administrador",
+      "keys": "Claves del gateway",
+      "review": "Revisión"
+    },
+    "headings": {
+      "company": "Empresa",
+      "branding": "Marca",
+      "admin": "Primer administrador",
+      "keys": "Claves del gateway"
+    },
+    "status": {
+      "done": "Listo",
+      "skipped": "Omitido (aspecto predeterminado)",
+      "failed": "Falló",
+      "waiting": "En espera",
+      "working": "En curso…"
+    },
+    "ready": "{{name}} está lista",
+    "companyCode": "Código de la empresa:",
+    "invitationSent": "Invitación enviada a {{email}}",
+    "invitationFailedTitle": "No se pudo enviar el correo de invitación",
+    "invitationFailedBody": "La empresa existe. Compartir el código de la empresa y pedir a {{email}} que use el restablecimiento de contraseña, o contactar con soporte para reenviar la invitación.",
+    "openCompany": "Abrir empresa",
+    "backToCompanies": "Volver a las empresas",
+    "creating": "Creando {{name}}",
+    "setupSteps": "Pasos de la configuración",
+    "failedTitle": "No se pudo configurar el paso «{{step}}»",
+    "failedBody": "La empresa existe. {{message}} Reintentar los pasos fallidos o terminar la configuración desde la página de la empresa.",
+    "changeCode": "Cambiar el código de la empresa",
+    "retry": "Reintentar los pasos fallidos",
+    "review": {
+      "title": "Revisar y crear",
+      "summary": "Resumen",
+      "company": "Empresa",
+      "code": "Código",
+      "firstDepartment": "Primer departamento",
+      "branding": "Marca",
+      "brandingCustom": "Personalizada: {{name}}",
+      "brandingDefault": "Aspecto predeterminado de Prometheon",
+      "firstAdmin": "Primer administrador",
+      "keys": "Claves del gateway",
+      "create": "Crear empresa"
+    },
+    "next": "Siguiente",
+    "company": {
+      "name": "Nombre de la empresa",
+      "code": "Código de la empresa",
+      "codeHint": "Los empleados lo escriben en la aplicación. De 3 a 32 letras minúsculas, dígitos o guiones; no se puede cambiar después.",
+      "codeTaken": "El código ya está en uso",
+      "codeAvailable": "El código está disponible",
+      "department": "Primer departamento",
+      "departmentHint": "Donde se ubica al primer administrador; se pueden agregar más departamentos después."
+    },
+    "branding": {
+      "customize": "Personalizar la marca",
+      "defaultNote": "La empresa comienza con el aspecto predeterminado de Prometheon. Sus administradores pueden cambiarlo después."
+    },
+    "admin": {
+      "intro": "Esta persona recibe el correo de invitación y se convierte en el administrador de la empresa.",
+      "email": "Correo del administrador",
+      "name": "Nombre del administrador"
+    },
+    "keys": {
+      "legend": "Claves del gateway",
+      "intro": "La empresa usa estas claves de la plataforma, en este orden; la primera se prueba primero.",
+      "loading": "Cargando claves…",
+      "none": "No hay ninguna clave utilizable en el conjunto. Primero agregar una en Claves del gateway.",
+      "modelsNote": "Los modelos se publican desde la pestaña Modelos de la empresa una vez creada; los modelos que se publiquen allí son los que la empresa podrá usar."
+    },
+    "fields": {
+      "companyName": "el nombre de la empresa",
+      "department": "el primer departamento",
+      "adminName": "el nombre del administrador"
+    },
+    "errors": {
+      "required": "Ingresar {{what}}.",
+      "max": "Usar como máximo {{max}} caracteres.",
+      "code": "Usar de 3 a 32 letras minúsculas, dígitos o guiones, empezando por una letra o un dígito.",
+      "email": "Ingresar el correo electrónico.",
+      "keysMin": "Seleccionar al menos una clave del gateway.",
+      "keysMax": "Una empresa puede tener como máximo 16 claves."
+    }
+  },
+  "mfa": {
+    "gate": {
+      "errorTitle": "Algo salió mal",
+      "errorDescription": "No se pudo comprobar la sesión de la plataforma.",
+      "checking": "Comprobando la sesión…"
+    },
+    "enroll": {
+      "introTitle": "Proteger la consola",
+      "introDescription": "La consola de la plataforma necesita un segundo factor. Configurar una aplicación de autenticación (Microsoft Authenticator, Google Authenticator, 1Password…) para continuar.",
+      "start": "Iniciar la configuración",
+      "scanTitle": "Escanear el código QR",
+      "scanDescription": "Escanearlo con la aplicación de autenticación y luego ingresar el código de 6 dígitos que muestra.",
+      "qrLabel": "Código QR para la aplicación de autenticación",
+      "cannotScan": "¿No se puede escanear? Ingresar este secreto a mano:",
+      "copySecret": "Copiar secreto",
+      "code": "Código de 6 dígitos",
+      "confirm": "Confirmar"
+    },
+    "step": {
+      "title": "Verificar la identidad",
+      "descriptionRecovery": "Ingresar uno de los códigos de recuperación guardados. Cada uno funciona una sola vez.",
+      "descriptionCode": "Ingresar el código de 6 dígitos de la aplicación de autenticación para abrir la consola.",
+      "recoveryCode": "Código de recuperación",
+      "code": "Código de 6 dígitos",
+      "verify": "Verificar",
+      "useCode": "Usar el código de la aplicación de autenticación",
+      "useRecovery": "Usar un código de recuperación",
+      "startOver": "Reiniciar la configuración"
+    },
+    "recovery": {
+      "title": "Guardar los códigos de recuperación",
+      "description": "Cada código abre la consola una vez si se pierde el acceso a la aplicación de autenticación. Solo se muestran ahora.",
+      "warning": "Guardarlos en un lugar seguro, aparte de este dispositivo. No se pueden volver a mostrar.",
+      "list": "Códigos de recuperación",
+      "copy": "Copiar códigos",
+      "download": "Descargar",
+      "print": "Imprimir",
+      "stored": "Los guardé en un lugar seguro",
+      "continue": "Continuar a la consola",
+      "fileHeader": "Códigos de recuperación de la plataforma Prometheon Forge"
+    }
+  }
+}

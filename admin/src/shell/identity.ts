@@ -3,6 +3,9 @@ import { ApiError } from "../api/client";
 import type { PlatformApi, PlatformMe } from "../api/platform";
 import type { AreaId } from "./areas";
 
+/** The display name given to a platform owner, who has no profile. The user menu shows it in the active language instead. */
+export const PLATFORM_OWNER_NAME = "Platform owner";
+
 export interface Identity {
   account: Me["account"];
   platform: Pick<PlatformMe, "role" | "mfa"> | null;
@@ -39,7 +42,7 @@ export async function loadIdentity(
   // the email they typed to sign in (the platform API does not return one).
   if (platform && refused(me.error)) {
     return {
-      account: { id: platform.account_id, email: emailHint ?? "", display_name: "Platform owner" },
+      account: { id: platform.account_id, email: emailHint ?? "", display_name: PLATFORM_OWNER_NAME },
       orgs: [],
       platform: { role: platform.role, mfa: platform.mfa },
     };

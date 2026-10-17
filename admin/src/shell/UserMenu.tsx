@@ -2,23 +2,24 @@ import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/Button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/DropdownMenu";
-import type { Identity } from "./identity";
+import { PLATFORM_OWNER_NAME, type Identity } from "./identity";
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]!.toUpperCase()).join("") || "?";
 
 /** Who is signed in. Sign out also has its own always-visible button in the topbar. */
 export function UserMenu({ identity, onSignOut }: { identity: Identity; onSignOut: () => void }) {
   const { t } = useTranslation();
+  const name = identity.platform && identity.account.display_name === PLATFORM_OWNER_NAME ? t("shell.platformOwner") : identity.account.display_name;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label={t("shell.accountMenu")} className="rounded-full bg-action-soft text-on-action-soft">
-          <span aria-hidden="true" className="text-caption font-semibold">{initials(identity.account.display_name)}</span>
+          <span aria-hidden="true" className="text-caption font-semibold">{initials(name)}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <div className="px-3 py-2">
-          <p className="text-body font-semibold text-fg">{identity.account.display_name}</p>
+          <p className="text-body font-semibold text-fg">{name}</p>
           <p className="text-caption text-muted">{identity.account.email}</p>
         </div>
         <DropdownMenuSeparator />

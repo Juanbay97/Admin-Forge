@@ -202,7 +202,7 @@ export function describeBrandingFailure(error: unknown): string {
     if (error.code === "REVISION_CONFLICT") {
       return t("branding.failure.conflict");
     }
-    if (error.status === 0) return error.message;
+    if (error.status === 0) return t("errors.NETWORK");
     if (error.status === 429) return t("branding.failure.rateLimited");
     if (error.status === 404) return t("branding.failure.notAvailable");
     if (SERVER_AUTHORED.has(error.code) && error.status >= 400 && error.status < 500) return error.message;

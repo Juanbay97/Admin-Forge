@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Company } from "../../../api/platform";
 import { ApiError } from "../../../api/client";
 import { describeBrandingFailure, draftFrom, draftToDocument, type Branding, type Draft } from "../../../brand/branding";
@@ -12,14 +13,16 @@ import { AlertDialog } from "../../../ui/overlay/Dialog";
 import { BrandDraftEditor, hasIssues } from "../branding/BrandDraftEditor";
 
 export function BrandingTab({ company, readOnly }: { company: Company; readOnly: boolean }) {
+  const { t } = useTranslation(["platform", "common"]);
   const { platform } = useServices();
   const query = useQuery({ queryKey: ["platform", "company", company.id, "branding"], queryFn: () => platform.branding(company.id) });
-  if (query.isError) return <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void query.refetch()}>Try again</Button>}>Branding could not be loaded.</Alert>;
+  if (query.isError) return <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void query.refetch()}>{t("common:actions.tryAgain")}</Button>}>{t("companies.brandingTab.loadError")}</Alert>;
   if (!query.data) return <Skeleton className="h-64 w-full" />;
   return <Editor key={company.id} company={company} initial={query.data} readOnly={readOnly} />;
 }
 
 function Editor({ company, initial, readOnly }: { company: Company; initial: Branding; readOnly: boolean }) {
+  const { t } = useTranslation(["platform", "common"]);
   const { platform } = useServices();
   const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(initial));
@@ -50,12 +53,12 @@ function Editor({ company, initial, readOnly }: { company: Company; initial: Bra
 
   return (
     <section className="flex flex-col gap-4">
-      <p className="text-body text-muted">Revision {saved.revision}. The company's members see this look in their app and on the join page.</p>
-      {readOnly && <Alert tone="info">Reactivate the company to change its branding.</Alert>}
+      <p className="text-body text-muted">{t("companies.brandingTab.intro", { revision: saved.revision })}</p>
+      {readOnly && <Alert tone="info">{t("companies.brandingTab.readOnly")}</Alert>}
       <Card className="max-w-3xl">
         <CardHeader>
-          <CardTitle>Brand editor</CardTitle>
-          <CardDescription>The previews follow every edit. This console keeps its own look.</CardDescription>
+          <CardTitle>{t("companies.brandingTab.editorTitle")}</CardTitle>
+          <CardDescription>{t("companies.brandingTab.editorDescription")}</CardDescription>
         </CardHeader>
         <form
           noValidate
@@ -64,7 +67,7 @@ function Editor({ company, initial, readOnly }: { company: Company; initial: Bra
             void run(async () => {
               const next = await platform.saveBranding(company.id, saved.revision, draftToDocument(draft));
               adopt(next);
-              setNotice(`Branding saved (revision ${next.revision}).`);
+              setNotice(t("companies.brandingTab.saved", { revision: next.revision }));
             });
           }}
         >
@@ -77,9 +80,9 @@ function Editor({ company, initial, readOnly }: { company: Company; initial: Bra
           </CardContent>
           {!readOnly && (
             <CardFooter className="flex-wrap gap-3">
-              <Button type="submit" loading={busy} disabled={hasIssues(draft)}>Save branding</Button>
-              <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>Reset to default</Button>
-              {conflict && <Button variant="outline" disabled={busy} onClick={() => void run(async () => adopt(await platform.branding(company.id)))}>Reload branding</Button>}
+              <Button type="submit" loading={busy} disabled={hasIssues(draft)}>{t("companies.brandingTab.save")}</Button>
+              <Button variant="outline" disabled={busy} onClick={() => setConfirming(true)}>{t("companies.brandingTab.reset")}</Button>
+              {conflict && <Button variant="outline" disabled={busy} onClick={() => void run(async () => adopt(await platform.branding(company.id)))}>{t("companies.brandingTab.reload")}</Button>}
             </CardFooter>
           )}
         </form>
@@ -87,11 +90,11 @@ function Editor({ company, initial, readOnly }: { company: Company; initial: Bra
       <AlertDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title="Reset branding?"
-        description="Reset to the Prometheon default? This publishes a new revision; the history is kept."
-        confirmLabel="Confirm reset"
+        title={t("companies.brandingTab.resetTitle")}
+        description={t("companies.brandingTab.resetDescription")}
+        confirmLabel={t("companies.brandingTab.resetConfirm")}
         destructive
-        onConfirm={() => run(async () => { const next = await platform.resetBranding(company.id, saved.revision); adopt(next); setNotice(`Branding reset to the Prometheon default (revision ${next.revision}).`); })}
+        onConfirm={() => run(async () => { const next = await platform.resetBranding(company.id, saved.revision); adopt(next); setNotice(t("companies.brandingTab.resetDone", { revision: next.revision })); })}
       />
     </section>
   );

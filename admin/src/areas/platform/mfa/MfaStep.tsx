@@ -1,4 +1,5 @@
 ﻿import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "../../../api/client";
 import { PLATFORM_ME } from "../queries";
@@ -12,6 +13,7 @@ import { MfaPage } from "./MfaPage";
 
 /** The second factor for an enrolled owner: a 6-digit code, or one of the recovery codes. */
 export function MfaStep({ pending, onStartOver }: { pending: boolean; onStartOver: () => void }) {
+  const { t } = useTranslation(["platform", "common"]);
   const services = useServices();
   const client = useQueryClient();
   const [recovery, setRecovery] = useState(false);
@@ -30,8 +32,8 @@ export function MfaStep({ pending, onStartOver }: { pending: boolean; onStartOve
 
   return (
     <MfaPage
-      title="Verify it is you"
-      description={recovery ? "Enter one of the recovery codes you saved. Each works once." : "Enter the 6-digit code from your authenticator app to open the console."}
+      title={t("mfa.step.title")}
+      description={recovery ? t("mfa.step.descriptionRecovery") : t("mfa.step.descriptionCode")}
     >
       <form
         noValidate
@@ -41,7 +43,7 @@ export function MfaStep({ pending, onStartOver }: { pending: boolean; onStartOve
           if (ready && !locked) verify.mutate(value);
         }}
       >
-        <Field label={recovery ? "Recovery code" : "6-digit code"}>
+        <Field label={recovery ? t("mfa.step.recoveryCode") : t("mfa.step.code")}>
           {(control) => (
             <Input
               {...control}
@@ -59,7 +61,7 @@ export function MfaStep({ pending, onStartOver }: { pending: boolean; onStartOve
         </Field>
         {verify.isError && <Alert tone="destructive">{errorMessage(verify.error)}</Alert>}
         <Button type="submit" size="lg" loading={verify.isPending} disabled={!ready || locked}>
-          Verify
+          {t("mfa.step.verify")}
         </Button>
       </form>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -71,11 +73,11 @@ export function MfaStep({ pending, onStartOver }: { pending: boolean; onStartOve
             verify.reset();
           }}
         >
-          {recovery ? "Use the authenticator code" : "Use a recovery code"}
+          {recovery ? t("mfa.step.useCode") : t("mfa.step.useRecovery")}
         </Button>
         {pending && (
           <Button variant="link" onClick={onStartOver}>
-            Start setup again
+            {t("mfa.step.startOver")}
           </Button>
         )}
       </div>

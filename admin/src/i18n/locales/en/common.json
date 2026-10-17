@@ -24,7 +24,8 @@
     "backToHome": "Back to home",
     "loading": "Loading…",
     "accountLoadFailedTitle": "Something went wrong",
-    "accountLoadFailed": "Your account could not be loaded. Try again."
+    "accountLoadFailed": "Your account could not be loaded. Try again.",
+    "platformOwner": "Platform owner"
   },
   "areas": {
     "platform": "Platform",

@@ -24,7 +24,8 @@
     "backToHome": "Volver al inicio",
     "loading": "Cargando…",
     "accountLoadFailedTitle": "Algo salió mal",
-    "accountLoadFailed": "No se pudo cargar la cuenta. Intentar de nuevo."
+    "accountLoadFailed": "No se pudo cargar la cuenta. Intentar de nuevo.",
+    "platformOwner": "Propietario de la plataforma"
   },
   "areas": {
     "platform": "Plataforma",

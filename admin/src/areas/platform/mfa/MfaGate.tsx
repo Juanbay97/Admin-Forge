@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { mfaStage } from "../../../platform/stage";
 import { useServices } from "../../../shell/services";
 import { Button } from "../../../ui/Button";
@@ -15,6 +16,7 @@ import { MfaStep } from "./MfaStep";
  * the code step on the same URL.
  */
 export function MfaGate({ children }: { children: ReactNode }) {
+  const { t } = useTranslation(["platform", "common"]);
   const services = useServices();
   const client = useQueryClient();
   const [enrolling, setEnrolling] = useState(false);
@@ -22,12 +24,12 @@ export function MfaGate({ children }: { children: ReactNode }) {
 
   if (!me.data) {
     return me.isError ? (
-      <MfaPage title="Something went wrong" description="Your platform session could not be checked.">
-        <Button onClick={() => void me.refetch()}>Try again</Button>
+      <MfaPage title={t("mfa.gate.errorTitle")} description={t("mfa.gate.errorDescription")}>
+        <Button onClick={() => void me.refetch()}>{t("common:actions.tryAgain")}</Button>
       </MfaPage>
     ) : (
       <div className="p-8">
-        <Spinner label="Checking your session…" />
+        <Spinner label={t("mfa.gate.checking")} />
       </div>
     );
   }

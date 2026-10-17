@@ -7,8 +7,6 @@ export const exit: { intentional: boolean; notice: string | null } = { intention
 /** The email typed at sign-in, kept in memory only: a platform owner has no profile to read it from. */
 export const hint: { email: string | null } = { email: null };
 
-export const IDLE_NOTICE = "Signed out for inactivity.";
-
 /** Drops the session on the user's behalf (idle timeout): the sign-in page says why instead of calling it an expiry. */
 export function signOutWithNotice(notice: string): void {
   exit.notice = notice;

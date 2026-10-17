@@ -93,7 +93,9 @@ export function setLanguage(language: Language): void {
 }
 
 /** A zod issue message that is resolved when the issue is raised, so a schema built once still speaks the current language. */
-export const issue = (key: ParseKeys<readonly Namespace[]>, options?: TOptions) => ({ error: () => String(i18n.t(key as never, options as never)) });
+export const issue = (key: ParseKeys<readonly Namespace[]>, options?: TOptions | (() => TOptions)) => ({
+  error: () => String(i18n.t(key as never, (typeof options === "function" ? options() : options) as never)),
+});
 
 /** BCP 47 tag handed to `Intl`: dates, numbers and currency follow the active language. */
 export const localeOf = (language: Language = currentLanguage()): string => language;

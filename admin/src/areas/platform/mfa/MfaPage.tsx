@@ -1,16 +1,20 @@
 ﻿import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { platformTheme } from "../../../brand/platformTheme";
+import { LanguageSwitch } from "../../../i18n/LanguageSwitch";
 import { Badge } from "../../../ui/Badge";
 import { Card } from "../../../ui/Card";
 
 /** The centred page every pre-console step (code, enrollment, recovery codes) lives on. */
 export function MfaPage({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+  const { t } = useTranslation(["platform", "common"]);
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-6 p-4 sm:p-6">
+      <LanguageSwitch className="self-end" />
       <header className="flex items-center gap-4">
         <img src={platformTheme.assets.markOnLight} alt="" className="h-12 w-auto" />
         <div className="flex flex-col items-start gap-1">
-          <Badge tone="info">Platform console</Badge>
+          <Badge tone="info">{t("layout.badge")}</Badge>
           <p className="font-title text-card font-semibold text-fg">{platformTheme.name}</p>
         </div>
       </header>

@@ -1,1 +1,548 @@
-{}
+{
+  "layout": {
+    "badge": "Platform console",
+    "lightMode": "Switch to light mode",
+    "darkMode": "Switch to dark mode"
+  },
+  "overview": {
+    "title": "Platform overview",
+    "description": "Companies, usage and gateway health across the platform.",
+    "firstCompanyTitle": "Create your first company",
+    "firstCompanyHint": "Add a company, brand it, give it gateway keys and invite its first administrator. Usage appears here once its people start working.",
+    "createCompany": "Create company",
+    "keyFigures": "Key figures",
+    "stats": {
+      "companies": "Companies",
+      "activeCompanies_one": "{{count}} active",
+      "activeCompanies_other": "{{count}} active",
+      "suspendedCompanies_one": "{{count}} suspended",
+      "suspendedCompanies_other": "{{count}} suspended",
+      "activePeople": "Active people",
+      "requests": "Requests",
+      "tokens": "Tokens",
+      "cost": "Cost"
+    },
+    "unpriced_one": "{{count, number}} request in this range had no model price, so the cost shown does not include it. Set prices under Prices.",
+    "unpriced_other": "{{count, number}} requests in this range had no model price, so the cost shown does not include them. Set prices under Prices.",
+    "charts": {
+      "tokensPerDay": "Tokens per day",
+      "costPerDay": "Cost per day",
+      "noUsage": "No usage yet",
+      "seriesTokens": "Tokens",
+      "seriesCost": "Cost",
+      "topCompanies": "Top companies by cost",
+      "tokensByModel": "Tokens by model"
+    },
+    "keyPool": {
+      "title": "Gateway key pool",
+      "empty": "No keys yet. <link>Add the first key</link> so companies can reach the gateway.",
+      "active_one": "{{count}} active",
+      "active_other": "{{count}} active",
+      "inactive_one": "{{count}} disabled or empty",
+      "inactive_other": "{{count}} disabled or empty",
+      "manage": "Manage keys"
+    },
+    "recent": {
+      "title": "Recent activity",
+      "none": "Nothing recorded yet.",
+      "open": "Open the audit log"
+    }
+  },
+  "audit": {
+    "title": "Audit log",
+    "description": "Everything the platform owner did, newest first. Read-only.",
+    "columns": {
+      "when": "When",
+      "action": "Action",
+      "company": "Company",
+      "by": "By"
+    },
+    "unknownCompany": "Unknown company",
+    "platformTarget": "Platform",
+    "actor": "Platform owner",
+    "filters": {
+      "action": "Action",
+      "allActions": "All actions",
+      "company": "Company",
+      "allCompanies": "All companies",
+      "from": "From",
+      "to": "To"
+    },
+    "empty": {
+      "noMatchTitle": "No matching events",
+      "nothingTitle": "Nothing recorded yet",
+      "noMatchHint": "No loaded event matches these filters. Load older events or clear a filter.",
+      "nothingHint": "Actions taken in this console appear here."
+    },
+    "clearFilters": "Clear filters",
+    "loadMore": "Load more",
+    "actions": {
+      "company_created": "Company created",
+      "company_suspended": "Company suspended",
+      "company_reactivated": "Company reactivated",
+      "company_branding_saved": "Branding saved",
+      "company_gateway_assigned": "Gateway keys assigned",
+      "company_model_access_set": "Model access set",
+      "gateway_key_created": "Gateway key added",
+      "gateway_key_rotated": "Gateway key rotated",
+      "gateway_key_status_changed": "Gateway key enabled or disabled",
+      "company_models_discovered": "Models discovered",
+      "company_catalog_published": "Catalog published",
+      "model_price_set": "Model price set",
+      "owner_mfa_enrolled": "Second factor enrolled",
+      "owner_mfa_recovery_used": "Recovery code used"
+    }
+  },
+  "keys": {
+    "title": "Gateway keys",
+    "description": "The keys the platform owns. Companies use them through their assignments; nobody else ever sees them.",
+    "columns": {
+      "label": "Label",
+      "gateway": "Gateway",
+      "key": "Key",
+      "status": "Status",
+      "companies": "Companies",
+      "actions": "Actions"
+    },
+    "noKeyStored": "No key stored",
+    "status": {
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "rotate": "Rotate",
+    "rotateAria": "Rotate {{label}}",
+    "disable": "Disable",
+    "disableAria": "Disable {{label}}",
+    "enable": "Enable",
+    "enableAria": "Enable {{label}}",
+    "add": "Add key",
+    "keyWord": "key",
+    "toast": {
+      "enabled": "{{label}} enabled",
+      "disabled": "{{label}} disabled",
+      "notChanged": "The key was not changed",
+      "added": "{{label}} added",
+      "rotated": "{{label}} rotated"
+    },
+    "empty": {
+      "title": "No gateway keys yet",
+      "hint": "Add the first key so companies can reach the model gateway. The key is stored encrypted and only its last four characters are shown."
+    },
+    "disableDialog": {
+      "title": "Disable {{label}}?",
+      "used_one": "{{count}} company uses this key. They fall back to their other assigned keys; a company with no other active key loses gateway access.",
+      "used_other": "{{count}} companies use this key. They fall back to their other assigned keys; a company with no other active key loses gateway access.",
+      "unused": "No company uses this key.",
+      "confirm": "Disable key"
+    },
+    "addDialog": {
+      "title": "Add a gateway key",
+      "description": "The key is stored encrypted and never shown again.",
+      "label": "Label",
+      "labelHint": "A name for the pool, e.g. Primary or Backup.",
+      "gateway": "Gateway",
+      "apiKey": "API key",
+      "submit": "Add key"
+    },
+    "rotateDialog": {
+      "title": "Rotate {{label}}",
+      "description": "Replace the stored key text. Companies keep their assignment.",
+      "newKey": "New API key",
+      "submit": "Rotate key"
+    }
+  },
+  "prices": {
+    "title": "Model prices",
+    "description": "What a million tokens cost, per model. Usage reports use the price in force when the request was made; an edit adds a new version and never rewrites history.",
+    "columns": {
+      "model": "Model",
+      "input": "Input / 1M tokens",
+      "output": "Output / 1M tokens",
+      "from": "Effective from",
+      "version": "Version",
+      "actions": "Actions"
+    },
+    "edit": "Edit",
+    "editAria": "Edit {{model}}",
+    "history": "History",
+    "historyAria": "History {{model}}",
+    "add": "Add price",
+    "versionBadge": "v{{version}}",
+    "empty": {
+      "title": "No prices yet",
+      "hint": "Without a price, requests are metered but their cost reads as zero. Add the models your companies use."
+    },
+    "toast": {
+      "saved": "Price saved for {{model}} (v{{version}})"
+    },
+    "dialog": {
+      "editTitle": "Edit {{model}}",
+      "addTitle": "Add a model price",
+      "description": "Amounts are US dollars per one million tokens, up to six decimals.",
+      "model": "Model",
+      "input": "Input, USD per 1M tokens",
+      "output": "Output, USD per 1M tokens",
+      "effective": "Effective from",
+      "effectiveHint": "Leave empty to apply now. A future date schedules the change.",
+      "submit": "Save price"
+    },
+    "historySheet": {
+      "title": "Price history · {{model}}",
+      "caption": "Versions of {{model}}",
+      "version": "Version",
+      "input": "Input",
+      "output": "Output",
+      "from": "From"
+    },
+    "errors": {
+      "model": "Enter the model id exactly as the gateway names it (no spaces).",
+      "amount": "Use a non-negative amount of at most 6 decimals and at most {{max}}.",
+      "invalidDate": "Enter a valid date.",
+      "pastDate": "The date cannot be in the past."
+    }
+  },
+  "companies": {
+    "list": {
+      "title": "Companies",
+      "description": "Every company on the platform.",
+      "create": "Create company",
+      "columns": {
+        "company": "Company",
+        "status": "Status",
+        "tokens": "Tokens (30d)",
+        "cost": "Cost (30d)"
+      },
+      "search": "Search companies",
+      "searchPlaceholder": "Name or code",
+      "statusFilter": "Status",
+      "statusAll": "All",
+      "empty": {
+        "noneTitle": "No companies yet",
+        "noneHint": "Create the first company: name it, brand it, give it gateway keys and invite its administrator.",
+        "noMatchTitle": "No companies match",
+        "noMatchHint": "Try another name or code, or clear the filters.",
+        "clear": "Clear filters"
+      }
+    },
+    "status": {
+      "active": "Active",
+      "suspended": "Suspended"
+    },
+    "detail": {
+      "loading": "Loading company",
+      "code": "Code: {{slug}}",
+      "suspend": "Suspend company",
+      "reactivate": "Reactivate company",
+      "suspendedTitle": "This company is suspended",
+      "suspendedBody": "Its members and administrators cannot sign in or use the gateway. Nothing was deleted; reactivate it to restore access.",
+      "sections": "Company sections",
+      "tabs": {
+        "overview": "Overview",
+        "branding": "Branding",
+        "keys": "Keys",
+        "models": "Models",
+        "members": "Members",
+        "usage": "Usage"
+      },
+      "toast": {
+        "suspended": "{{name}} suspended",
+        "reactivated": "{{name}} reactivated"
+      },
+      "suspendDialog": {
+        "title": "Suspend {{name}}?",
+        "effect": "Members lose access immediately: sign-in, the admin console and every model request stop until you reactivate the company. Nothing is deleted.",
+        "confirm": "Suspend"
+      },
+      "reactivateDialog": {
+        "title": "Reactivate {{name}}?",
+        "description": "Members and administrators regain access immediately.",
+        "confirm": "Reactivate"
+      }
+    },
+    "overviewTab": {
+      "finishTitle": "Finish setup",
+      "finishBody": "Members cannot use Forge until this company has at least one gateway key and a set of allowed models.",
+      "usageLabel": "Usage, last 30 days",
+      "tokens": "Tokens (30 days)",
+      "cost": "Cost (30 days)",
+      "requests": "Requests (30 days)",
+      "setup": "Setup",
+      "branding": "Branding",
+      "brandingCustom": "Custom branding",
+      "brandingDefault": "Default Prometheon look (optional)",
+      "keys": "Gateway keys",
+      "keysAssigned_one": "{{count}} assigned",
+      "keysAssigned_other": "{{count}} assigned",
+      "models": "Models",
+      "modelsAllowed_one": "{{count}} allowed",
+      "modelsAllowed_other": "{{count}} allowed"
+    },
+    "brandingTab": {
+      "loadError": "Branding could not be loaded.",
+      "intro": "Revision {{revision}}. The company's members see this look in their app and on the join page.",
+      "readOnly": "Reactivate the company to change its branding.",
+      "editorTitle": "Brand editor",
+      "editorDescription": "The previews follow every edit. This console keeps its own look.",
+      "saved": "Branding saved (revision {{revision}}).",
+      "save": "Save branding",
+      "reset": "Reset to default",
+      "reload": "Reload branding",
+      "resetTitle": "Reset branding?",
+      "resetDescription": "Reset to the Prometheon default? This publishes a new revision; the history is kept.",
+      "resetConfirm": "Confirm reset",
+      "resetDone": "Branding reset to the Prometheon default (revision {{revision}})."
+    },
+    "keysTab": {
+      "intro": "The company reaches the gateway through these platform keys, tried in order. Only the label and the last four characters are ever shown.",
+      "emptyTitle": "No keys assigned",
+      "emptyHint": "Without a key the company's members cannot use any model.",
+      "assigned": "Assigned keys",
+      "unknownKey": "Unknown key",
+      "disabledInPool": "Disabled in the pool",
+      "activeSwitch": "active",
+      "moveUp": "Move {{label}} up",
+      "moveDown": "Move {{label}} down",
+      "removeAria": "Remove {{label}}",
+      "on": "Active",
+      "off": "Off",
+      "readOnly": "Reactivate the company to change its keys.",
+      "noneActive": "No assigned key is active, so the company has no gateway access.",
+      "addField": "Add a key from the pool",
+      "noMore": "No more keys in the pool",
+      "choose": "Choose a key…",
+      "addButton": "Add key",
+      "save": "Save keys",
+      "saved": "Gateway keys saved",
+      "removeTitle": "Remove {{label}}?",
+      "removeLast": "This is the last key. The company will lose access to the gateway until another key is assigned.",
+      "removeOther": "The company stops using this key once you save.",
+      "removeConfirm": "Remove key"
+    },
+    "membersTab": {
+      "intro": "The people of this company, as its administrators see them. Changes are made by the company's own administrators.",
+      "caption": "Company members",
+      "loading": "Loading members",
+      "columns": {
+        "name": "Name",
+        "role": "Role",
+        "departments": "Departments",
+        "status": "Status"
+      },
+      "search": "Search members",
+      "searchPlaceholder": "Name or email",
+      "emptyNoneTitle": "No members yet",
+      "emptyNoneHint": "People appear here once they accept their invitation.",
+      "emptyNoMatchTitle": "No members match",
+      "emptyNoMatchHint": "Try a different name or email address."
+    },
+    "modelsTab": {
+      "notDiscovered": "Refresh the models from the company's keys first; allowed models are chosen from what the keys can reach.",
+      "catalogHeading": "Catalog",
+      "catalogIntro": "Discover the models this company's keys can reach, choose which ones it may use under which names, and publish. Company administrators see the published catalog and can only narrow it.",
+      "allowedHeading": "Allowed models",
+      "notReachableFailure": "One or more selected models are not reachable through this company's keys. Refresh the models and choose from the list.",
+      "table": {
+        "allowed": "Allowed",
+        "allowAria": "Allow {{id}}",
+        "model": "Model",
+        "notReachable": "Not reachable",
+        "input": "Input / 1M tokens",
+        "output": "Output / 1M tokens",
+        "noPrice": "No price",
+        "caption": "Allowed models",
+        "emptyTitle": "No models allowed",
+        "emptyHint": "Until at least one model is allowed, the company cannot publish a catalogue."
+      },
+      "editorIntro": "The most this company's administrators can publish to their members. Choose among the models the company's keys can reach. A model without a price is metered but costs nothing in reports until you set one under Prices.",
+      "readOnly": "Reactivate the company to change its models.",
+      "count": "{{selected}} of {{total}} allowed",
+      "save": "Save models",
+      "saved": "Allowed models saved"
+    },
+    "usageTab": {
+      "intro": "Usage metered through the gateway for this company, by UTC day.",
+      "emptyTitle": "No usage yet",
+      "emptyHint": "Usage appears here after the company's members send their first request through the gateway.",
+      "unpriced_one": "{{count, number}} request had no model price; its cost is not included. Set prices under Prices.",
+      "unpriced_other": "{{count, number}} requests had no model price; their cost is not included. Set prices under Prices.",
+      "usageLabel": "Company usage",
+      "tokens": "Tokens",
+      "cost": "Cost",
+      "requests": "Requests",
+      "failed": "Failed requests",
+      "splitTitle": "Prompt and completion tokens",
+      "prompt": "Prompt",
+      "completion": "Completion",
+      "estimated_one": "{{count, number}} request was measured by estimate because the gateway did not report usage.",
+      "estimated_other": "{{count, number}} requests were measured by estimate because the gateway did not report usage."
+    }
+  },
+  "catalogPanel": {
+    "label": "Catalog",
+    "noKeyTitle": "No gateway key assigned",
+    "noKeyBody": "Assign at least one gateway key to this company in the Keys tab, then come back to discover the models it can use.",
+    "published": "Catalog published",
+    "publishedDetail_one": "{{count}} model, default {{default}}.",
+    "publishedDetail_other": "{{count}} models, default {{default}}.",
+    "revision": "Catalog revision {{revision}}",
+    "lastDiscovered": "Last discovered: {{when}}",
+    "never": "never",
+    "discover": "Discover models",
+    "noKeyAnswered": "No key answered, so nothing was stored. The models below are from the last successful discovery.",
+    "emptyTitle": "No models discovered yet",
+    "emptyHintReadOnly": "Reactivate the company to discover models.",
+    "emptyHint": "Use Discover models to ask the assigned keys what they can reach.",
+    "search": "Search models",
+    "searchPlaceholder": "e.g. gpt or combo",
+    "selectShown": "Select shown",
+    "clearShown": "Clear shown",
+    "selected": "{{selected}} of {{total}} selected",
+    "selectedFiltered": "{{selected}} of {{total}} selected · {{shown}} shown",
+    "noMatch": "No model matches \"{{query}}\".",
+    "discovered": "Discovered models",
+    "selectAria": "Select {{id}}",
+    "aliasAria": "Alias for {{id}}",
+    "defaultAria": "Default model {{id}}",
+    "default": "Default",
+    "missing": "Published but not in the latest discovery: {{models}}. Publishing again drops them.",
+    "checkSelection": "Check the selection",
+    "readOnly": "Reactivate the company to change its catalog.",
+    "publish": "Publish catalog",
+    "keyDiscovery": "Key discovery",
+    "noKeys": "No keys are assigned to this company.",
+    "models_one": "{{count}} model",
+    "models_other": "{{count}} models"
+  },
+  "wizard": {
+    "title": "Create a company",
+    "description": "Name it, brand it, give it gateway keys and invite its first administrator.",
+    "stepsLabel": "Steps",
+    "steps": {
+      "company": "Company",
+      "branding": "Branding",
+      "admin": "First admin",
+      "keys": "Gateway keys",
+      "review": "Review"
+    },
+    "headings": {
+      "company": "Company",
+      "branding": "Branding",
+      "admin": "First administrator",
+      "keys": "Gateway keys"
+    },
+    "status": {
+      "done": "Done",
+      "skipped": "Skipped (default look)",
+      "failed": "Failed",
+      "waiting": "Waiting",
+      "working": "Working…"
+    },
+    "ready": "{{name}} is ready",
+    "companyCode": "Company code:",
+    "invitationSent": "Invitation sent to {{email}}",
+    "invitationFailedTitle": "The invitation email could not be sent",
+    "invitationFailedBody": "The company exists. Share the company code and ask {{email}} to use a password reset, or contact support to resend the invitation.",
+    "openCompany": "Open company",
+    "backToCompanies": "Back to companies",
+    "creating": "Creating {{name}}",
+    "setupSteps": "Setup steps",
+    "failedTitle": "{{step}} could not be set up",
+    "failedBody": "The company exists. {{message}} Retry the failed steps, or finish setup from the company page.",
+    "changeCode": "Change the company code",
+    "retry": "Retry failed steps",
+    "review": {
+      "title": "Review and create",
+      "summary": "Summary",
+      "company": "Company",
+      "code": "Code",
+      "firstDepartment": "First department",
+      "branding": "Branding",
+      "brandingCustom": "Custom: {{name}}",
+      "brandingDefault": "Default Prometheon look",
+      "firstAdmin": "First administrator",
+      "keys": "Gateway keys",
+      "create": "Create company"
+    },
+    "next": "Next",
+    "company": {
+      "name": "Company name",
+      "code": "Company code",
+      "codeHint": "Employees type it in the app. 3 to 32 lowercase letters, digits or hyphens; it cannot change later.",
+      "codeTaken": "Code is taken",
+      "codeAvailable": "Code is available",
+      "department": "First department",
+      "departmentHint": "Where the first administrator is placed; more departments can be added later."
+    },
+    "branding": {
+      "customize": "Customize branding",
+      "defaultNote": "The company starts with the default Prometheon look. Its administrators can change it later."
+    },
+    "admin": {
+      "intro": "This person receives the invitation email and becomes the company's administrator.",
+      "email": "Administrator email",
+      "name": "Administrator name"
+    },
+    "keys": {
+      "legend": "Gateway keys",
+      "intro": "The company uses these platform keys, in this order; the first is tried first.",
+      "loading": "Loading keys…",
+      "none": "There is no usable key in the pool. Add one under Gateway keys first.",
+      "modelsNote": "Models are published from the company's Models tab after it is created; the models you publish there are the ones the company may use."
+    },
+    "fields": {
+      "companyName": "the company name",
+      "department": "the first department",
+      "adminName": "the administrator's name"
+    },
+    "errors": {
+      "required": "Enter {{what}}.",
+      "max": "Use at most {{max}} characters.",
+      "code": "Use 3 to 32 lowercase letters, digits or hyphens, starting with a letter or digit.",
+      "email": "Enter the email address.",
+      "keysMin": "Select at least one gateway key.",
+      "keysMax": "A company can have at most 16 keys."
+    }
+  },
+  "mfa": {
+    "gate": {
+      "errorTitle": "Something went wrong",
+      "errorDescription": "Your platform session could not be checked.",
+      "checking": "Checking your session…"
+    },
+    "enroll": {
+      "introTitle": "Protect the console",
+      "introDescription": "The platform console needs a second factor. Set up an authenticator app (Microsoft Authenticator, Google Authenticator, 1Password…) to continue.",
+      "start": "Start setup",
+      "scanTitle": "Scan the QR code",
+      "scanDescription": "Scan it with your authenticator app, then enter the 6-digit code it shows.",
+      "qrLabel": "QR code for your authenticator app",
+      "cannotScan": "Cannot scan? Enter this secret by hand:",
+      "copySecret": "Copy secret",
+      "code": "6-digit code",
+      "confirm": "Confirm"
+    },
+    "step": {
+      "title": "Verify it is you",
+      "descriptionRecovery": "Enter one of the recovery codes you saved. Each works once.",
+      "descriptionCode": "Enter the 6-digit code from your authenticator app to open the console.",
+      "recoveryCode": "Recovery code",
+      "code": "6-digit code",
+      "verify": "Verify",
+      "useCode": "Use the authenticator code",
+      "useRecovery": "Use a recovery code",
+      "startOver": "Start setup again"
+    },
+    "recovery": {
+      "title": "Save your recovery codes",
+      "description": "Each code opens the console once if you lose your authenticator. They are shown only now.",
+      "warning": "Store them somewhere safe, apart from this device. They cannot be shown again.",
+      "list": "Recovery codes",
+      "copy": "Copy codes",
+      "download": "Download",
+      "print": "Print",
+      "stored": "I stored them in a safe place",
+      "continue": "Continue to the console",
+      "fileHeader": "Prometheon Forge platform recovery codes"
+    }
+  }
+}

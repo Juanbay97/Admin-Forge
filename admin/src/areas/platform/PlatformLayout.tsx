@@ -1,9 +1,11 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { applyBrandIdentity } from "../../brand/theme";
 import { applyPlatformTheme, platformTheme } from "../../brand/platformTheme";
 import { createIdleTimer } from "../../shell/idle";
-import { IDLE_NOTICE, signOutWithNotice } from "../../shell/session";
+import { t as translate } from "../../i18n/config";
+import { signOutWithNotice } from "../../shell/session";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { MfaGate } from "./mfa/MfaGate";
@@ -15,6 +17,7 @@ import { PlatformFrame } from "./PlatformFrame";
  * factor until this session has passed it.
  */
 export function PlatformLayout() {
+  const { t } = useTranslation(["platform", "common"]);
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -30,7 +33,7 @@ export function PlatformLayout() {
   }, [dark]);
 
   useEffect(() => {
-    const idle = createIdleTimer({ onIdle: () => signOutWithNotice(IDLE_NOTICE) });
+    const idle = createIdleTimer({ onIdle: () => signOutWithNotice(translate("errors.idle")) });
     const events = ["keydown", "pointerdown", "pointermove", "wheel"] as const;
     events.forEach((name) => document.addEventListener(name, idle.touch, { passive: true }));
     return () => {
@@ -41,8 +44,8 @@ export function PlatformLayout() {
 
   const switcher = (
     <>
-      <Badge tone="info" className="hidden sm:inline-flex">Platform console</Badge>
-      <Button variant="ghost" size="icon" aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} aria-pressed={dark} onClick={() => setDark((value) => !value)}>
+      <Badge tone="info" className="hidden sm:inline-flex">{t("layout.badge")}</Badge>
+      <Button variant="ghost" size="icon" aria-label={dark ? t("layout.lightMode") : t("layout.darkMode")} aria-pressed={dark} onClick={() => setDark((value) => !value)}>
         {dark ? <Sun aria-hidden="true" className="size-5" /> : <Moon aria-hidden="true" className="size-5" />}
       </Button>
     </>

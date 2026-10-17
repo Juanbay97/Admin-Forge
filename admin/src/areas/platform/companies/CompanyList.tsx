@@ -1,6 +1,7 @@
 import { Building2, Plus, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 import { formatCostMicros, formatTokens } from "../../../lib/format";
 import { filterCompanies, parseStatus, type StatusFilter } from "../../../platform/companies";
@@ -29,6 +30,7 @@ interface Row {
 }
 
 export function CompanyList() {
+  const { t } = useTranslation(["platform", "common"]);
   const { platform } = useServices();
   const [params, setParams] = useSearchParams();
   const status = parseStatus(params.get("status"));
@@ -68,11 +70,11 @@ export function CompanyList() {
     });
   }, [companies.data, usage.data, urlQuery, status]);
 
-  const create = <Link to="/platform/companies/new" className={buttonVariants({})}><Plus aria-hidden="true" className="size-4" />Create company</Link>;
+  const create = <Link to="/platform/companies/new" className={buttonVariants({})}><Plus aria-hidden="true" className="size-4" />{t("companies.list.create")}</Link>;
   const columns: Column<Row>[] = [
     {
       id: "name",
-      header: "Company",
+      header: t("companies.list.columns.company"),
       sortValue: (row) => row.display_name,
       cell: (row) => (
         <span className="flex flex-col py-1">
@@ -81,22 +83,22 @@ export function CompanyList() {
         </span>
       ),
     },
-    { id: "status", header: "Status", sortValue: (row) => Number(row.active), cell: (row) => <Badge tone={row.active ? "success" : "warning"}>{row.active ? "Active" : "Suspended"}</Badge> },
-    { id: "tokens", header: "Tokens (30d)", align: "right", sortValue: (row) => row.tokens, cell: (row) => (row.tokens === null ? "—" : formatTokens(row.tokens)) },
-    { id: "cost", header: "Cost (30d)", align: "right", sortValue: (row) => row.cost, cell: (row) => (row.cost === null ? "—" : formatCostMicros(row.cost)) },
+    { id: "status", header: t("companies.list.columns.status"), sortValue: (row) => Number(row.active), cell: (row) => <Badge tone={row.active ? "success" : "warning"}>{row.active ? t("companies.status.active") : t("companies.status.suspended")}</Badge> },
+    { id: "tokens", header: t("companies.list.columns.tokens"), align: "right", sortValue: (row) => row.tokens, cell: (row) => (row.tokens === null ? "—" : formatTokens(row.tokens)) },
+    { id: "cost", header: t("companies.list.columns.cost"), align: "right", sortValue: (row) => row.cost, cell: (row) => (row.cost === null ? "—" : formatCostMicros(row.cost)) },
   ];
 
   const none = companies.isSuccess && companies.data.length === 0;
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Companies" description="Every company on the platform." actions={create} />
+      <PageHeader title={t("companies.list.title")} description={t("companies.list.description")} actions={create} />
       {companies.isError && (
-        <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void companies.refetch()}>Try again</Button>}>
+        <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void companies.refetch()}>{t("common:actions.tryAgain")}</Button>}>
           {errorMessage(companies.error)}
         </Alert>
       )}
       <DataTable
-        caption="Companies"
+        caption={t("companies.list.title")}
         columns={columns}
         rows={rows}
         rowKey={(row) => row.id}
@@ -105,20 +107,20 @@ export function CompanyList() {
         initialSort={{ id: "name", direction: "asc" }}
         filter={
           <div className="flex flex-wrap items-end gap-3">
-            <Field label="Search companies" className="min-w-0 flex-1 sm:max-w-sm">
+            <Field label={t("companies.list.search")} className="min-w-0 flex-1 sm:max-w-sm">
               {(control) => (
                 <div className="relative">
                   <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-                  <Input {...control} type="search" value={text} onChange={(event) => setText(event.target.value)} placeholder="Name or code" className="pl-9" />
+                  <Input {...control} type="search" value={text} onChange={(event) => setText(event.target.value)} placeholder={t("companies.list.searchPlaceholder")} className="pl-9" />
                 </div>
               )}
             </Field>
-            <Field label="Status" className="w-44">
+            <Field label={t("companies.list.statusFilter")} className="w-44">
               {(control) => (
                 <Select {...control} value={status} onChange={(event) => setStatus(parseStatus(event.target.value))}>
-                  <option value="all">All</option>
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
+                  <option value="all">{t("companies.list.statusAll")}</option>
+                  <option value="active">{t("companies.status.active")}</option>
+                  <option value="suspended">{t("companies.status.suspended")}</option>
                 </Select>
               )}
             </Field>
@@ -126,9 +128,9 @@ export function CompanyList() {
         }
         empty={
           none ? (
-            <EmptyState icon={Building2} title="No companies yet" hint="Create the first company: name it, brand it, give it gateway keys and invite its administrator." action={create} />
+            <EmptyState icon={Building2} title={t("companies.list.empty.noneTitle")} hint={t("companies.list.empty.noneHint")} action={create} />
           ) : (
-            <EmptyState icon={Search} title="No companies match" hint="Try another name or code, or clear the filters." action={<Button variant="outline" onClick={() => { setText(""); setStatus("all"); }}>Clear filters</Button>} />
+            <EmptyState icon={Search} title={t("companies.list.empty.noMatchTitle")} hint={t("companies.list.empty.noMatchHint")} action={<Button variant="outline" onClick={() => { setText(""); setStatus("all"); }}>{t("companies.list.empty.clear")}</Button>} />
           )
         }
       />

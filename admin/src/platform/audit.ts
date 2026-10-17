@@ -1,26 +1,32 @@
 import type { AuditEntry } from "../api/platform";
+import { t } from "../i18n/config";
 import { formatDate } from "../lib/format";
 
-const LABELS: Record<string, string> = {
-  "company.created": "Company created",
-  "company.suspended": "Company suspended",
-  "company.reactivated": "Company reactivated",
-  "company.branding_saved": "Branding saved",
-  "company.gateway_assigned": "Gateway keys assigned",
-  "company.model_access_set": "Model access set",
-  "gateway_key.created": "Gateway key added",
-  "gateway_key.rotated": "Gateway key rotated",
-  "gateway_key.status_changed": "Gateway key enabled or disabled",
-  "company.models_discovered": "Models discovered",
-  "company.catalog_published": "Catalog published",
-  "model_price.set": "Model price set",
-  "owner.mfa_enrolled": "Second factor enrolled",
-  "owner.mfa_recovery_used": "Recovery code used",
-};
+/** The audit actions the platform records (the catalogue key is the action with its dot written as an underscore). */
+export const KNOWN_ACTIONS = [
+  "company.created",
+  "company.suspended",
+  "company.reactivated",
+  "company.branding_saved",
+  "company.gateway_assigned",
+  "company.model_access_set",
+  "gateway_key.created",
+  "gateway_key.rotated",
+  "gateway_key.status_changed",
+  "company.models_discovered",
+  "company.catalog_published",
+  "model_price.set",
+  "owner.mfa_enrolled",
+  "owner.mfa_recovery_used",
+] as const;
 
-/** The audit actions the platform records, as sentences; an action this console does not know is shown verbatim. */
-export const describeAction = (action: string): string => LABELS[action] ?? action;
-export const KNOWN_ACTIONS: readonly string[] = Object.keys(LABELS);
+type KnownAction = (typeof KNOWN_ACTIONS)[number];
+const isKnown = (action: string): action is KnownAction => (KNOWN_ACTIONS as readonly string[]).includes(action);
+
+/** The audit actions as sentences in the active language; an action this console does not know is shown verbatim. */
+export const describeAction = (action: string): string => (isKnown(action) ? t(`platform:audit.actions.${action.replace(".", "_") as ActionKey}`) : action);
+
+type ActionKey = KnownAction extends infer A ? (A extends `${infer Head}.${infer Tail}` ? `${Head}_${Tail}` : never) : never;
 
 export interface AuditFilter {
   action: string;
@@ -47,10 +53,10 @@ export function relativeTime(iso: string, now: Date = new Date()): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return "—";
   const age = now.getTime() - then;
-  if (age < MINUTE) return "just now";
-  if (age < HOUR) return `${Math.floor(age / MINUTE)} minutes ago`;
-  if (age < DAY) return `${Math.floor(age / HOUR)} hours ago`;
-  if (age < 2 * DAY) return "yesterday";
-  if (age < 7 * DAY) return `${Math.floor(age / DAY)} days ago`;
+  if (age < MINUTE) return t("time.justNow");
+  if (age < HOUR) return t("time.minutesAgo", { count: Math.floor(age / MINUTE) });
+  if (age < DAY) return t("time.hoursAgo", { count: Math.floor(age / HOUR) });
+  if (age < 2 * DAY) return t("time.yesterday");
+  if (age < 7 * DAY) return t("time.daysAgo", { count: Math.floor(age / DAY) });
   return formatDate(iso);
 }
