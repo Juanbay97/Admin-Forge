@@ -1,6 +1,7 @@
 import { ArrowRight, Download as DownloadIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useId } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { Services } from "../api/services";
 import { formatBytes } from "../portal/download";
@@ -18,25 +19,26 @@ interface DownloadCardProps {
 
 /** The dashboard entry of the download area: what is published right now and the way to the full page. */
 export function DownloadCard({ services, to, code }: DownloadCardProps) {
+  const { t } = useTranslation();
   const manifest = useQuery({ queryKey: ["portal", "manifest"], queryFn: () => services.downloads.latest(), retry: false });
   const windows = manifest.data?.platforms.windows;
   const heading = useId();
   return (
     <Card aria-labelledby={heading}>
       <CardHeader>
-        <CardTitle id={heading} className="flex items-center gap-2"><DownloadIcon aria-hidden="true" className="size-5 text-muted" />Download Prometheon Forge</CardTitle>
-        <CardDescription>Install Forge on your computer and sign in with your company code{code ? <> <strong className="text-fg">{code}</strong></> : null}.</CardDescription>
+        <CardTitle id={heading} className="flex items-center gap-2"><DownloadIcon aria-hidden="true" className="size-5 text-muted" />{t("download.title")}</CardTitle>
+        <CardDescription>{code ? <Trans t={t} i18nKey="download.card.descriptionWithCode" values={{ code }} components={{ strong: <strong className="text-fg" /> }} /> : t("download.card.description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {manifest.isPending ? (
           <Skeleton className="h-6 w-40" />
         ) : windows && manifest.data ? (
-          <p className="text-body text-fg">Windows installer <strong>v{manifest.data.version}</strong> <span className="text-muted">({formatBytes(windows.size_bytes)})</span></p>
+          <p className="text-body text-fg"><Trans t={t} i18nKey="download.card.windowsInstaller" values={{ version: manifest.data.version, size: formatBytes(windows.size_bytes) }} components={{ strong: <strong />, size: <span className="text-muted" /> }} /></p>
         ) : (
-          <p className="text-body text-muted">{manifest.isError ? "The installer information could not be loaded." : "The installer is not published yet."}</p>
+          <p className="text-body text-muted">{manifest.isError ? t("download.card.loadError") : t("download.card.notPublished")}</p>
         )}
         <div>
-          <Link to={to} className={buttonVariants({})}>Download and set up<ArrowRight aria-hidden="true" className="size-4" /></Link>
+          <Link to={to} className={buttonVariants({})}>{t("download.card.action")}<ArrowRight aria-hidden="true" className="size-4" /></Link>
         </div>
       </CardContent>
     </Card>

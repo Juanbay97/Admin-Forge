@@ -1,3 +1,5 @@
+import { collator } from "../lib/format";
+
 // Pure sorting and paging rules of DataTable.
 export type Direction = "asc" | "desc";
 export interface Sort {
@@ -5,7 +7,6 @@ export interface Sort {
   direction: Direction;
 }
 
-const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
 type Key = string | number | null | undefined;
 
 const missing = (key: Key): key is null | undefined => key === null || key === undefined || (typeof key === "number" && Number.isNaN(key));
@@ -17,7 +18,7 @@ export function sortRows<T>(rows: readonly T[], keyOf: (row: T) => Key, directio
     .map((row, index) => ({ row, index, key: keyOf(row) }))
     .sort((a, b) => {
       if (missing(a.key) || missing(b.key)) return missing(a.key) === missing(b.key) ? a.index - b.index : missing(a.key) ? 1 : -1;
-      const order = typeof a.key === "number" && typeof b.key === "number" ? a.key - b.key : collator.compare(String(a.key), String(b.key));
+      const order = typeof a.key === "number" && typeof b.key === "number" ? a.key - b.key : collator().compare(String(a.key), String(b.key));
       return order === 0 ? a.index - b.index : sign * order;
     })
     .map((entry) => entry.row);

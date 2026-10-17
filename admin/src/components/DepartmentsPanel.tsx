@@ -1,5 +1,6 @@
 import { Building2 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Department } from "../api/account";
 import { ApiError } from "../api/client";
 import { Alert } from "../ui/Alert";
@@ -15,6 +16,7 @@ interface Props {
 
 /** The company's departments, alphabetical, and a one-field form to add another. Renaming and removing are not offered by the API. */
 export function DepartmentsPanel({ departments, onCreate }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export function DepartmentsPanel({ departments, onCreate }: Props) {
       await onCreate(clean);
       setName("");
     } catch (error) {
-      setFailure(error instanceof ApiError && error.status === 409 ? "A department with that name already exists." : "The department could not be created. Try again.");
+      setFailure(error instanceof ApiError && error.status === 409 ? t("members.departments.exists") : t("members.departments.createFailed"));
     } finally {
       setBusy(false);
     }
@@ -37,9 +39,9 @@ export function DepartmentsPanel({ departments, onCreate }: Props) {
   return (
     <div className="flex max-w-xl flex-col gap-6">
       {sorted.length === 0 ? (
-        <EmptyState icon={Building2} title="No departments yet" hint="Departments group your people; members are invited into one." />
+        <EmptyState icon={Building2} title={t("members.departments.emptyTitle")} hint={t("members.departments.emptyHint")} />
       ) : (
-        <ul aria-label="Departments" className="grid gap-2 sm:grid-cols-2">
+        <ul aria-label={t("members.departments.list")} className="grid gap-2 sm:grid-cols-2">
           {sorted.map((department) => (
             <li key={department.id} className="flex min-h-11 items-center gap-3 rounded-control border border-line bg-subtle px-3 text-body">
               <Building2 aria-hidden="true" className="size-4 shrink-0 text-muted" />
@@ -49,9 +51,9 @@ export function DepartmentsPanel({ departments, onCreate }: Props) {
         </ul>
       )}
       <form noValidate className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <Field label="New department">{(control) => <Input {...control} value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" maxLength={120} />}</Field>
+        <Field label={t("members.departments.newDepartment")}>{(control) => <Input {...control} value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" maxLength={120} />}</Field>
         {failure && <Alert tone="destructive">{failure}</Alert>}
-        <div><Button type="submit" loading={busy} disabled={!name.trim()}>Create department</Button></div>
+        <div><Button type="submit" loading={busy} disabled={!name.trim()}>{t("members.departments.create")}</Button></div>
       </form>
     </div>
   );

@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Info, X, XCircle, type LucideIcon } from "lucide-react";
 import { createContext, useContext, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/cn";
 import { createToastStore, type ToastInput, type ToastStore, type ToastTone } from "./store";
 
@@ -31,11 +32,12 @@ const TONES: Record<ToastTone, string> = {
 
 /** The live region is always mounted, so a toast added later is announced politely. */
 function ToastRegion({ store }: { store: ToastStore }) {
+  const { t } = useTranslation();
   const toasts = useSyncExternalStore(store.subscribe, store.list, store.list);
   return (
     <div
       role="region"
-      aria-label="Notifications"
+      aria-label={t("ui.toast.notifications")}
       aria-live="polite"
       className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-end gap-2 sm:left-auto sm:w-96"
     >
@@ -53,7 +55,7 @@ function ToastRegion({ store }: { store: ToastStore }) {
             </div>
             <button
               type="button"
-              aria-label={`Dismiss ${toast.title}`}
+              aria-label={t("ui.toast.dismiss", { title: toast.title })}
               onClick={() => store.dismiss(toast.id)}
               className="-m-2 flex size-10 shrink-0 items-center justify-center rounded-control text-muted outline-focus hover:bg-subtle focus-visible:outline-2"
             >

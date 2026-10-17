@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createContext, useContext } from "react";
+import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router";
 import { AccessDenied } from "../components/AccessDenied";
 import { Spinner } from "../ui/Spinner";
@@ -21,6 +22,7 @@ export function useIdentity(): Identity {
 
 /** Loads who the signed-in account is once per session; every area route below it can rely on the identity. */
 export function IdentityBoundary() {
+  const { t } = useTranslation();
   const services = useServices();
   const query = useQuery({
     queryKey: ["shell", "identity"],
@@ -29,12 +31,12 @@ export function IdentityBoundary() {
     retry: false,
   });
   if (query.isError) {
-    return <AccessDenied title="Something went wrong" message="Your account could not be loaded. Try again." onSignOut={() => void signOut(services)} />;
+    return <AccessDenied title={t("shell.accountLoadFailedTitle")} message={t("shell.accountLoadFailed")} onSignOut={() => void signOut(services)} />;
   }
   if (!query.data) {
     return (
       <div className="p-8">
-        <Spinner label="Loading…" />
+        <Spinner label={t("shell.loading")} />
       </div>
     );
   }

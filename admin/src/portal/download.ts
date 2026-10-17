@@ -1,15 +1,17 @@
 import type { Installer, InstallerManifest } from "../api/downloads";
 import type { InstallerConfig } from "../api/installer";
+import { t } from "../i18n/config";
+import { formatNumber } from "../lib/format";
 
 export type Offer = { kind: "download"; installer: Installer } | { kind: "unsupported"; system: string } | { kind: "none" };
 
 function systemOf(userAgent: string): string | null {
-  if (/Android/i.test(userAgent)) return "Android";
-  if (/iPhone|iPad|iPod/i.test(userAgent)) return "iOS";
+  if (/Android/i.test(userAgent)) return t("download.system.Android");
+  if (/iPhone|iPad|iPod/i.test(userAgent)) return t("download.system.iOS");
   if (/Windows/i.test(userAgent)) return null;
-  if (/Macintosh|Mac OS X/i.test(userAgent)) return "macOS";
-  if (/Linux|X11/i.test(userAgent)) return "Linux";
-  return "this system";
+  if (/Macintosh|Mac OS X/i.test(userAgent)) return t("download.system.macOS");
+  if (/Linux|X11/i.test(userAgent)) return t("download.system.Linux");
+  return t("download.system.other");
 }
 
 /** The desktop app is Windows only for now; everyone else is told so instead of being offered a file that will not run. */
@@ -26,7 +28,7 @@ export function formatBytes(bytes: number): string {
   for (const [size, unit] of units) {
     if (bytes >= size) {
       const value = bytes / size;
-      return `${unit === "MB" ? Math.round(value) : Number(value.toFixed(1))} ${unit}`;
+      return `${unit === "MB" ? formatNumber(Math.round(value), { maximumFractionDigits: 0 }) : formatNumber(Number(value.toFixed(1)), { maximumFractionDigits: 1 })} ${unit}`;
     }
   }
   return `${bytes} B`;

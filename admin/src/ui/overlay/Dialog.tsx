@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/cn";
 import { Button } from "../Button";
 
@@ -28,6 +29,7 @@ const FIRST_FIELD = "[data-autofocus], input:not([type=hidden]), select, textare
  * return of focus to the trigger, with no injected styles. Content is mounted only while open, so forms start fresh.
  */
 export function Dialog({ open, onOpenChange, title, description, children, role = "dialog", side = "center", hideTitle = false, bare = false, dismissOnBackdrop = true, className }: DialogProps) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -67,7 +69,7 @@ export function Dialog({ open, onOpenChange, title, description, children, role 
               {description && <p id={descriptionId} className="text-body text-muted">{description}</p>}
             </div>
             {role === "dialog" && (
-              <Button variant="ghost" size="icon" aria-label="Close" onClick={() => onOpenChange(false)} className="-mr-2 -mt-2">
+              <Button variant="ghost" size="icon" aria-label={t("ui.dialog.close")} onClick={() => onOpenChange(false)} className="-mr-2 -mt-2">
                 <X aria-hidden="true" className="size-5" />
               </Button>
             )}
@@ -95,7 +97,8 @@ interface AlertDialogProps {
 }
 
 /** For destructive or irreversible actions: it starts on the safe choice and is only closed by an explicit answer or Escape. */
-export function AlertDialog({ open, onOpenChange, title, description, confirmLabel = "Confirm", cancelLabel = "Cancel", destructive = false, onConfirm }: AlertDialogProps) {
+export function AlertDialog({ open, onOpenChange, title, description, confirmLabel, cancelLabel, destructive = false, onConfirm }: AlertDialogProps) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   async function confirm() {
     setBusy(true);
@@ -109,8 +112,8 @@ export function AlertDialog({ open, onOpenChange, title, description, confirmLab
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={title} description={description} role="alertdialog" dismissOnBackdrop={false}>
       <div className="flex justify-end gap-3">
-        <Button variant="outline" data-autofocus onClick={() => onOpenChange(false)}>{cancelLabel}</Button>
-        <Button variant={destructive ? "destructive" : "default"} loading={busy} onClick={() => void confirm()}>{confirmLabel}</Button>
+        <Button variant="outline" data-autofocus onClick={() => onOpenChange(false)}>{cancelLabel ?? t("ui.dialog.cancel")}</Button>
+        <Button variant={destructive ? "destructive" : "default"} loading={busy} onClick={() => void confirm()}>{confirmLabel ?? t("ui.dialog.confirm")}</Button>
       </div>
     </Dialog>
   );

@@ -1,4 +1,5 @@
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import type { BrandTheme } from "../brand/theme";
 import { cn } from "../lib/cn";
@@ -22,6 +23,7 @@ const isCurrent = (pathname: string, to: string, siblings: NavEntry[]) =>
  * with aria-current. Labels stay in the accessibility tree when the sidebar collapses to icons.
  */
 export function SidebarContent({ brand, nav, collapsed = false, onToggleCollapsed, onNavigate }: SidebarProps) {
+  const { t } = useTranslation();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   return (
@@ -30,7 +32,7 @@ export function SidebarContent({ brand, nav, collapsed = false, onToggleCollapse
         <img src={brand.assets.markOnDark} alt="" className="h-8 w-auto shrink-0" />
         <span className={cn("truncate font-title text-card font-bold", collapsed && "sr-only")}>{brand.name}</span>
       </header>
-      <nav aria-label="Sections" className="flex-1 overflow-y-auto p-3">
+      <nav aria-label={t("shell.sections")} className="flex-1 overflow-y-auto p-3">
         <ul className="flex flex-col gap-1">
           {nav.map((entry) => {
             const current = isCurrent(pathname, entry.to, nav);
@@ -39,7 +41,7 @@ export function SidebarContent({ brand, nav, collapsed = false, onToggleCollapse
                 <button
                   type="button"
                   aria-current={current ? "page" : undefined}
-                  title={collapsed ? entry.label : undefined}
+                  title={collapsed ? t(entry.labelKey) : undefined}
                   onClick={() => {
                     navigate(entry.to);
                     onNavigate?.();
@@ -51,7 +53,7 @@ export function SidebarContent({ brand, nav, collapsed = false, onToggleCollapse
                   )}
                 >
                   <NavIcon name={entry.icon} className="size-5 shrink-0" />
-                  <span className={cn("truncate", collapsed && "sr-only")}>{entry.label}</span>
+                  <span className={cn("truncate", collapsed && "sr-only")}>{t(entry.labelKey)}</span>
                 </button>
               </li>
             );
@@ -63,11 +65,11 @@ export function SidebarContent({ brand, nav, collapsed = false, onToggleCollapse
           <button
             type="button"
             onClick={onToggleCollapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? t("shell.expandSidebar") : t("shell.collapseSidebar")}
             className={cn("flex h-10 w-full items-center gap-3 rounded-control px-3 text-body text-on-nav outline-focus hover:bg-nav-hover focus-visible:outline-2", collapsed && "justify-center px-0")}
           >
             {collapsed ? <ChevronsRight aria-hidden="true" className="size-5" /> : <ChevronsLeft aria-hidden="true" className="size-5" />}
-            <span className={cn(collapsed && "sr-only")} aria-hidden="true">Collapse</span>
+            <span className={cn(collapsed && "sr-only")} aria-hidden="true">{t("shell.collapse")}</span>
           </button>
         </div>
       )}

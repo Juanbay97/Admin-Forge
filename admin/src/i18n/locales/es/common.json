@@ -1,0 +1,406 @@
+{
+  "language": {
+    "label": "Idioma"
+  },
+  "shell": {
+    "skipToContent": "Ir al contenido",
+    "openNavigation": "Abrir navegación",
+    "navigation": "Navegación",
+    "sections": "Secciones",
+    "searchPages": "Buscar páginas",
+    "search": "Buscar",
+    "signOut": "Cerrar sesión",
+    "accountMenu": "Menú de la cuenta",
+    "expandSidebar": "Expandir la barra lateral",
+    "collapseSidebar": "Contraer la barra lateral",
+    "collapse": "Contraer",
+    "breadcrumb": "Ruta de navegación",
+    "notFoundCrumb": "No encontrado",
+    "commandPalette": "Paleta de comandos",
+    "pages": "Páginas",
+    "goTo": "Ir a…",
+    "noMatchingPage": "No hay ninguna página que coincida.",
+    "companies": "Empresas",
+    "backToHome": "Volver al inicio",
+    "loading": "Cargando…",
+    "accountLoadFailedTitle": "Algo salió mal",
+    "accountLoadFailed": "No se pudo cargar la cuenta. Intentar de nuevo."
+  },
+  "areas": {
+    "platform": "Plataforma",
+    "company": "Empresa",
+    "portal": "Portal"
+  },
+  "nav": {
+    "platform": {
+      "overview": "Resumen",
+      "companies": "Empresas",
+      "keys": "Claves del gateway",
+      "prices": "Precios",
+      "audit": "Registro de auditoría"
+    },
+    "company": {
+      "overview": "Resumen",
+      "members": "Miembros",
+      "gateway": "Gateway",
+      "catalog": "Catálogo",
+      "branding": "Marca",
+      "download": "Descargar Prometheon Forge"
+    },
+    "portal": {
+      "home": "Inicio",
+      "download": "Descargar Prometheon Forge",
+      "usage": "Mi uso"
+    }
+  },
+  "accessDenied": {
+    "title": "Acceso denegado",
+    "message": "Esta consola es para administradores de la organización."
+  },
+  "notFound": {
+    "title": "No encontrado",
+    "message": "No se encontró la página solicitada."
+  },
+  "errors": {
+    "generic": "Algo salió mal. Intentar de nuevo.",
+    "sessionExpired": "La sesión expiró. Iniciar sesión de nuevo para continuar.",
+    "UNAUTHENTICATED": "La sesión expiró. Iniciar sesión de nuevo para continuar.",
+    "MFA_REQUIRED": "Se requiere la verificación en dos pasos.",
+    "MFA_INVALID": "No se aceptó ese código. Revisarlo e intentar de nuevo.",
+    "MFA_LOCKED": "Demasiados intentos. Intentar de nuevo en 15 minutos.",
+    "MFA_ENROLLED": "Esta cuenta ya tiene un segundo factor configurado.",
+    "PLATFORM_DENIED": "Esta cuenta no puede usar la consola de la plataforma.",
+    "COMPANY_CONFLICT": "Ya existe una empresa con este código.",
+    "NO_ACTIVE_MEMBER": "Esta empresa aún no tiene ningún miembro activo. Para publicar se necesita al menos una persona que ya se haya unido.",
+    "KEY_CONFLICT": "Ya existe una clave de gateway con esta etiqueta.",
+    "INVALID_RESPONSE": "El servidor respondió de una forma que esta consola no entiende. Contactar con soporte.",
+    "FORBIDDEN": "No hay acceso a este recurso.",
+    "NOT_FOUND": "No se pudo encontrar.",
+    "REVISION_CONFLICT": "Esto se modificó en otro lugar. Recargar para ver la última versión.",
+    "LAST_ADMIN": "No se puede suspender al último administrador.",
+    "INVALID_REQUEST": "Revisar los datos e intentar de nuevo.",
+    "RATE_LIMITED": "Demasiados intentos. Intentar de nuevo más tarde.",
+    "SERVICE_UNAVAILABLE": "El servicio no está disponible temporalmente. Intentar de nuevo en unos momentos.",
+    "NETWORK": "No se pudo conectar con el servidor.",
+    "idle": "Sesión cerrada por inactividad."
+  },
+  "ui": {
+    "pagination": {
+      "label": "Paginación",
+      "results_one": "{{count}} resultado",
+      "results_other": "{{count}} resultados",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {{page}} de {{pageCount}}"
+    },
+    "copy": {
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copiedToClipboard": "Copiado al portapapeles"
+    },
+    "keyField": {
+      "hint": "Solo escritura: no vuelve a mostrarse una vez guardada.",
+      "replacePlaceholder": "Ingresar una clave nueva para reemplazarla",
+      "savedEnding": "Clave guardada que termina en {{lastFour}}"
+    },
+    "table": {
+      "scrollable": "Tabla desplazable",
+      "loading": "Cargando {{caption}}"
+    },
+    "dialog": {
+      "close": "Cerrar",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar"
+    },
+    "toast": {
+      "notifications": "Notificaciones",
+      "dismiss": "Descartar {{title}}"
+    }
+  },
+  "actions": {
+    "tryAgain": "Intentar de nuevo",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "edit": "Editar",
+    "remove": "Quitar",
+    "add": "Agregar",
+    "back": "Atrás",
+    "continue": "Continuar",
+    "refresh": "Actualizar"
+  },
+  "charts": {
+    "noData": "Sin datos",
+    "loading": "Cargando {{title}}",
+    "legend": "Leyenda",
+    "dataCaption": "Datos de {{title}}",
+    "other": "Otros",
+    "total": "total",
+    "columns": {
+      "item": "Elemento",
+      "value": "Valor",
+      "share": "Proporción",
+      "date": "Fecha"
+    },
+    "summary": {
+      "noData": "{{title}}: sin datos",
+      "bars_one": "{{title}}: {{count}} elemento, total {{total}}, principal {{label}} {{value}}",
+      "bars_other": "{{title}}: {{count}} elementos, total {{total}}, principal {{label}} {{value}}",
+      "shares": "{{title}}: {{shares}}",
+      "series": "{{title}}: del {{from}} al {{to}}, total {{total}}, máximo {{peak}} el {{day}}"
+    },
+    "timeSeriesGroup": "Gráfico de {{title}}. Usar las flechas del teclado para inspeccionar cada punto.",
+    "sparkline": "Tendencia de {{label}}, último valor {{value}}",
+    "sparklineNone": "ninguno"
+  },
+  "usage": {
+    "rangeLabel": "Rango de uso",
+    "days": "{{days}} días",
+    "delta": {
+      "new": "Nuevo",
+      "flat": "Sin cambios",
+      "versusPrevious": "respecto al período anterior"
+    }
+  },
+  "time": {
+    "justNow": "justo ahora",
+    "minutesAgo_one": "hace {{count}} minuto",
+    "minutesAgo_other": "hace {{count}} minutos",
+    "hoursAgo_one": "hace {{count}} hora",
+    "hoursAgo_other": "hace {{count}} horas",
+    "yesterday": "ayer",
+    "daysAgo_one": "hace {{count}} día",
+    "daysAgo_other": "hace {{count}} días"
+  },
+  "typedConfirm": {
+    "label": "Escribir {{phrase}} para confirmar"
+  },
+  "roles": {
+    "administrator": "Administrador",
+    "member": "Miembro"
+  },
+  "memberStatus": {
+    "active": "Activo",
+    "suspended": "Suspendido",
+    "invited": "Invitado",
+    "other": "{{status}}"
+  },
+  "branding": {
+    "assets": {
+      "logoLight": "Logotipo para fondos claros",
+      "logoDark": "Logotipo para fondos oscuros",
+      "isotipo": "Isotipo (marca cuadrada)"
+    },
+    "editor": {
+      "productName": "Nombre del producto",
+      "loginMessage": "Mensaje de inicio de sesión",
+      "primaryColor": "Color primario",
+      "accentColor": "Color de acento",
+      "backgroundTint": "Tono de fondo",
+      "pickColor": "Elegir {{color}}",
+      "headingFont": "Fuente de los títulos",
+      "bodyFont": "Fuente del texto",
+      "logos": "Logotipos (PNG o WebP, hasta 256 KB)",
+      "uploaded": "Cargado: {{width}}×{{height}} px. Se publica al guardar.",
+      "published": "El logotipo actual está publicado.",
+      "removeAria": "Quitar {{asset}}"
+    },
+    "colorNames": {
+      "primary": "color primario",
+      "accent": "color de acento",
+      "tint": "tono de fondo"
+    },
+    "issues": {
+      "hex": "Ingresar el {{color}} como color hexadecimal, por ejemplo #0B1D26.",
+      "contrast": "Este {{color}} necesita un contraste de al menos 3:1 con el blanco. Elegir un color más oscuro.",
+      "darkText": "El texto oscuro no se lee bien sobre este tono de fondo. Elegir un tono más claro.",
+      "combination": "Estos colores no pueden formar un tema legible. Probar con un color primario más oscuro o un tono de fondo más claro."
+    },
+    "failure": {
+      "conflict": "Otro administrador cambió la marca. Recargar para ver la última versión; no se sobrescribió nada.",
+      "rateLimited": "Demasiadas solicitudes. Esperar un momento e intentar de nuevo.",
+      "notAvailable": "La marca no está disponible para esta organización."
+    },
+    "preview": {
+      "title": "Vista previa",
+      "intro": "La pantalla de inicio de sesión del cliente y la pestaña del navegador tal como las verán los empleados. No cambia nada hasta que se guarde.",
+      "tabGroup": "Vista previa de la pestaña del navegador",
+      "tab": "Pestaña del navegador",
+      "faviconAlt": "Vista previa del favicon",
+      "logoAlt": "Vista previa del logotipo",
+      "displayName": "El nombre del producto",
+      "light": "Vista previa clara",
+      "dark": "Vista previa oscura",
+      "welcome": "Bienvenido a {{name}}",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "signIn": "Iniciar sesión",
+      "accent": "Acento",
+      "sampleMessage": "Un mensaje de ejemplo en la conversación.",
+      "secondary": "Texto secundario sobre la superficie.",
+      "unavailable": "La vista previa no está disponible hasta que los colores y las fuentes sean válidos y formen un tema legible."
+    }
+  },
+  "catalog": {
+    "publication": {
+      "CURRENT": "Publicado",
+      "UNPUBLISHED": "Sin publicar",
+      "STALE_GATEWAY": "El gateway cambió desde la publicación"
+    },
+    "validation": {
+      "selectOne": "Seleccionar al menos un modelo.",
+      "aliasFormat": "El alias «{{alias}}» debe empezar por una letra y usar solo letras minúsculas, dígitos, «-» y «_».",
+      "aliasRepeated": "El alias «{{alias}}» se usa más de una vez.",
+      "chooseDefault": "Elegir un modelo predeterminado."
+    },
+    "failure": {
+      "conflict": "El catálogo o el gateway cambiaron desde que se actualizaron los modelos. Actualizar los modelos e intentar de nuevo.",
+      "notAllowed": "Uno o más de los modelos seleccionados no están permitidos por la plataforma para esta empresa. Actualizar los modelos y elegir entre los permitidos.",
+      "rejected": "No se aceptó la selección. Actualizar los modelos y revisar los alias.",
+      "refresh": "No se pudo conectar con el gateway. Revisar la configuración del gateway e intentar de nuevo.",
+      "load": "No se pudo cargar el catálogo. Intentar de nuevo.",
+      "publish": "No se pudo publicar el catálogo. Intentar de nuevo."
+    },
+    "platformFailure": {
+      "mfa": "Se requiere la verificación en dos pasos. Verificar la identidad e intentar de nuevo.",
+      "conflict": "El catálogo o las claves cambiaron desde que se descubrieron los modelos. Descubrir los modelos de nuevo y luego publicar.",
+      "noActiveMember": "Esta empresa aún no tiene ningún miembro activo. Para publicar se necesita al menos una persona que ya se haya unido.",
+      "rejected": "No se aceptó la selección. Descubrir los modelos de nuevo y revisar los alias.",
+      "discover": "No se pudo completar el descubrimiento. Intentar de nuevo en unos momentos."
+    },
+    "keyStates": {
+      "ok": {
+        "label": "Accesible"
+      },
+      "unreachable": {
+        "label": "No accesible",
+        "hint": "El gateway no respondió para esta clave. Revisar la clave y su origen y descubrir de nuevo."
+      },
+      "unreadable": {
+        "label": "No se puede leer",
+        "hint": "No se pudo abrir la clave guardada. Rotarla en la pestaña Claves."
+      },
+      "no_key": {
+        "label": "Sin clave guardada",
+        "hint": "Esta clave es un marcador de posición. Rotarla en la pestaña Claves para guardar la clave."
+      },
+      "disabled": {
+        "label": "Deshabilitada",
+        "hint": "Habilitar la clave en la pestaña Claves para usarla."
+      },
+      "inactive": {
+        "label": "Asignada pero inactiva",
+        "hint": "La asignación está desactivada en la pestaña Claves."
+      }
+    }
+  },
+  "members": {
+    "failure": {
+      "lastAdmin": "Este es el último administrador. Convertir a otro miembro en administrador antes de suspender a este.",
+      "gone": "Este miembro ya no está disponible. Recargar la lista.",
+      "assign": "No se pudo cambiar el departamento. Puede que ya no exista; recargar la página e intentar de nuevo.",
+      "invite": "No se pudo enviar la invitación. Revisar el nombre y el correo electrónico e intentar de nuevo.",
+      "load": "No se pudieron cargar los miembros. Intentar de nuevo.",
+      "save": "No se pudo guardar el cambio. Intentar de nuevo."
+    },
+    "table": {
+      "caption": "Miembros de la organización",
+      "loading": "Cargando miembros…",
+      "name": "Nombre",
+      "role": "Rol",
+      "departments": "Departamentos",
+      "status": "Estado",
+      "actions": "Acciones",
+      "changeDepartment": "Cambiar departamento",
+      "changeDepartmentOf": "de {{name}}",
+      "suspend": "Suspender",
+      "reactivate": "Reactivar",
+      "search": "Buscar miembros",
+      "searchPlaceholder": "Nombre o correo electrónico",
+      "department": "Departamento",
+      "allDepartments": "Todos los departamentos",
+      "emptyTitle": "Aún no hay miembros",
+      "emptyHint": "Invitar a las personas que deben usar Forge en la empresa.",
+      "inviteFirst": "Invitar al primer miembro",
+      "noMatchTitle": "Ningún miembro coincide",
+      "noMatchHint": "Probar con otro nombre o correo electrónico."
+    },
+    "invite": {
+      "title": "Invitar a un miembro",
+      "description": "Recibirán un correo con un enlace para activar su cuenta.",
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "department": "Departamento",
+      "submit": "Enviar invitación",
+      "nameRequired": "Ingresar el nombre del miembro.",
+      "nameMax": "Usar como máximo 120 caracteres.",
+      "emailRequired": "Ingresar el correo electrónico del miembro.",
+      "chooseDepartment": "Elegir un departamento."
+    },
+    "assign": {
+      "title": "Cambiar departamento",
+      "description": "Elegir el único departamento al que pertenece {{name}}.",
+      "department": "Departamento",
+      "submit": "Guardar departamento"
+    },
+    "departments": {
+      "exists": "Ya existe un departamento con ese nombre.",
+      "createFailed": "No se pudo crear el departamento. Intentar de nuevo.",
+      "emptyTitle": "Aún no hay departamentos",
+      "emptyHint": "Los departamentos agrupan a las personas; los miembros se invitan a uno de ellos.",
+      "list": "Departamentos",
+      "newDepartment": "Departamento nuevo",
+      "create": "Crear departamento"
+    }
+  },
+  "download": {
+    "title": "Descargar Prometheon Forge",
+    "card": {
+      "description": "Instalar Forge en el computador e iniciar sesión con el código de la empresa.",
+      "descriptionWithCode": "Instalar Forge en el computador e iniciar sesión con el código de la empresa <strong>{{code}}</strong>.",
+      "windowsInstaller": "Instalador para Windows <strong>v{{version}}</strong> <size>({{size}})</size>",
+      "loadError": "No se pudo cargar la información del instalador.",
+      "notPublished": "El instalador aún no está publicado.",
+      "action": "Descargar y configurar"
+    },
+    "panel": {
+      "codeTitle": "El código de la empresa",
+      "codeDescription": "Forge lo lee del nombre del instalador que se descarga aquí. Si alguna vez lo pide, este es el código que se debe ingresar.",
+      "copyCode": "Copiar código",
+      "codeUnavailable": "El código de la empresa no está disponible aquí. Pedirlo al administrador de la empresa.",
+      "stepDownload": "Descargar",
+      "checking": "Buscando el instalador",
+      "loadError": "No se pudo cargar la información del instalador.",
+      "noneTitle": "El instalador aún no está disponible",
+      "noneBody": "El administrador de la empresa avisará cuando esté publicado. El código de la empresa de arriba ya es suyo.",
+      "windowsOnlyTitle": "Solo para Windows por ahora",
+      "windowsOnlyBody": "La aplicación de escritorio de Forge está disponible para Windows. Se está usando {{system}}; abrir esta página en un computador con Windows para descargarla.",
+      "button": "Descargar Prometheon Forge",
+      "released": "Publicado el {{date}}",
+      "preparing": "Preparando la descarga...",
+      "downloadFailed": "No se pudo preparar la descarga. Intentar de nuevo en un momento.",
+      "fileName": "El archivo lleva el nombre de la empresa (<code>Prometheon-Forge-Setup-{{code}}.exe</code>): conservar ese nombre para que Forge sepa a qué empresa se pertenece.",
+      "fileNameFallback": "su-empresa",
+      "sha": "SHA-256 del instalador",
+      "copyHash": "Copiar hash",
+      "shaNote": "Es el mismo para todas las empresas. En PowerShell: <code>Get-FileHash .\\Prometheon-Forge-Setup-{{code}}.exe -Algorithm SHA256</code>",
+      "advanced": "Avanzado",
+      "configButton": "Descargar la configuración (forge-install.json)",
+      "configNote": "Opcional, para instalaciones administradas: contiene el código de la empresa, este servidor y las claves públicas en las que confía la aplicación. No contiene ninguna contraseña ni clave.",
+      "configFailed": "No se pudo preparar la configuración. Intentar de nuevo en un momento.",
+      "stepInstall": "Instalar",
+      "installNote": "Ejecutar el archivo descargado. El instalador aún no está firmado, por lo que Windows SmartScreen puede mostrar una advertencia: elegir <strong>Más información</strong> y luego <strong>Ejecutar de todas formas</strong>.",
+      "stepOpen": "Abrir Forge e iniciar sesión",
+      "openForge": "Abrir Forge",
+      "notOpening": "¿No se abre? Ingresar el código <strong>{{code}}</strong> manualmente en la aplicación.",
+      "enterCode": "Ingresar el código de la empresa en la aplicación cuando lo pida."
+    },
+    "system": {
+      "Android": "Android",
+      "iOS": "iOS",
+      "macOS": "macOS",
+      "Linux": "Linux",
+      "other": "este sistema"
+    },
+    "pageDescription": "Instalar Forge en el computador y conectarlo con {{name}}."
+  }
+}

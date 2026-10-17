@@ -1,31 +1,19 @@
 import { ApiError } from "../api/client";
+import { t } from "../i18n/config";
 
-/** One copy table for every area: the API error code decides the message, never the server's free text. */
-export const ERROR_MESSAGES: Record<string, string> = {
-  UNAUTHENTICATED: "Your session expired. Sign in again to continue.",
-  MFA_REQUIRED: "Two-factor verification is required.",
-  MFA_INVALID: "That code was not accepted. Check it and try again.",
-  MFA_LOCKED: "Too many attempts. Try again in 15 minutes.",
-  MFA_ENROLLED: "A second factor is already set up for this account.",
-  PLATFORM_DENIED: "This account cannot use the platform console.",
-  COMPANY_CONFLICT: "A company with this code already exists.",
-  NO_ACTIVE_MEMBER: "This company has no active member yet. Publishing needs one person who has joined.",
-  KEY_CONFLICT: "A gateway key with this label already exists.",
-  INVALID_RESPONSE: "The server answered in a way this console does not understand. Contact support.",
-  FORBIDDEN: "You do not have access to this.",
-  NOT_FOUND: "That could not be found.",
-  REVISION_CONFLICT: "This was changed elsewhere. Reload to see the latest version.",
-  LAST_ADMIN: "The last administrator cannot be suspended.",
-  INVALID_REQUEST: "Check the details and try again.",
-  RATE_LIMITED: "Too many attempts. Try again later.",
-  SERVICE_UNAVAILABLE: "The service is temporarily unavailable. Try again shortly.",
-  NETWORK: "The server could not be reached.",
-};
+/** The API error codes that have their own copy (the `errors` group of the common catalogue). */
+export const ERROR_CODES = [
+  "UNAUTHENTICATED", "MFA_REQUIRED", "MFA_INVALID", "MFA_LOCKED", "MFA_ENROLLED", "PLATFORM_DENIED", "COMPANY_CONFLICT", "NO_ACTIVE_MEMBER",
+  "KEY_CONFLICT", "INVALID_RESPONSE", "FORBIDDEN", "NOT_FOUND", "REVISION_CONFLICT", "LAST_ADMIN", "INVALID_REQUEST", "RATE_LIMITED",
+  "SERVICE_UNAVAILABLE", "NETWORK",
+] as const;
+type ErrorCode = (typeof ERROR_CODES)[number];
 
-const GENERIC = "Something went wrong. Try again.";
+const known = (code: string): code is ErrorCode => (ERROR_CODES as readonly string[]).includes(code);
 
+/** One copy table for every area, in the active language: the API error code decides the message, never the server's free text. */
 export function errorMessage(error: unknown): string {
-  return (error instanceof ApiError && ERROR_MESSAGES[error.code]) || GENERIC;
+  return error instanceof ApiError && known(error.code) ? t(`errors.${error.code}`) : t("errors.generic");
 }
 
 /** Sign-in or a session step that must be completed with a second factor. */

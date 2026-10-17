@@ -1,17 +1,16 @@
+import { useTranslation } from "react-i18next";
 import type { Branding as BrandingRecord, AssetKind, Draft } from "../brand/branding";
 import { ASSET_KINDS, assetHash, type paletteIssues } from "../brand/branding";
 import { FONT_FAMILIES, FONT_IDS, type FontId } from "../brand/palette";
+import { t as translate } from "../i18n/config";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Input, Textarea } from "../ui/Input";
 import { Label } from "../ui/Label";
 import { Select } from "../ui/Select";
 
-export const ASSET_LABELS: Record<AssetKind, string> = {
-  logoLight: "Logo for light backgrounds",
-  logoDark: "Logo for dark backgrounds",
-  isotipo: "Isotipo (square mark)",
-};
+/** The visible name of each logo slot, in the active language. */
+export const assetLabel = (kind: AssetKind): string => translate(`branding.assets.${kind}`);
 
 export interface Uploaded {
   width: number;
@@ -30,6 +29,7 @@ interface ColorFieldProps {
 }
 
 function ColorField({ label, value, issueKey, issue, onChange }: ColorFieldProps) {
+  const { t } = useTranslation();
   const id = `brand-${label.toLowerCase().replace(/\W+/g, "-")}`;
   const valid = /^#[0-9A-Fa-f]{6}$/.test(value);
   return (
@@ -48,7 +48,7 @@ function ColorField({ label, value, issueKey, issue, onChange }: ColorFieldProps
         />
         <input
           type="color"
-          aria-label={`Pick ${label.toLowerCase()}`}
+          aria-label={t("branding.editor.pickColor", { color: label.toLocaleLowerCase() })}
           value={valid ? value.toLowerCase() : "#000000"}
           onChange={(event) => onChange(event.target.value.toUpperCase())}
           className="h-10 w-12 cursor-pointer rounded-control border border-line-strong bg-surface p-1 outline-focus focus-visible:outline-2 max-sm:min-h-11"
@@ -95,18 +95,19 @@ interface ThemeEditorProps {
 
 /** The fields of a brand theme: name, login message, three colours, two fonts and the three logos. Reusable by the setup wizard. */
 export function ThemeEditor({ draft, issues, saved, uploads, busy, onChange, onUpload, onRemove, logos = true }: ThemeEditorProps) {
+  const { t } = useTranslation();
   return (
     <>
-      <Field label="Product name">
+      <Field label={t("branding.editor.productName")}>
         {(control) => <Input autoComplete="off" value={draft.name} onChange={(event) => onChange("name", event.target.value)} {...control} />}
       </Field>
-      <Field label="Login message">
+      <Field label={t("branding.editor.loginMessage")}>
         {(control) => <Textarea rows={2} value={draft.loginCopy} onChange={(event) => onChange("loginCopy", event.target.value)} {...control} />}
       </Field>
       <div className="flex flex-wrap gap-4">
-        <ColorField label="Primary color" issueKey="primary" issue={issues.primary} value={draft.primary} onChange={(value) => onChange("primary", value)} />
-        <ColorField label="Accent color" issueKey="accent" issue={issues.accent} value={draft.accent} onChange={(value) => onChange("accent", value)} />
-        <ColorField label="Background tint" issueKey="tint" issue={issues.tint} value={draft.tint} onChange={(value) => onChange("tint", value)} />
+        <ColorField label={t("branding.editor.primaryColor")} issueKey="primary" issue={issues.primary} value={draft.primary} onChange={(value) => onChange("primary", value)} />
+        <ColorField label={t("branding.editor.accentColor")} issueKey="accent" issue={issues.accent} value={draft.accent} onChange={(value) => onChange("accent", value)} />
+        <ColorField label={t("branding.editor.backgroundTint")} issueKey="tint" issue={issues.tint} value={draft.tint} onChange={(value) => onChange("tint", value)} />
       </div>
       {issues.combination && (
         <p data-testid="issue-combination" className="text-caption font-medium text-danger">
@@ -114,11 +115,11 @@ export function ThemeEditor({ draft, issues, saved, uploads, busy, onChange, onU
         </p>
       )}
       <div className="flex flex-wrap gap-4">
-        <FontField label="Heading font" value={draft.heading} onChange={(value) => onChange("heading", value)} />
-        <FontField label="Body font" value={draft.body} onChange={(value) => onChange("body", value)} />
+        <FontField label={t("branding.editor.headingFont")} value={draft.heading} onChange={(value) => onChange("heading", value)} />
+        <FontField label={t("branding.editor.bodyFont")} value={draft.body} onChange={(value) => onChange("body", value)} />
       </div>
       {logos && <fieldset className="flex min-w-0 flex-col gap-4">
-        <legend className="mb-1 text-body font-medium text-fg">Logos (PNG or WebP, up to 256 KB)</legend>
+        <legend className="mb-1 text-body font-medium text-fg">{t("branding.editor.logos")}</legend>
         {ASSET_KINDS.map((kind) => {
           const hash = draft.assets[kind];
           const pending = uploads[kind];
@@ -126,7 +127,7 @@ export function ThemeEditor({ draft, issues, saved, uploads, busy, onChange, onU
           const id = `brand-asset-${kind}`;
           return (
             <div key={kind} className="flex flex-col gap-1.5">
-              <Label htmlFor={id}>{ASSET_LABELS[kind]}</Label>
+              <Label htmlFor={id}>{assetLabel(kind)}</Label>
               <input
                 id={id}
                 type="file"
@@ -141,13 +142,13 @@ export function ThemeEditor({ draft, issues, saved, uploads, busy, onChange, onU
               />
               {pending && (
                 <span className="text-caption text-muted">
-                  Uploaded {pending.width}×{pending.height} px. It goes live when you save.
+                  {t("branding.editor.uploaded", { width: pending.width, height: pending.height })}
                 </span>
               )}
-              {!pending && published && <span className="text-caption text-muted">The current logo is published.</span>}
+              {!pending && published && <span className="text-caption text-muted">{t("branding.editor.published")}</span>}
               {hash && (
-                <Button variant="outline" size="sm" aria-label={`Remove ${ASSET_LABELS[kind].toLowerCase()}`} onClick={() => onRemove(kind)} className="self-start">
-                  Remove
+                <Button variant="outline" size="sm" aria-label={t("branding.editor.removeAria", { asset: assetLabel(kind).toLocaleLowerCase() })} onClick={() => onRemove(kind)} className="self-start">
+                  {t("actions.remove")}
                 </Button>
               )}
             </div>

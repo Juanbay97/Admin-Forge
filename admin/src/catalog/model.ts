@@ -1,4 +1,5 @@
 import { ApiError } from "../api/client";
+import { t } from "../i18n/config";
 import type { PublicationState } from "../api/catalog";
 
 export const ALIAS_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/;
@@ -35,23 +36,23 @@ export function effectiveDefault(rows: Row[], preferred: string): string {
 
 export function validateSelection(rows: Row[], defaultUpstream: string): Selection {
   const selected = rows.filter((row) => row.selected);
-  if (selected.length === 0) return { ok: false, problems: ["Select at least one model."] };
+  if (selected.length === 0) return { ok: false, problems: [t("catalog.validation.selectOne")] };
 
   const problems: string[] = [];
   const seen = new Set<string>();
   const repeated = new Set<string>();
   for (const { alias } of selected) {
     if (!ALIAS_PATTERN.test(alias)) {
-      problems.push(`Alias "${alias}" must start with a letter and use only lowercase letters, digits, "-" and "_".`);
+      problems.push(t("catalog.validation.aliasFormat", { alias }));
     }
     if (seen.has(alias) && !repeated.has(alias)) {
       repeated.add(alias);
-      problems.push(`Alias "${alias}" is used more than once.`);
+      problems.push(t("catalog.validation.aliasRepeated", { alias }));
     }
     seen.add(alias);
   }
   const chosen = selected.find((row) => row.upstream === defaultUpstream);
-  if (!chosen) problems.push("Choose a default model.");
+  if (!chosen) problems.push(t("catalog.validation.chooseDefault"));
   if (problems.length > 0 || !chosen) return { ok: false, problems };
   return {
     ok: true,
@@ -60,8 +61,7 @@ export function validateSelection(rows: Row[], defaultUpstream: string): Selecti
   };
 }
 
-export const publicationLabel = (state: PublicationState) =>
-  ({ CURRENT: "Published", UNPUBLISHED: "Not published", STALE_GATEWAY: "Gateway changed since publishing" })[state];
+export const publicationLabel = (state: PublicationState) => t(`catalog.publication.${state}`);
 
 export type CatalogAction = "load" | "refresh" | "publish";
 
@@ -69,14 +69,14 @@ export type CatalogAction = "load" | "refresh" | "publish";
 export function describeCatalogFailure(failure: unknown, action: CatalogAction): string {
   const error = failure instanceof ApiError ? failure : null;
   if (action === "publish" && error?.code === "REVISION_CONFLICT") {
-    return "The catalog or gateway changed since the models were refreshed. Refresh the models and try again.";
+    return t("catalog.failure.conflict");
   }
   if (action === "publish" && error?.code === "MODEL_NOT_ALLOWED") {
-    return "One or more selected models are not allowed by the platform for this company. Refresh the models and choose from the allowed ones.";
+    return t("catalog.failure.notAllowed");
   }
   if (action === "publish" && error?.status === 422) {
-    return "The selection was not accepted. Refresh the models, then check the aliases.";
+    return t("catalog.failure.rejected");
   }
-  if (action === "refresh") return "The gateway could not be reached. Check the gateway settings, then try again.";
-  return action === "load" ? "The catalog could not be loaded. Try again." : "The catalog could not be published. Try again.";
+  if (action === "refresh") return t("catalog.failure.refresh");
+  return action === "load" ? t("catalog.failure.load") : t("catalog.failure.publish");
 }

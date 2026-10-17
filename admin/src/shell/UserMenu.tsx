@@ -1,4 +1,5 @@
 import { LogOut } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/Button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/DropdownMenu";
 import type { Identity } from "./identity";
@@ -7,10 +8,11 @@ const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2)
 
 /** Who is signed in. Sign out also has its own always-visible button in the topbar. */
 export function UserMenu({ identity, onSignOut }: { identity: Identity; onSignOut: () => void }) {
+  const { t } = useTranslation();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Account menu" className="rounded-full bg-action-soft text-on-action-soft">
+        <Button variant="ghost" size="icon" aria-label={t("shell.accountMenu")} className="rounded-full bg-action-soft text-on-action-soft">
           <span aria-hidden="true" className="text-caption font-semibold">{initials(identity.account.display_name)}</span>
         </Button>
       </DropdownMenuTrigger>
@@ -22,7 +24,7 @@ export function UserMenu({ identity, onSignOut }: { identity: Identity; onSignOu
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onSignOut}>
           <LogOut aria-hidden="true" className="size-4" />
-          Sign out
+          {t("shell.signOut")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

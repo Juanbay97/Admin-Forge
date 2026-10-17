@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Department } from "../api/account";
 import type { Member } from "../api/members";
 import { describeFailure } from "../members/model";
@@ -18,6 +19,7 @@ interface Props {
 
 /** Mounted only while open (keyed by member), so every assignment starts on the member's current department. */
 function AssignForm({ member, departments, onSubmit, onClose }: Props & { member: Member }) {
+  const { t } = useTranslation();
   const [choice, setChoice] = useState(member.departments[0]?.id ?? departments[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ function AssignForm({ member, departments, onSubmit, onClose }: Props & { member
         void submit();
       }}
     >
-      <Field label="Department">
+      <Field label={t("members.assign.department")}>
         {(control) => (
           <Select {...control} value={choice} onChange={(event) => setChoice(event.target.value)}>
             {sorted.map((department) => (
@@ -57,10 +59,10 @@ function AssignForm({ member, departments, onSubmit, onClose }: Props & { member
       <FormError message={error} />
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={onClose}>
-          Cancel
+          {t("actions.cancel")}
         </Button>
         <Button type="submit" loading={busy} disabled={!choice}>
-          Save department
+          {t("members.assign.submit")}
         </Button>
       </div>
     </form>
@@ -68,12 +70,13 @@ function AssignForm({ member, departments, onSubmit, onClose }: Props & { member
 }
 
 export function AssignDepartmentDialog({ member, departments, onSubmit, onClose }: Props) {
+  const { t } = useTranslation();
   return (
     <Dialog
       open={member !== null}
       onOpenChange={(next) => !next && onClose()}
-      title="Change department"
-      description={member ? `Choose the one department ${member.display_name} belongs to.` : undefined}
+      title={t("members.assign.title")}
+      description={member ? t("members.assign.description", { name: member.display_name }) : undefined}
     >
       {member && <AssignForm key={member.id} member={member} departments={departments} onSubmit={onSubmit} onClose={onClose} />}
     </Dialog>

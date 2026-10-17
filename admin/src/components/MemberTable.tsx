@@ -1,7 +1,9 @@
 import { Search, SearchX, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Department } from "../api/account";
 import type { Member } from "../api/members";
+import { t as translate } from "../i18n/config";
 import { roleLabel, type PendingInvite } from "../members/model";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -29,11 +31,14 @@ type Row = { key: string; member: Member } | { key: string; invite: PendingInvit
 
 const identity = (row: Row) => ("member" in row ? { name: row.member.display_name, email: row.member.email } : { name: row.invite.name, email: row.invite.email });
 const department_ = (row: Row) => ("member" in row ? row.member.departments.map((item) => item.name).join(", ") : row.invite.departmentName);
-const role = (row: Row) => ("member" in row ? roleLabel(row.member.roles) : "Member");
-const status = (row: Row) => ("member" in row ? (row.member.status === "active" ? "Active" : "Suspended") : "Invited");
-const TONE = { Active: "success", Suspended: "warning", Invited: "info" } as const;
+const role = (row: Row) => ("member" in row ? roleLabel(row.member.roles) : translate("roles.member"));
+/** The state key of a row; the visible word comes from the catalogue. */
+const stateOf = (row: Row) => ("member" in row ? row.member.status : "invited");
+const status = (row: Row) => translate(`memberStatus.${stateOf(row)}`);
+const TONE = { active: "success", suspended: "warning", invited: "info" } as const;
 
 export function MemberTable({ members, pending, busyId, loading = false, onChange, onInvite, departments = [], onAssign }: MemberTableProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [department, setDepartment] = useState("");
   const all: Row[] = useMemo(
@@ -48,7 +53,7 @@ export function MemberTable({ members, pending, busyId, loading = false, onChang
   const columns: Column<Row>[] = [
     {
       id: "name",
-      header: "Name",
+      header: t("members.table.name"),
       sortValue: (row) => identity(row).name,
       cell: (row) => (
         <>
@@ -57,25 +62,25 @@ export function MemberTable({ members, pending, busyId, loading = false, onChang
         </>
       ),
     },
-    { id: "role", header: "Role", sortValue: role, cell: role },
-    { id: "departments", header: "Departments", sortValue: department_, cell: department_ },
+    { id: "role", header: t("members.table.role"), sortValue: role, cell: role },
+    { id: "departments", header: t("members.table.departments"), sortValue: department_, cell: department_ },
     {
       id: "status",
-      header: "Status",
+      header: t("members.table.status"),
       sortValue: status,
-      cell: (row) => <Badge tone={TONE[status(row) as keyof typeof TONE]}>{status(row)}</Badge>,
+      cell: (row) => <Badge tone={TONE[stateOf(row)]}>{status(row)}</Badge>,
     },
     {
       id: "actions",
-      header: "Actions",
+      header: t("members.table.actions"),
       align: "right",
       cell: (row) =>
         "member" in row ? (
           <div className="flex flex-wrap justify-end gap-2">
             {onAssign && departments.length > 0 && (
               <Button variant="outline" size="sm" disabled={busyId === row.member.id} onClick={() => onAssign(row.member)}>
-                Change department
-                <span className="sr-only"> of {row.member.display_name}</span>
+                {t("members.table.changeDepartment")}
+                <span className="sr-only"> {t("members.table.changeDepartmentOf", { name: row.member.display_name })}</span>
               </Button>
             )}
             <Button
@@ -84,7 +89,7 @@ export function MemberTable({ members, pending, busyId, loading = false, onChang
               disabled={busyId === row.member.id}
               onClick={() => onChange(row.member, row.member.status === "active" ? "suspend" : "reactivate")}
             >
-              {row.member.status === "active" ? "Suspend" : "Reactivate"}
+              {row.member.status === "active" ? t("members.table.suspend") : t("members.table.reactivate")}
               <span className="sr-only"> {row.member.display_name}</span>
             </Button>
           </div>
@@ -94,8 +99,8 @@ export function MemberTable({ members, pending, busyId, loading = false, onChang
 
   return (
     <DataTable
-      caption="Organization members"
-      loadingLabel="Loading members…"
+      caption={t("members.table.caption")}
+      loadingLabel={t("members.table.loading")}
       loading={loading}
       columns={columns}
       rows={rows}
@@ -104,19 +109,19 @@ export function MemberTable({ members, pending, busyId, loading = false, onChang
       filter={
         all.length > 0 || loading ? (
           <div className="flex flex-wrap items-end gap-3">
-            <Field label="Search members" className="max-w-sm">
+            <Field label={t("members.table.search")} className="max-w-sm">
               {(control) => (
                 <span className="relative block">
                   <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-                  <Input className="pl-9" placeholder="Name or email" value={query} onChange={(event) => setQuery(event.target.value)} {...control} />
+                  <Input className="pl-9" placeholder={t("members.table.searchPlaceholder")} value={query} onChange={(event) => setQuery(event.target.value)} {...control} />
                 </span>
               )}
             </Field>
             {departments.length > 0 && (
-              <Field label="Department" className="w-48">
+              <Field label={t("members.table.department")} className="w-48">
                 {(control) => (
                   <Select {...control} value={department} onChange={(event) => setDepartment(event.target.value)}>
-                    <option value="">All departments</option>
+                    <option value="">{t("members.table.allDepartments")}</option>
                     {[...departments].sort((a, b) => a.name.localeCompare(b.name)).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
                   </Select>
                 )}
@@ -129,12 +134,12 @@ export function MemberTable({ members, pending, busyId, loading = false, onChang
         all.length === 0 ? (
           <EmptyState
             icon={UserPlus}
-            title="No members yet"
-            hint="Invite the people who should use Forge in your company."
-            action={<Button onClick={onInvite}>Invite your first member</Button>}
+            title={t("members.table.emptyTitle")}
+            hint={t("members.table.emptyHint")}
+            action={<Button onClick={onInvite}>{t("members.table.inviteFirst")}</Button>}
           />
         ) : (
-          <EmptyState icon={SearchX} title="No members match" hint="Try a different name or email address." />
+          <EmptyState icon={SearchX} title={t("members.table.noMatchTitle")} hint={t("members.table.noMatchHint")} />
         )
       }
     />

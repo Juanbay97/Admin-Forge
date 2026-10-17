@@ -1,4 +1,5 @@
 import { Lock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Field } from "./Field";
 import { Input } from "./Input";
 
@@ -18,9 +19,10 @@ interface KeyFieldProps {
  * Browsers are told not to remember or autofill it.
  */
 export function KeyField({ label, value, onValueChange, lastFour, hint, error, required }: KeyFieldProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-2">
-      <Field label={label} hint={hint ?? "Write-only: it is never shown again once saved."} error={error} required={required}>
+      <Field label={label} hint={hint ?? t("ui.keyField.hint")} error={error} required={required}>
         {(control) => (
           <Input
             type="password"
@@ -30,7 +32,7 @@ export function KeyField({ label, value, onValueChange, lastFour, hint, error, r
             required={required}
             value={value}
             onChange={(event) => onValueChange(event.target.value)}
-            placeholder={lastFour ? "Enter a new key to replace it" : undefined}
+            placeholder={lastFour ? t("ui.keyField.replacePlaceholder") : undefined}
             {...control}
           />
         )}
@@ -38,7 +40,7 @@ export function KeyField({ label, value, onValueChange, lastFour, hint, error, r
       {lastFour && (
         <p className="flex items-center gap-1.5 text-caption text-muted">
           <Lock aria-hidden="true" className="size-3.5" />
-          Saved key ending in {lastFour}
+          {t("ui.keyField.savedEnding", { lastFour })}
         </p>
       )}
     </div>

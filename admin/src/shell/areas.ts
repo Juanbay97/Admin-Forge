@@ -1,12 +1,16 @@
 // The area registry: which role areas exist, what each one's navigation is and who may enter it. Eager and tiny; the area
 // code itself is lazy (see router.tsx). Platform, company and portal are all open.
+import type { ParseKeys } from "i18next";
 import type { Identity } from "./identity";
+
+/** A key of the `common` catalogue: labels are resolved when rendered, so they follow the active language. */
+export type LabelKey = ParseKeys<"common">;
 
 export type AreaId = "platform" | "company" | "portal";
 export type IconName = "gauge" | "users" | "plug" | "layers" | "palette" | "shield" | "building" | "download" | "chart" | "home";
 
 export interface NavEntry {
-  label: string;
+  labelKey: LabelKey;
   to: string;
   icon: IconName;
   requires?: (identity: Identity) => boolean;
@@ -15,7 +19,7 @@ export interface NavEntry {
 export interface AreaManifest {
   id: AreaId;
   basePath: `/${AreaId}`;
-  label: string;
+  labelKey: LabelKey;
   /** A disabled area is registered but not navigable: its paths are "not found" for everyone. */
   enabled: boolean;
   requires: (identity: Identity) => boolean;
@@ -28,42 +32,42 @@ export const AREAS: Record<AreaId, AreaManifest> = {
   platform: {
     id: "platform",
     basePath: "/platform",
-    label: "Platform",
+    labelKey: "areas.platform",
     enabled: true,
     requires: (identity) => identity.platform?.role === "platform_owner",
     nav: [
-      { label: "Overview", to: "/platform", icon: "gauge" },
-      { label: "Companies", to: "/platform/companies", icon: "building" },
-      { label: "Gateway keys", to: "/platform/keys", icon: "plug" },
-      { label: "Prices", to: "/platform/prices", icon: "layers" },
-      { label: "Audit log", to: "/platform/audit", icon: "shield" },
+      { labelKey: "nav.platform.overview", to: "/platform", icon: "gauge" },
+      { labelKey: "nav.platform.companies", to: "/platform/companies", icon: "building" },
+      { labelKey: "nav.platform.keys", to: "/platform/keys", icon: "plug" },
+      { labelKey: "nav.platform.prices", to: "/platform/prices", icon: "layers" },
+      { labelKey: "nav.platform.audit", to: "/platform/audit", icon: "shield" },
     ],
   },
   company: {
     id: "company",
     basePath: "/company",
-    label: "Company",
+    labelKey: "areas.company",
     enabled: true,
     requires: (identity) => identity.orgs.some((organization) => organization.roles.includes(ADMIN_ROLE)),
     nav: [
-      { label: "Overview", to: "/company", icon: "gauge" },
-      { label: "Members", to: "/company/members", icon: "users" },
-      { label: "Gateway", to: "/company/gateway", icon: "plug" },
-      { label: "Catalog", to: "/company/catalog", icon: "layers" },
-      { label: "Branding", to: "/company/branding", icon: "palette" },
-      { label: "Download Prometheon Forge", to: "/company/download", icon: "download" },
+      { labelKey: "nav.company.overview", to: "/company", icon: "gauge" },
+      { labelKey: "nav.company.members", to: "/company/members", icon: "users" },
+      { labelKey: "nav.company.gateway", to: "/company/gateway", icon: "plug" },
+      { labelKey: "nav.company.catalog", to: "/company/catalog", icon: "layers" },
+      { labelKey: "nav.company.branding", to: "/company/branding", icon: "palette" },
+      { labelKey: "nav.company.download", to: "/company/download", icon: "download" },
     ],
   },
   portal: {
     id: "portal",
     basePath: "/portal",
-    label: "Portal",
+    labelKey: "areas.portal",
     enabled: true,
     requires: (identity) => identity.orgs.length > 0,
     nav: [
-      { label: "Home", to: "/portal", icon: "home" },
-      { label: "Download Prometheon Forge", to: "/portal/download", icon: "download" },
-      { label: "My usage", to: "/portal/usage", icon: "chart" },
+      { labelKey: "nav.portal.home", to: "/portal", icon: "home" },
+      { labelKey: "nav.portal.download", to: "/portal/download", icon: "download" },
+      { labelKey: "nav.portal.usage", to: "/portal/usage", icon: "chart" },
     ],
   },
 };

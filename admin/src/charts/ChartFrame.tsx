@@ -1,5 +1,6 @@
 import { BarChart3 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/cn";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
@@ -36,7 +37,8 @@ export interface ChartFrameProps {
  * Shared chrome of every chart: sizes the drawing from its container (ResizeObserver), renders the loading, empty and
  * error variants, the legend with markers, and the visually hidden data table that mirrors the drawing for screen readers.
  */
-export function ChartFrame({ id, title, table, legend, loading, empty, emptyMessage = "No data", error, onRetry, className, children }: ChartFrameProps) {
+export function ChartFrame({ id, title, table, legend, loading, empty, emptyMessage, error, onRetry, className, children }: ChartFrameProps) {
+  const { t } = useTranslation();
   const [ref, width] = useElementWidth<HTMLDivElement>();
   const height = Math.min(320, Math.max(MIN_HEIGHT, Math.round(width * 0.4)));
   const state = error ? "error" : loading ? "loading" : empty ? "empty" : "ready";
@@ -45,23 +47,23 @@ export function ChartFrame({ id, title, table, legend, loading, empty, emptyMess
       <figcaption className="font-title text-card font-semibold text-fg">{title}</figcaption>
       <div ref={ref} className="w-full min-w-0">
         {state === "loading" && (
-          <div role="status" aria-label={`Loading ${title}`}>
+          <div role="status" aria-label={t("charts.loading", { title })}>
             <Skeleton className="w-full" style={{ height: MIN_HEIGHT }} />
           </div>
         )}
         {state === "empty" && (
           <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line-strong text-muted" style={{ minHeight: MIN_HEIGHT }}>
             <BarChart3 aria-hidden="true" className="size-6" />
-            <p className="text-body">{emptyMessage}</p>
+            <p className="text-body">{emptyMessage ?? t("charts.noData")}</p>
           </div>
         )}
         {state === "error" && (
-          <Alert tone="destructive" title={error} action={onRetry ? <Button size="sm" variant="outline" onClick={onRetry}>Try again</Button> : undefined} />
+          <Alert tone="destructive" title={error} action={onRetry ? <Button size="sm" variant="outline" onClick={onRetry}>{t("actions.tryAgain")}</Button> : undefined} />
         )}
         {state === "ready" && width > 0 && children({ width, height, compact: width < COMPACT_WIDTH })}
       </div>
       {state === "ready" && legend && legend.length > 0 && (
-        <ul aria-label="Legend" className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-fg">
+        <ul aria-label={t("charts.legend")} className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-fg">
           {legend.map((item) => (
             <li key={item.label} className="inline-flex items-center gap-1.5">
               <span aria-hidden="true" className={cn("size-2.5 rounded-sm", at(BG_CLASS, item.color))} />
@@ -73,7 +75,7 @@ export function ChartFrame({ id, title, table, legend, loading, empty, emptyMess
       )}
       {state === "ready" && (
         <table className="sr-only">
-          <caption>{title} data</caption>
+          <caption>{t("charts.dataCaption", { title })}</caption>
           <thead>
             <tr>{table.columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr>
           </thead>

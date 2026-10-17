@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import { applyBrandIdentity, applyBrandTheme, defaultTheme, themeFromBranding, type BrandTheme } from "../brand/theme";
 import { session } from "../auth/session";
@@ -12,7 +13,7 @@ import { Input } from "../ui/Input";
 import { Skeleton } from "../ui/Skeleton";
 import { readInvitation, scrubFragment } from "./fragment";
 import { joinStateFor, type JoinFailure } from "./joinState";
-import { PasswordForm } from "./PasswordForm";
+import { MIN_PASSWORD, PasswordForm } from "./PasswordForm";
 import { PublicFrame } from "./PublicFrame";
 import { usePublicBranding } from "./usePublicBranding";
 
@@ -20,11 +21,7 @@ import { usePublicBranding } from "./usePublicBranding";
 type Who = { status: "loading" | "asking" | "unusable" } | { status: "known"; email: string };
 const PREVIEW_WAIT_MS = 3000;
 
-const MESSAGES: Record<"throttled" | "unavailable" | "offline", string> = {
-  throttled: "Too many attempts. Wait a few minutes and try again.",
-  unavailable: "Joining is unavailable right now. Try again in a moment.",
-  offline: "The server could not be reached. Check your connection and try again.",
-};
+const MESSAGE_KEYS = { throttled: "join.throttled", unavailable: "join.unavailable", offline: "join.offline" } as const;
 
 /**
  * The page the invitation email lands on: `/admin/join?c=<company code>#invitation_id=…&capability=…`. Signed-out and unauthenticated by
@@ -32,6 +29,7 @@ const MESSAGES: Record<"throttled" | "unavailable" | "offline", string> = {
  * form shows; accepting sets the password, signs in and leads to the download page.
  */
 export function Join() {
+  const { t } = useTranslation("public");
   const services = useServices();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -83,7 +81,7 @@ export function Join() {
 
   if (brand.status === "loading" || who.status === "loading") {
     return (
-      <main role="status" aria-label="Loading your invitation" className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-6 p-4 sm:p-6">
+      <main role="status" aria-label={t("join.loading")} className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-6 p-4 sm:p-6">
         <Skeleton className="h-12 w-48" />
         <Skeleton className="h-72 w-full" />
       </main>
@@ -91,39 +89,39 @@ export function Join() {
   }
   if (token) {
     return (
-      <PublicFrame brand={theme} title="You are already signed in" description="Accept this invitation from a signed-out browser, or continue to your own home.">
+      <PublicFrame brand={theme} title={t("join.signedInTitle")} description={t("join.signedInDescription")}>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={() => void signOut(services)}>Sign out first</Button>
-          <Button onClick={() => navigate("/", { replace: true })}>Continue to my home</Button>
+          <Button variant="outline" onClick={() => void signOut(services)}>{t("join.signOutFirst")}</Button>
+          <Button onClick={() => navigate("/", { replace: true })}>{t("join.continueHome")}</Button>
         </div>
       </PublicFrame>
     );
   }
   if (!link) {
     return (
-      <PublicFrame brand={theme} title="This invitation link is incomplete" description="Open the link from your invitation email exactly as it was sent. If it still does not work, ask your company administrator to invite you again.">
-        <Button variant="outline" onClick={() => navigate("/", { replace: true })}>Go to sign in</Button>
+      <PublicFrame brand={theme} title={t("join.incompleteTitle")} description={t("join.incompleteDescription")}>
+        <Button variant="outline" onClick={() => navigate("/", { replace: true })}>{t("join.goToSignIn")}</Button>
       </PublicFrame>
     );
   }
   if (failure === "invalid") {
     return (
-      <PublicFrame brand={theme} title="This invitation can no longer be used" description="It may have expired, been used already or been withdrawn, or the link may be wrong. Ask your company administrator for a new invitation. If you already set a password, sign in.">
-        <Button onClick={() => navigate("/", { replace: true })}>Go to sign in</Button>
+      <PublicFrame brand={theme} title={t("join.invalidTitle")} description={t("join.invalidDescription")}>
+        <Button onClick={() => navigate("/", { replace: true })}>{t("join.goToSignIn")}</Button>
       </PublicFrame>
     );
   }
   if (failure === "existing_account") {
     return (
-      <PublicFrame brand={theme} title="You already have a Forge account" description="This invitation is for an email that already has an account. Sign in with it. Joining a second company with the same account is not supported yet.">
-        <Button onClick={() => navigate("/", { replace: true })}>Sign in</Button>
+      <PublicFrame brand={theme} title={t("join.existingTitle")} description={t("join.existingDescription")}>
+        <Button onClick={() => navigate("/", { replace: true })}>{t("join.signIn")}</Button>
       </PublicFrame>
     );
   }
   if (ready) {
     return (
-      <PublicFrame brand={theme} title="Your account is ready" description="Sign in with your email and the password you just chose.">
-        <Button onClick={() => navigate("/", { replace: true })}>Sign in</Button>
+      <PublicFrame brand={theme} title={t("join.readyTitle")} description={t("join.readyDescription")}>
+        <Button onClick={() => navigate("/", { replace: true })}>{t("join.signIn")}</Button>
       </PublicFrame>
     );
   }
@@ -132,7 +130,7 @@ export function Join() {
     setFailure(null);
     const typed = who.status === "known" ? who.email : email.trim();
     if (!z.email().safeParse(typed).success) {
-      setEmailError("Enter the email address this invitation was sent to.");
+      setEmailError(t("validation.invitationEmail"));
       return;
     }
     setEmailError(null);
@@ -153,21 +151,21 @@ export function Join() {
   }
 
   return (
-    <PublicFrame brand={theme} title="Create your password" description={loginCopy ?? `Welcome to ${theme.name}. Choose the password you will use to sign in.`}>
+    <PublicFrame brand={theme} title={t("join.title")} description={loginCopy ?? t("join.welcome", { name: theme.name })}>
       <PasswordForm
-        submitLabel="Create password and continue"
-        error={failure === "password" ? "That password is not accepted. Use at least 15 characters." : failure ? MESSAGES[failure] : null}
+        submitLabel={t("join.submit")}
+        error={failure === "password" ? t("join.passwordRejected", { min: MIN_PASSWORD }) : failure ? t(MESSAGE_KEYS[failure]) : null}
         onSubmit={submit}
       >
         {who.status === "known" ? (
-          <p className="text-body text-fg">You are joining as <strong>{who.email}</strong>.</p>
+          <p className="text-body text-fg"><Trans t={t} i18nKey="join.joiningAs" values={{ email: who.email }} components={{ strong: <strong /> }} /></p>
         ) : (
-          <Field label="Your email" hint="The address this invitation was sent to." error={emailError ?? undefined}>
+          <Field label={t("join.yourEmail")} hint={t("join.yourEmailHint")} error={emailError ?? undefined}>
             {(control) => <Input {...control} type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} />}
           </Field>
         )}
       </PasswordForm>
-      {code && <Alert tone="info">Your company code is <strong>{code}</strong>. You will need it in the desktop app.</Alert>}
+      {code && <Alert tone="info"><Trans t={t} i18nKey="join.companyCode" values={{ code }} components={{ strong: <strong /> }} /></Alert>}
     </PublicFrame>
   );
 }

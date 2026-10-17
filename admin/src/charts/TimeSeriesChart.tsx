@@ -1,4 +1,6 @@
+import type { TFunction } from "i18next";
 import { useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/cn";
 import { formatTokens } from "../lib/format";
 import { ChartFrame, type ChartFrameProps } from "./ChartFrame";
@@ -27,22 +29,23 @@ interface TimeSeriesProps extends Shared {
 
 const MARGIN = { left: 48, right: 12, top: 12, bottom: 28 };
 
-function summarize(title: string, series: TimeSeries[], format: (value: number) => string): string {
+function summarize(t: TFunction, title: string, series: TimeSeries[], format: (value: number) => string): string {
   const all = series.flatMap((entry) => entry.points);
-  if (all.length === 0) return `${title}: no data`;
+  if (all.length === 0) return t("charts.summary.noData", { title });
   const times = all.map((point) => point.t);
   const total = all.reduce((sum, point) => sum + point.v, 0);
   const peak = all.reduce((best, point) => (point.v > best.v ? point : best));
-  return `${title}: ${formatTick(Math.min(...times))} to ${formatTick(Math.max(...times))}, total ${format(total)}, peak ${format(peak.v)} on ${formatTick(peak.t)}`;
+  return t("charts.summary.series", { title, from: formatTick(Math.min(...times)), to: formatTick(Math.max(...times)), total: format(total), peak: format(peak.v), day: formatTick(peak.t) });
 }
 
 /** Time series as an area or line chart: nice y ticks, at most six date ticks, a crosshair on hover and with the arrow keys. */
 export function TimeSeriesChart({ series, format = formatTokens, area = true, ...frame }: TimeSeriesProps) {
+  const { t } = useTranslation();
   const [active, setActive] = useState<number | null>(null);
   const lead = series[0]?.points ?? [];
   const times = lead.map((point) => point.t);
   const table = {
-    columns: ["Date", ...series.map((entry) => entry.label)],
+    columns: [t("charts.columns.date"), ...series.map((entry) => entry.label)],
     rows: lead.map((point, index) => [formatTick(point.t), ...series.map((entry) => format(entry.points[index]?.v ?? Number.NaN))]),
   };
   const move = (event: KeyboardEvent) => {
@@ -88,14 +91,14 @@ export function TimeSeriesChart({ series, format = formatTokens, area = true, ..
           <div
             role="group"
             tabIndex={0}
-            aria-label={`${frame.title} chart. Use the arrow keys to inspect each point.`}
+            aria-label={t("charts.timeSeriesGroup", { title: frame.title })}
             onKeyDown={move}
             onBlur={() => setActive(null)}
             className="relative rounded-control outline-focus focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             <svg
               role="img"
-              aria-label={summarize(frame.title, series, format)}
+              aria-label={summarize(t, frame.title, series, format)}
               width={width}
               height={height}
               viewBox={`0 0 ${width} ${height}`}

@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { ApiError } from "../api/client";
 import { defaultTheme } from "../brand/theme";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { readCapability, scrubFragment } from "./fragment";
-import { PasswordForm } from "./PasswordForm";
+import { MIN_PASSWORD, PasswordForm } from "./PasswordForm";
 import { PublicFrame } from "./PublicFrame";
 
 /**
@@ -21,30 +22,31 @@ export function ResetPassword({ consume }: { consume: (capability: string, passw
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { t } = useTranslation("public");
 
   if (!capability) {
     return (
-      <PublicFrame brand={defaultTheme} title="This link cannot be used" description="It is incomplete, expired or was already used. Use Forgot password on the sign-in page to request a new one, or sign in if you already set your password.">
-        <Button onClick={() => navigate("/", { replace: true })}>Go to sign in</Button>
+      <PublicFrame brand={defaultTheme} title={t("reset.invalidTitle")} description={t("reset.invalidDescription")}>
+        <Button onClick={() => navigate("/", { replace: true })}>{t("reset.goToSignIn")}</Button>
       </PublicFrame>
     );
   }
   if (done) {
     return (
-      <PublicFrame brand={defaultTheme} title="Password set" description="You can sign in with your new password now.">
-        <Alert tone="success" title="All done">
-          Your password was saved.
+      <PublicFrame brand={defaultTheme} title={t("reset.doneTitle")} description={t("reset.doneDescription")}>
+        <Alert tone="success" title={t("reset.doneAlertTitle")}>
+          {t("reset.doneAlert")}
         </Alert>
         <Button size="lg" onClick={() => navigate("/", { replace: true })}>
-          Continue to sign in
+          {t("reset.continue")}
         </Button>
       </PublicFrame>
     );
   }
   return (
-    <PublicFrame brand={defaultTheme} title="Set your password" description="Choose the password you will use to sign in.">
+    <PublicFrame brand={defaultTheme} title={t("reset.title")} description={t("reset.description")}>
       <PasswordForm
-        submitLabel="Set password"
+        submitLabel={t("reset.submit")}
         error={error}
         onSubmit={async (password) => {
           setError(null);
@@ -53,7 +55,7 @@ export function ResetPassword({ consume }: { consume: (capability: string, passw
             setDone(true);
           } catch (failure) {
             const status = failure instanceof ApiError ? failure.status : 0;
-            setError(status === 404 ? "This link is no longer valid. Ask for a new one." : status === 422 ? "That password is not accepted. Use at least 15 characters." : "Setting the password is unavailable. Try again later.");
+            setError(status === 404 ? t("reset.linkGone") : status === 422 ? t("reset.rejected", { min: MIN_PASSWORD }) : t("reset.unavailable"));
           }
         }}
       />

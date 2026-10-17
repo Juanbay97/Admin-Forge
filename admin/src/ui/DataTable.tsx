@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/cn";
 import { Pagination } from "./Pagination";
 import { Skeleton } from "./Skeleton";
@@ -38,6 +39,7 @@ const SKELETON_ROWS = 5;
 export function DataTable<T>({
   caption, columns, rows, rowKey, loading = false, loadingLabel, empty, filter, pageSize = 10, initialSort = null, scrollClassName,
 }: DataTableProps<T>) {
+  const { t, i18n } = useTranslation();
   const [sort, setSort] = useState<Sort | null>(initialSort);
   const [page, setPage] = useState(1);
   const sorted = useMemo(() => {
@@ -45,13 +47,14 @@ export function DataTable<T>({
     return sort && column?.sortValue ? sortRows(rows, column.sortValue, sort.direction) : rows;
   }, [columns, rows, sort]);
   const view = paginate(sorted, page, pageSize);
+  const loadingText = loadingLabel ?? t("ui.table.loading", { caption: caption.toLocaleLowerCase(i18n.language) });
 
   return (
     <div className="flex flex-col gap-3">
       {filter}
       {loading ? (
-        <div role="status" aria-label={loadingLabel ?? `Loading ${caption.toLowerCase()}`} className="overflow-hidden rounded-card border border-line bg-surface">
-          <span className="sr-only">{loadingLabel ?? `Loading ${caption.toLowerCase()}`}</span>
+        <div role="status" aria-label={loadingText} className="overflow-hidden rounded-card border border-line bg-surface">
+          <span className="sr-only">{loadingText}</span>
           <Skeleton className="h-11 rounded-none" />
           {Array.from({ length: SKELETON_ROWS }, (_, index) => (
             <div key={index} className="flex h-11 items-center gap-4 border-t border-line px-4">
@@ -67,7 +70,7 @@ export function DataTable<T>({
         <>
           <div
             role="region"
-            aria-label="Scrollable table"
+            aria-label={t("ui.table.scrollable")}
             tabIndex={0}
             className={cn("relative overflow-auto rounded-card border border-line bg-surface outline-focus focus-visible:outline-2", scrollClassName)}
           >

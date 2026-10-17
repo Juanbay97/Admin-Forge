@@ -1,4 +1,5 @@
-import { formatTokens } from "../lib/format";
+import { useTranslation } from "react-i18next";
+import { formatNumber, formatTokens } from "../lib/format";
 import { ChartFrame, type ChartFrameProps } from "./ChartFrame";
 import { BG_CLASS, at } from "./series";
 
@@ -10,13 +11,14 @@ type Shared = Pick<ChartFrameProps, "id" | "title" | "loading" | "empty" | "empt
 
 /** Horizontal ranked bars with the value printed on each row; widths are CSSOM percentages, never injected CSS. */
 export function BarChart({ items, format = formatTokens, ...frame }: Shared & { items: BarItem[]; format?: (value: number) => string }) {
+  const { t } = useTranslation();
   const ranked = [...items].sort((a, b) => b.value - a.value);
   const top = Math.max(1, ...ranked.map((item) => item.value));
   const total = ranked.reduce((sum, item) => sum + item.value, 0);
   const peak = ranked[0];
-  const summary = peak ? `${frame.title}: ${ranked.length} items, total ${format(total)}, top ${peak.label} ${format(peak.value)}` : `${frame.title}: no data`;
+  const summary = peak ? t("charts.summary.bars", { title: frame.title, count: ranked.length, total: format(total), label: peak.label, value: format(peak.value) }) : t("charts.summary.noData", { title: frame.title });
   return (
-    <ChartFrame {...frame} empty={frame.empty || ranked.length === 0} table={{ columns: ["Item", "Value"], rows: ranked.map((item) => [item.label, item.value.toLocaleString("en-US")]) }}>
+    <ChartFrame {...frame} empty={frame.empty || ranked.length === 0} table={{ columns: [t("charts.columns.item"), t("charts.columns.value")], rows: ranked.map((item) => [item.label, formatNumber(item.value)]) }}>
       {() => (
         <div role="img" aria-label={summary} className="flex flex-col gap-2">
           {ranked.map((item) => (

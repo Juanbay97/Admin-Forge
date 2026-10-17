@@ -1,3 +1,5 @@
+import { formatDayLabel } from "../lib/format";
+
 // Pure axis helpers. Nothing here throws: flat, empty or non-finite input yields a usable axis.
 const STEPS = [1, 2, 5];
 
@@ -30,22 +32,21 @@ export function niceTicks(min: number, max: number, count = 5): number[] {
 
 const DAY = 86_400_000;
 const DAY_STEPS = [1, 2, 3, 5, 7, 14, 30, 60, 90, 180, 365];
-const TICK_LABEL = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 export interface TimeTick {
   t: number;
   label: string;
 }
 
-/** Whole-day ticks from `start`, every N days with the smallest N that fits `maxTicks`; labels are UTC ("Oct 1"). */
+/** Whole-day ticks from `start`, every N days with the smallest N that fits `maxTicks`; labels are UTC and in the active language ("Oct 1" / "1 oct"). */
 export function timeTicks(start: number, end: number, maxTicks: number): TimeTick[] {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return [];
   const span = (end - start) / DAY;
   const budget = Math.max(1, Math.floor(maxTicks));
   const step = DAY_STEPS.find((days) => Math.floor(span / days) + 1 <= budget) ?? DAY_STEPS[DAY_STEPS.length - 1]!;
   const ticks: TimeTick[] = [];
-  for (let t = start; t <= end; t += step * DAY) ticks.push({ t, label: TICK_LABEL.format(t) });
+  for (let t = start; t <= end; t += step * DAY) ticks.push({ t, label: formatDayLabel(t) });
   return ticks;
 }
 
-export const formatTick = (t: number): string => TICK_LABEL.format(t);
+export const formatTick = (t: number): string => formatDayLabel(t);

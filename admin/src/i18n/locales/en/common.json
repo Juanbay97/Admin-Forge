@@ -1,0 +1,406 @@
+{
+  "language": {
+    "label": "Language"
+  },
+  "shell": {
+    "skipToContent": "Skip to content",
+    "openNavigation": "Open navigation",
+    "navigation": "Navigation",
+    "sections": "Sections",
+    "searchPages": "Search pages",
+    "search": "Search",
+    "signOut": "Sign out",
+    "accountMenu": "Account menu",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "collapse": "Collapse",
+    "breadcrumb": "Breadcrumb",
+    "notFoundCrumb": "Not found",
+    "commandPalette": "Command palette",
+    "pages": "Pages",
+    "goTo": "Go to…",
+    "noMatchingPage": "No matching page.",
+    "companies": "Companies",
+    "backToHome": "Back to home",
+    "loading": "Loading…",
+    "accountLoadFailedTitle": "Something went wrong",
+    "accountLoadFailed": "Your account could not be loaded. Try again."
+  },
+  "areas": {
+    "platform": "Platform",
+    "company": "Company",
+    "portal": "Portal"
+  },
+  "nav": {
+    "platform": {
+      "overview": "Overview",
+      "companies": "Companies",
+      "keys": "Gateway keys",
+      "prices": "Prices",
+      "audit": "Audit log"
+    },
+    "company": {
+      "overview": "Overview",
+      "members": "Members",
+      "gateway": "Gateway",
+      "catalog": "Catalog",
+      "branding": "Branding",
+      "download": "Download Prometheon Forge"
+    },
+    "portal": {
+      "home": "Home",
+      "download": "Download Prometheon Forge",
+      "usage": "My usage"
+    }
+  },
+  "accessDenied": {
+    "title": "Access denied",
+    "message": "This console is for organization administrators."
+  },
+  "notFound": {
+    "title": "Not found",
+    "message": "The page you requested could not be found."
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "sessionExpired": "Your session expired. Sign in again to continue.",
+    "UNAUTHENTICATED": "Your session expired. Sign in again to continue.",
+    "MFA_REQUIRED": "Two-factor verification is required.",
+    "MFA_INVALID": "That code was not accepted. Check it and try again.",
+    "MFA_LOCKED": "Too many attempts. Try again in 15 minutes.",
+    "MFA_ENROLLED": "A second factor is already set up for this account.",
+    "PLATFORM_DENIED": "This account cannot use the platform console.",
+    "COMPANY_CONFLICT": "A company with this code already exists.",
+    "NO_ACTIVE_MEMBER": "This company has no active member yet. Publishing needs one person who has joined.",
+    "KEY_CONFLICT": "A gateway key with this label already exists.",
+    "INVALID_RESPONSE": "The server answered in a way this console does not understand. Contact support.",
+    "FORBIDDEN": "You do not have access to this.",
+    "NOT_FOUND": "That could not be found.",
+    "REVISION_CONFLICT": "This was changed elsewhere. Reload to see the latest version.",
+    "LAST_ADMIN": "The last administrator cannot be suspended.",
+    "INVALID_REQUEST": "Check the details and try again.",
+    "RATE_LIMITED": "Too many attempts. Try again later.",
+    "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Try again shortly.",
+    "NETWORK": "The server could not be reached.",
+    "idle": "Signed out for inactivity."
+  },
+  "ui": {
+    "pagination": {
+      "label": "Pagination",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{pageCount}}"
+    },
+    "copy": {
+      "copy": "Copy",
+      "copied": "Copied",
+      "copiedToClipboard": "Copied to clipboard"
+    },
+    "keyField": {
+      "hint": "Write-only: it is never shown again once saved.",
+      "replacePlaceholder": "Enter a new key to replace it",
+      "savedEnding": "Saved key ending in {{lastFour}}"
+    },
+    "table": {
+      "scrollable": "Scrollable table",
+      "loading": "Loading {{caption}}"
+    },
+    "dialog": {
+      "close": "Close",
+      "confirm": "Confirm",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "notifications": "Notifications",
+      "dismiss": "Dismiss {{title}}"
+    }
+  },
+  "actions": {
+    "tryAgain": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "remove": "Remove",
+    "add": "Add",
+    "back": "Back",
+    "continue": "Continue",
+    "refresh": "Refresh"
+  },
+  "charts": {
+    "noData": "No data",
+    "loading": "Loading {{title}}",
+    "legend": "Legend",
+    "dataCaption": "{{title}} data",
+    "other": "Other",
+    "total": "total",
+    "columns": {
+      "item": "Item",
+      "value": "Value",
+      "share": "Share",
+      "date": "Date"
+    },
+    "summary": {
+      "noData": "{{title}}: no data",
+      "bars_one": "{{title}}: {{count}} item, total {{total}}, top {{label}} {{value}}",
+      "bars_other": "{{title}}: {{count}} items, total {{total}}, top {{label}} {{value}}",
+      "shares": "{{title}}: {{shares}}",
+      "series": "{{title}}: {{from}} to {{to}}, total {{total}}, peak {{peak}} on {{day}}"
+    },
+    "timeSeriesGroup": "{{title}} chart. Use the arrow keys to inspect each point.",
+    "sparkline": "{{label}} trend, last value {{value}}",
+    "sparklineNone": "none"
+  },
+  "usage": {
+    "rangeLabel": "Usage range",
+    "days": "{{days}} days",
+    "delta": {
+      "new": "New",
+      "flat": "No change",
+      "versusPrevious": "versus the previous period"
+    }
+  },
+  "time": {
+    "justNow": "just now",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "yesterday": "yesterday",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
+  "typedConfirm": {
+    "label": "Type {{phrase}} to confirm"
+  },
+  "roles": {
+    "administrator": "Administrator",
+    "member": "Member"
+  },
+  "memberStatus": {
+    "active": "Active",
+    "suspended": "Suspended",
+    "invited": "Invited",
+    "other": "{{status}}"
+  },
+  "branding": {
+    "assets": {
+      "logoLight": "Logo for light backgrounds",
+      "logoDark": "Logo for dark backgrounds",
+      "isotipo": "Isotipo (square mark)"
+    },
+    "editor": {
+      "productName": "Product name",
+      "loginMessage": "Login message",
+      "primaryColor": "Primary color",
+      "accentColor": "Accent color",
+      "backgroundTint": "Background tint",
+      "pickColor": "Pick {{color}}",
+      "headingFont": "Heading font",
+      "bodyFont": "Body font",
+      "logos": "Logos (PNG or WebP, up to 256 KB)",
+      "uploaded": "Uploaded {{width}}×{{height}} px. It goes live when you save.",
+      "published": "The current logo is published.",
+      "removeAria": "Remove {{asset}}"
+    },
+    "colorNames": {
+      "primary": "primary color",
+      "accent": "accent color",
+      "tint": "background tint"
+    },
+    "issues": {
+      "hex": "Enter the {{color}} as a hex color, for example #0B1D26.",
+      "contrast": "This {{color}} needs at least 3:1 contrast against white. Choose a darker color.",
+      "darkText": "Dark text is not readable on this background tint. Choose a lighter tint.",
+      "combination": "These colors cannot produce a readable theme. Try a darker primary color or a lighter background tint."
+    },
+    "failure": {
+      "conflict": "The branding was changed by another administrator. Reload to see the latest version; nothing was overwritten.",
+      "rateLimited": "Too many requests. Wait a moment and try again.",
+      "notAvailable": "Branding is not available for this organization."
+    },
+    "preview": {
+      "title": "Preview",
+      "intro": "The client sign-in screen and browser tab as employees will see them. Nothing changes until you save.",
+      "tabGroup": "Browser tab preview",
+      "tab": "Browser tab",
+      "faviconAlt": "Favicon preview",
+      "logoAlt": "Logo preview",
+      "displayName": "Your product name",
+      "light": "Light preview",
+      "dark": "Dark preview",
+      "welcome": "Welcome to {{name}}",
+      "email": "Email address",
+      "password": "Password",
+      "signIn": "Sign in",
+      "accent": "Accent",
+      "sampleMessage": "A sample message in the conversation.",
+      "secondary": "Secondary text on the surface.",
+      "unavailable": "The preview is unavailable until the colors and fonts are valid and form a readable theme."
+    }
+  },
+  "catalog": {
+    "publication": {
+      "CURRENT": "Published",
+      "UNPUBLISHED": "Not published",
+      "STALE_GATEWAY": "Gateway changed since publishing"
+    },
+    "validation": {
+      "selectOne": "Select at least one model.",
+      "aliasFormat": "Alias \"{{alias}}\" must start with a letter and use only lowercase letters, digits, \"-\" and \"_\".",
+      "aliasRepeated": "Alias \"{{alias}}\" is used more than once.",
+      "chooseDefault": "Choose a default model."
+    },
+    "failure": {
+      "conflict": "The catalog or gateway changed since the models were refreshed. Refresh the models and try again.",
+      "notAllowed": "One or more selected models are not allowed by the platform for this company. Refresh the models and choose from the allowed ones.",
+      "rejected": "The selection was not accepted. Refresh the models, then check the aliases.",
+      "refresh": "The gateway could not be reached. Check the gateway settings, then try again.",
+      "load": "The catalog could not be loaded. Try again.",
+      "publish": "The catalog could not be published. Try again."
+    },
+    "platformFailure": {
+      "mfa": "Two-factor verification is required. Verify it is you, then try again.",
+      "conflict": "The catalog or the keys changed since the models were discovered. Discover the models again, then publish.",
+      "noActiveMember": "This company has no active member yet. Publishing needs one person who has joined.",
+      "rejected": "The selection was not accepted. Discover the models again, then check the aliases.",
+      "discover": "Discovery could not be completed. Try again shortly."
+    },
+    "keyStates": {
+      "ok": {
+        "label": "Reachable"
+      },
+      "unreachable": {
+        "label": "Not reachable",
+        "hint": "The gateway did not answer for this key. Check the key and its origin, then discover again."
+      },
+      "unreadable": {
+        "label": "Cannot be read",
+        "hint": "The stored key could not be opened. Rotate it in the Keys tab."
+      },
+      "no_key": {
+        "label": "No key stored",
+        "hint": "This key is a placeholder. Rotate it in the Keys tab to store the key."
+      },
+      "disabled": {
+        "label": "Disabled",
+        "hint": "Enable the key in the Keys tab to use it."
+      },
+      "inactive": {
+        "label": "Assigned but off",
+        "hint": "The assignment is switched off in the Keys tab."
+      }
+    }
+  },
+  "members": {
+    "failure": {
+      "lastAdmin": "This is the last administrator. Make another member an administrator before suspending this one.",
+      "gone": "This member is no longer available. Reload the list.",
+      "assign": "The department could not be changed. It may no longer exist; reload the page and try again.",
+      "invite": "The invitation could not be sent. Check the name and email, then try again.",
+      "load": "The members could not be loaded. Try again.",
+      "save": "The change could not be saved. Try again."
+    },
+    "table": {
+      "caption": "Organization members",
+      "loading": "Loading members…",
+      "name": "Name",
+      "role": "Role",
+      "departments": "Departments",
+      "status": "Status",
+      "actions": "Actions",
+      "changeDepartment": "Change department",
+      "changeDepartmentOf": "of {{name}}",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "search": "Search members",
+      "searchPlaceholder": "Name or email",
+      "department": "Department",
+      "allDepartments": "All departments",
+      "emptyTitle": "No members yet",
+      "emptyHint": "Invite the people who should use Forge in your company.",
+      "inviteFirst": "Invite your first member",
+      "noMatchTitle": "No members match",
+      "noMatchHint": "Try a different name or email address."
+    },
+    "invite": {
+      "title": "Invite a member",
+      "description": "They receive an email with a link to activate their account.",
+      "name": "Name",
+      "email": "Email",
+      "department": "Department",
+      "submit": "Send invitation",
+      "nameRequired": "Enter the member's name.",
+      "nameMax": "Use at most 120 characters.",
+      "emailRequired": "Enter the member's email address.",
+      "chooseDepartment": "Choose a department."
+    },
+    "assign": {
+      "title": "Change department",
+      "description": "Choose the one department {{name}} belongs to.",
+      "department": "Department",
+      "submit": "Save department"
+    },
+    "departments": {
+      "exists": "A department with that name already exists.",
+      "createFailed": "The department could not be created. Try again.",
+      "emptyTitle": "No departments yet",
+      "emptyHint": "Departments group your people; members are invited into one.",
+      "list": "Departments",
+      "newDepartment": "New department",
+      "create": "Create department"
+    }
+  },
+  "download": {
+    "title": "Download Prometheon Forge",
+    "card": {
+      "description": "Install Forge on your computer and sign in with your company code.",
+      "descriptionWithCode": "Install Forge on your computer and sign in with your company code <strong>{{code}}</strong>.",
+      "windowsInstaller": "Windows installer <strong>v{{version}}</strong> <size>({{size}})</size>",
+      "loadError": "The installer information could not be loaded.",
+      "notPublished": "The installer is not published yet.",
+      "action": "Download and set up"
+    },
+    "panel": {
+      "codeTitle": "Your company code",
+      "codeDescription": "Forge reads it from the name of the installer you download here. If it ever asks, this is the code to enter.",
+      "copyCode": "Copy code",
+      "codeUnavailable": "Your company code is not available here. Ask your company administrator for it.",
+      "stepDownload": "Download",
+      "checking": "Checking for the installer",
+      "loadError": "The installer information could not be loaded.",
+      "noneTitle": "The installer is not available yet",
+      "noneBody": "Your company administrator will let you know when it is published. Your company code above is already yours.",
+      "windowsOnlyTitle": "Windows only for now",
+      "windowsOnlyBody": "The Forge desktop app is available for Windows. You are on {{system}}; open this page on a Windows computer to download it.",
+      "button": "Download Prometheon Forge",
+      "released": "Released {{date}}",
+      "preparing": "Preparing your download...",
+      "downloadFailed": "The download could not be prepared. Try again in a moment.",
+      "fileName": "The file is named for your company (<code>Prometheon-Forge-Setup-{{code}}.exe</code>): keep that name and Forge knows which company you belong to.",
+      "fileNameFallback": "your-company",
+      "sha": "SHA-256 of the installer",
+      "copyHash": "Copy hash",
+      "shaNote": "The same for every company. In PowerShell: <code>Get-FileHash .\\Prometheon-Forge-Setup-{{code}}.exe -Algorithm SHA256</code>",
+      "advanced": "Advanced",
+      "configButton": "Download configuration (forge-install.json)",
+      "configNote": "Optional, for managed installs: it carries your company code, this server and the public keys the app trusts. It holds no password or key.",
+      "configFailed": "The configuration could not be prepared. Try again in a moment.",
+      "stepInstall": "Install",
+      "installNote": "Run the file you downloaded. The installer is not code-signed yet, so Windows SmartScreen may warn you: choose <strong>More info</strong>, then <strong>Run anyway</strong>.",
+      "stepOpen": "Open Forge and sign in",
+      "openForge": "Open Forge",
+      "notOpening": "Not opening? Enter code <strong>{{code}}</strong> manually in the app.",
+      "enterCode": "Enter your company code in the app when it asks for it."
+    },
+    "system": {
+      "Android": "Android",
+      "iOS": "iOS",
+      "macOS": "macOS",
+      "Linux": "Linux",
+      "other": "this system"
+    },
+    "pageDescription": "Install Forge on your computer and connect it to {{name}}."
+  }
+}

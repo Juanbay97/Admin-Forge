@@ -1,6 +1,8 @@
 import { LogOut, Menu, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { BrandTheme } from "../brand/theme";
+import { LanguageSwitch } from "../i18n/LanguageSwitch";
 import { cn } from "../lib/cn";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/overlay/Dialog";
@@ -28,6 +30,7 @@ interface AppShellProps {
  * command palette and user menu, and the `<main id="main">` landmark.
  */
 export function AppShell({ area, brand, switcher, commands, children }: AppShellProps) {
+  const { t } = useTranslation();
   const identity = useIdentity();
   const services = useServices();
   const nav = navFor(area, identity);
@@ -58,28 +61,29 @@ export function AppShell({ area, brand, switcher, commands, children }: AppShell
         }}
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-control focus:bg-action focus:px-4 focus:py-2 focus:text-on-action"
       >
-        Skip to content
+        {t("shell.skipToContent")}
       </a>
       <aside className={cn("fixed inset-y-0 left-0 z-30 hidden bg-nav lg:block", collapsed ? "w-16" : "w-64")}>
         <SidebarContent brand={brand} nav={nav} collapsed={collapsed} onToggleCollapsed={() => setCollapsed((value) => !value)} />
       </aside>
       <div className={collapsed ? "lg:pl-16" : "lg:pl-64"}>
         <div role="banner" className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line bg-surface px-3 sm:gap-3 sm:px-6">
-          <Button variant="ghost" size="icon" aria-label="Open navigation" className="lg:hidden" onClick={() => setDrawer(true)}>
+          <Button variant="ghost" size="icon" aria-label={t("shell.openNavigation")} className="lg:hidden" onClick={() => setDrawer(true)}>
             <Menu aria-hidden="true" className="size-5" />
           </Button>
           <Breadcrumbs area={area} />
           <div className="ml-auto flex items-center gap-2">
             {switcher}
-            <Button variant="outline" size="sm" aria-keyshortcuts="Control+K Meta+K" aria-label="Search pages" onClick={() => setPalette(true)} className="px-2.5 sm:px-3">
+            <LanguageSwitch />
+            <Button variant="outline" size="sm" aria-keyshortcuts="Control+K Meta+K" aria-label={t("shell.searchPages")} onClick={() => setPalette(true)} className="px-2.5 sm:px-3">
               <Search aria-hidden="true" className="size-4" />
-              <span className="hidden text-muted md:inline">Search</span>
+              <span className="hidden text-muted md:inline">{t("shell.search")}</span>
               <kbd className="hidden rounded border border-line px-1.5 text-caption text-muted md:inline">Ctrl K</kbd>
             </Button>
             <UserMenu identity={identity} onSignOut={exit} />
-            <Button variant="ghost" size="sm" onClick={exit} aria-label="Sign out">
+            <Button variant="ghost" size="sm" onClick={exit} aria-label={t("shell.signOut")}>
               <LogOut aria-hidden="true" className="size-4" />
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden sm:inline">{t("shell.signOut")}</span>
             </Button>
           </div>
         </div>
@@ -87,7 +91,7 @@ export function AppShell({ area, brand, switcher, commands, children }: AppShell
           {children}
         </main>
       </div>
-      <Sheet open={drawer} onOpenChange={setDrawer} title="Navigation" side="left" hideTitle bare className="bg-nav text-on-nav">
+      <Sheet open={drawer} onOpenChange={setDrawer} title={t("shell.navigation")} side="left" hideTitle bare className="bg-nav text-on-nav">
         <SidebarContent brand={brand} nav={nav} onNavigate={() => setDrawer(false)} />
       </Sheet>
       <CommandPalette open={palette} onOpenChange={setPalette} nav={nav} commands={commands} />

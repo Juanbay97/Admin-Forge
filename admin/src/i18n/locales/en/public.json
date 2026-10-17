@@ -1,0 +1,82 @@
+{
+  "validation": {
+    "emailRequired": "Enter your email address.",
+    "emailInvalid": "Enter a valid email address.",
+    "passwordRequired": "Enter your password.",
+    "passwordMin": "Use at least {{min}} characters.",
+    "passwordMax": "That password is too long.",
+    "passwordMismatch": "The passwords do not match.",
+    "invitationEmail": "Enter the email address this invitation was sent to."
+  },
+  "login": {
+    "administration": "Administration",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "forgot": "Forgot password?",
+    "badCredentials": "Email or password is incorrect.",
+    "throttled": "Too many sign-in attempts. Try again later.",
+    "unavailable": "Sign-in is unavailable. Try again later."
+  },
+  "forgot": {
+    "confirmation": "If an account exists for that address, we sent a link to set a new password. Check your inbox.",
+    "backToSignIn": "Back to sign in",
+    "sentTitle": "Check your inbox",
+    "sentDescription": "The link is single-use and expires soon.",
+    "title": "Forgot your password?",
+    "description": "Enter the email address of your account and we will send you a link to set a new password.",
+    "email": "Email",
+    "submit": "Send reset link"
+  },
+  "reset": {
+    "invalidTitle": "This link cannot be used",
+    "invalidDescription": "It is incomplete, expired or was already used. Use Forgot password on the sign-in page to request a new one, or sign in if you already set your password.",
+    "goToSignIn": "Go to sign in",
+    "doneTitle": "Password set",
+    "doneDescription": "You can sign in with your new password now.",
+    "doneAlertTitle": "All done",
+    "doneAlert": "Your password was saved.",
+    "continue": "Continue to sign in",
+    "title": "Set your password",
+    "description": "Choose the password you will use to sign in.",
+    "submit": "Set password",
+    "linkGone": "This link is no longer valid. Ask for a new one.",
+    "rejected": "That password is not accepted. Use at least {{min}} characters.",
+    "unavailable": "Setting the password is unavailable. Try again later."
+  },
+  "password": {
+    "newPassword": "New password",
+    "confirm": "Confirm password",
+    "hide": "Hide password",
+    "show": "Show password",
+    "minLength": "At least {{min}} characters"
+  },
+  "join": {
+    "loading": "Loading your invitation",
+    "throttled": "Too many attempts. Wait a few minutes and try again.",
+    "unavailable": "Joining is unavailable right now. Try again in a moment.",
+    "offline": "The server could not be reached. Check your connection and try again.",
+    "signedInTitle": "You are already signed in",
+    "signedInDescription": "Accept this invitation from a signed-out browser, or continue to your own home.",
+    "signOutFirst": "Sign out first",
+    "continueHome": "Continue to my home",
+    "incompleteTitle": "This invitation link is incomplete",
+    "incompleteDescription": "Open the link from your invitation email exactly as it was sent. If it still does not work, ask your company administrator to invite you again.",
+    "goToSignIn": "Go to sign in",
+    "invalidTitle": "This invitation can no longer be used",
+    "invalidDescription": "It may have expired, been used already or been withdrawn, or the link may be wrong. Ask your company administrator for a new invitation. If you already set a password, sign in.",
+    "existingTitle": "You already have a Forge account",
+    "existingDescription": "This invitation is for an email that already has an account. Sign in with it. Joining a second company with the same account is not supported yet.",
+    "signIn": "Sign in",
+    "readyTitle": "Your account is ready",
+    "readyDescription": "Sign in with your email and the password you just chose.",
+    "title": "Create your password",
+    "welcome": "Welcome to {{name}}. Choose the password you will use to sign in.",
+    "submit": "Create password and continue",
+    "passwordRejected": "That password is not accepted. Use at least {{min}} characters.",
+    "joiningAs": "You are joining as <strong>{{email}}</strong>.",
+    "yourEmail": "Your email",
+    "yourEmailHint": "The address this invitation was sent to.",
+    "companyCode": "Your company code is <strong>{{code}}</strong>. You will need it in the desktop app."
+  }
+}

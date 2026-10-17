@@ -463,6 +463,9 @@ export const ADMIN_BACKEND: Backend = {
 };
 
 export const test = base.extend<{ adminUrl: string; enforceCsp: boolean; csp: CspWatch }, { origin: string }>({
+  // The admin follows the browser language and most specs assert English copy, so the browser is English whatever the machine's own
+  // locale is. A spec that needs another language says so with `test.use({ locale: "es-ES" })`.
+  locale: "en-US",
   // Every UI test fails on any `securitypolicyviolation` or CSP console error; the gate self-test opts out to prove it fires.
   enforceCsp: [true, { option: true }],
   csp: [

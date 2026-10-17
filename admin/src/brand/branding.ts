@@ -3,6 +3,7 @@
 // throws; nothing here builds CSS or markup from it.
 
 import { ApiError } from "../api/client";
+import { t } from "../i18n/config";
 import { FONT_IDS, contrastOfHex, generatePalette, type FontId, type PaletteInput } from "./palette";
 
 export const ASSET_URL_PREFIX = "/forge/v1/branding/assets/";
@@ -159,27 +160,26 @@ export const draftTheme = (draft: Draft): PaletteInput => ({
 
 export type PaletteIssues = Partial<Record<"primary" | "accent" | "tint" | "combination", string>>;
 
-const COLOR_LABELS = { primary: "primary color", accent: "accent color", tint: "background tint" } as const;
 const DARK_TEXT = "#1A1A1A";
 
 /** What stops the three colors from forming a readable theme, keyed by the field to fix. Empty when readable. */
 export function paletteIssues(draft: Draft): PaletteIssues {
   const issues: PaletteIssues = {};
   for (const key of ["primary", "accent", "tint"] as const) {
-    if (!HEX.test(draft[key])) issues[key] = `Enter the ${COLOR_LABELS[key]} as a hex color, for example #0B1D26.`;
+    if (!HEX.test(draft[key])) issues[key] = t("branding.issues.hex", { color: t(`branding.colorNames.${key}`) });
   }
   if (Object.keys(issues).length > 0) return issues;
   if (generatePalette(draftTheme(draft)) !== null) return issues;
   for (const key of ["primary", "accent"] as const) {
     if (contrastOfHex(draft[key], "#FFFFFF") < 3) {
-      issues[key] = `This ${COLOR_LABELS[key]} needs at least 3:1 contrast against white. Choose a darker color.`;
+      issues[key] = t("branding.issues.contrast", { color: t(`branding.colorNames.${key}`) });
     }
   }
   if (contrastOfHex(DARK_TEXT, draft.tint) < 7) {
-    issues.tint = "Dark text is not readable on this background tint. Choose a lighter tint.";
+    issues.tint = t("branding.issues.darkText");
   }
   if (Object.keys(issues).length === 0) {
-    issues.combination = "These colors cannot produce a readable theme. Try a darker primary color or a lighter background tint.";
+    issues.combination = t("branding.issues.combination");
   }
   return issues;
 }
@@ -200,12 +200,12 @@ const SERVER_AUTHORED = new Set(["INVALID_REQUEST", "PAYLOAD_TOO_LARGE", "UNSUPP
 export function describeBrandingFailure(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "REVISION_CONFLICT") {
-      return "The branding was changed by another administrator. Reload to see the latest version; nothing was overwritten.";
+      return t("branding.failure.conflict");
     }
     if (error.status === 0) return error.message;
-    if (error.status === 429) return "Too many requests. Wait a moment and try again.";
-    if (error.status === 404) return "Branding is not available for this organization.";
+    if (error.status === 429) return t("branding.failure.rateLimited");
+    if (error.status === 404) return t("branding.failure.notAvailable");
     if (SERVER_AUTHORED.has(error.code) && error.status >= 400 && error.status < 500) return error.message;
   }
-  return "Something went wrong. Try again.";
+  return t("errors.generic");
 }

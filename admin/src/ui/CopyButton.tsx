@@ -1,5 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button, type ButtonProps } from "./Button";
 
 interface CopyButtonProps extends Omit<ButtonProps, "onClick" | "children"> {
@@ -9,7 +10,8 @@ interface CopyButtonProps extends Omit<ButtonProps, "onClick" | "children"> {
 }
 
 /** Copies a non-secret value and says so, for sighted users and through a polite status for screen readers. */
-export function CopyButton({ value, label = "Copy", copiedLabel = "Copied", variant = "outline", size = "sm", ...props }: CopyButtonProps) {
+export function CopyButton({ value, label, copiedLabel, variant = "outline", size = "sm", ...props }: CopyButtonProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -25,9 +27,9 @@ export function CopyButton({ value, label = "Copy", copiedLabel = "Copied", vari
         {...props}
       >
         {copied ? <Check aria-hidden="true" className="size-4" /> : <Copy aria-hidden="true" className="size-4" />}
-        {copied ? copiedLabel : label}
+        {copied ? (copiedLabel ?? t("ui.copy.copied")) : (label ?? t("ui.copy.copy"))}
       </Button>
-      <span role="status" className="sr-only">{copied ? "Copied to clipboard" : ""}</span>
+      <span role="status" className="sr-only">{copied ? t("ui.copy.copiedToClipboard") : ""}</span>
     </>
   );
 }

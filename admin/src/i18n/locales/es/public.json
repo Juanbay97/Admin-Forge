@@ -1,0 +1,82 @@
+{
+  "validation": {
+    "emailRequired": "Ingresar el correo electrónico.",
+    "emailInvalid": "Ingresar un correo electrónico válido.",
+    "passwordRequired": "Ingresar la contraseña.",
+    "passwordMin": "Usar al menos {{min}} caracteres.",
+    "passwordMax": "Esa contraseña es demasiado larga.",
+    "passwordMismatch": "Las contraseñas no coinciden.",
+    "invitationEmail": "Ingresar el correo electrónico al que se envió esta invitación."
+  },
+  "login": {
+    "administration": "Administración",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Iniciar sesión",
+    "forgot": "¿Olvidó la contraseña?",
+    "badCredentials": "El correo electrónico o la contraseña no son correctos.",
+    "throttled": "Demasiados intentos de inicio de sesión. Intentar de nuevo más tarde.",
+    "unavailable": "El inicio de sesión no está disponible. Intentar de nuevo más tarde."
+  },
+  "forgot": {
+    "confirmation": "Si existe una cuenta con ese correo, se envió un enlace para definir una contraseña nueva. Revisar la bandeja de entrada.",
+    "backToSignIn": "Volver a iniciar sesión",
+    "sentTitle": "Revisar la bandeja de entrada",
+    "sentDescription": "El enlace es de un solo uso y vence pronto.",
+    "title": "¿Olvidó la contraseña?",
+    "description": "Ingresar el correo electrónico de la cuenta para recibir un enlace con el que definir una contraseña nueva.",
+    "email": "Correo electrónico",
+    "submit": "Enviar enlace de restablecimiento"
+  },
+  "reset": {
+    "invalidTitle": "Este enlace no se puede usar",
+    "invalidDescription": "Está incompleto, venció o ya se usó. Usar «¿Olvidó la contraseña?» en la página de inicio de sesión para pedir uno nuevo, o iniciar sesión si ya definió la contraseña.",
+    "goToSignIn": "Ir a iniciar sesión",
+    "doneTitle": "Contraseña definida",
+    "doneDescription": "Ya se puede iniciar sesión con la contraseña nueva.",
+    "doneAlertTitle": "Todo listo",
+    "doneAlert": "Se guardó la contraseña.",
+    "continue": "Continuar a iniciar sesión",
+    "title": "Definir la contraseña",
+    "description": "Elegir la contraseña que se usará para iniciar sesión.",
+    "submit": "Definir contraseña",
+    "linkGone": "Este enlace ya no es válido. Pedir uno nuevo.",
+    "rejected": "No se acepta esa contraseña. Usar al menos {{min}} caracteres.",
+    "unavailable": "No se puede definir la contraseña en este momento. Intentar de nuevo más tarde."
+  },
+  "password": {
+    "newPassword": "Contraseña nueva",
+    "confirm": "Confirmar contraseña",
+    "hide": "Ocultar contraseña",
+    "show": "Mostrar contraseña",
+    "minLength": "Al menos {{min}} caracteres"
+  },
+  "join": {
+    "loading": "Cargando la invitación",
+    "throttled": "Demasiados intentos. Esperar unos minutos e intentar de nuevo.",
+    "unavailable": "No es posible unirse en este momento. Intentar de nuevo en unos instantes.",
+    "offline": "No se pudo conectar con el servidor. Revisar la conexión e intentar de nuevo.",
+    "signedInTitle": "Ya hay una sesión iniciada",
+    "signedInDescription": "Aceptar esta invitación desde un navegador sin sesión iniciada, o continuar al propio inicio.",
+    "signOutFirst": "Cerrar sesión primero",
+    "continueHome": "Continuar a mi inicio",
+    "incompleteTitle": "El enlace de la invitación está incompleto",
+    "incompleteDescription": "Abrir el enlace del correo de invitación tal como se envió. Si sigue sin funcionar, pedir al administrador de la empresa que envíe otra invitación.",
+    "goToSignIn": "Ir a iniciar sesión",
+    "invalidTitle": "Esta invitación ya no se puede usar",
+    "invalidDescription": "Puede haber vencido, haberse usado ya o haberse retirado, o el enlace puede ser incorrecto. Pedir una invitación nueva al administrador de la empresa. Si ya definió una contraseña, iniciar sesión.",
+    "existingTitle": "Ya existe una cuenta de Forge",
+    "existingDescription": "Esta invitación es para un correo electrónico que ya tiene cuenta. Iniciar sesión con ella. Unirse a una segunda empresa con la misma cuenta aún no es posible.",
+    "signIn": "Iniciar sesión",
+    "readyTitle": "La cuenta está lista",
+    "readyDescription": "Iniciar sesión con el correo electrónico y la contraseña que se acaba de elegir.",
+    "title": "Crear la contraseña",
+    "welcome": "Bienvenido a {{name}}. Elegir la contraseña que se usará para iniciar sesión.",
+    "submit": "Crear contraseña y continuar",
+    "passwordRejected": "No se acepta esa contraseña. Usar al menos {{min}} caracteres.",
+    "joiningAs": "Se une como <strong>{{email}}</strong>.",
+    "yourEmail": "Correo electrónico",
+    "yourEmailHint": "La dirección a la que se envió esta invitación.",
+    "companyCode": "El código de la empresa es <strong>{{code}}</strong>. Se necesitará en la aplicación de escritorio."
+  }
+}

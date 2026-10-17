@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Alert } from "../ui/Alert";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
@@ -21,6 +22,7 @@ interface TypedConfirmProps {
 
 /** For the actions that cannot be taken back lightly: the confirm button stays disabled until the exact phrase is typed. */
 export function TypedConfirm({ open, onOpenChange, title, effect, phrase, confirmLabel, onConfirm, error }: TypedConfirmProps) {
+  const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const matches = typed === phrase;
@@ -41,12 +43,12 @@ export function TypedConfirm({ open, onOpenChange, title, effect, phrase, confir
         }}
       >
         <Alert tone="warning">{effect}</Alert>
-        <Field label={`Type ${phrase} to confirm`}>
+        <Field label={t("typedConfirm.label", { phrase })}>
           {(control) => <Input {...control} value={typed} onChange={(event) => setTyped(event.target.value)} autoComplete="off" spellCheck={false} data-autofocus />}
         </Field>
         {error && <Alert tone="destructive">{error}</Alert>}
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("actions.cancel")}</Button>
           <Button type="submit" variant="destructive" disabled={!matches} loading={busy}>{confirmLabel}</Button>
         </div>
       </form>

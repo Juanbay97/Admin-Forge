@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { AccountApi, Me } from "../../src/api/account";
 import { ApiError } from "../../src/api/client";
 import type { PlatformApi, PlatformMe } from "../../src/api/platform";
-import { ERROR_MESSAGES, errorMessage, needsMfa } from "../../src/shell/errors";
+import { errorMessage, needsMfa } from "../../src/shell/errors";
 import { homeFor, loadIdentity, type Identity } from "../../src/shell/identity";
 
 const org = (id: string, roles: string[]) => ({ id, display_name: id, status: "active" as const, roles, departments: [] });
@@ -72,7 +72,7 @@ test.describe("loadIdentity", () => {
 
 test.describe("error messages", () => {
   test("map a code to its copy and fall back by status", () => {
-    expect(errorMessage(new ApiError(409, "REVISION_CONFLICT", "x"))).toBe(ERROR_MESSAGES.REVISION_CONFLICT);
+    expect(errorMessage(new ApiError(409, "REVISION_CONFLICT", "x"))).toBe("This was changed elsewhere. Reload to see the latest version.");
     expect(errorMessage(new ApiError(0, "NETWORK", "x"))).toBe("The server could not be reached.");
     expect(errorMessage(new ApiError(500, "UNKNOWN", "x"))).toBe("Something went wrong. Try again.");
     expect(errorMessage(new Error("plain"))).toBe("Something went wrong. Try again.");
