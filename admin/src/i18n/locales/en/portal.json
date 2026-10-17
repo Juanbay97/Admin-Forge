@@ -1,1 +1,34 @@
-{}
+{
+  "layout": {
+    "company": "Company",
+    "noCompany": "This account does not belong to a company yet.",
+    "loading": "Loading your company…"
+  },
+  "home": {
+    "welcome": "Welcome, {{name}}",
+    "fallbackName": "there",
+    "partOf": "You are part of {{name}}.",
+    "usageTitle": "Your usage, last 7 days",
+    "onlyYou": "Only you can see this.",
+    "tokensIn_one": "tokens in {{count, number}} request",
+    "tokensIn_other": "tokens in {{count, number}} requests",
+    "loadError": "Your usage could not be loaded.",
+    "notYet": "Usage will appear here once the app is in use.",
+    "seeUsage": "See my usage"
+  },
+  "usage": {
+    "title": "My usage",
+    "description": "What you have used through Forge. Only you can see this.",
+    "notAvailableTitle": "Usage reporting is not available yet",
+    "notAvailableHint": "This Forge server cannot show your personal usage yet. Nothing is wrong with your account.",
+    "emptyTitle": "No usage yet",
+    "emptyHint": "Usage appears here after your first conversation in the Forge app.",
+    "label": "My usage",
+    "tokens": "Tokens",
+    "requests": "Requests",
+    "cost": "Cost",
+    "splitTitle": "Prompt and completion tokens",
+    "prompt": "Prompt",
+    "completion": "Completion"
+  }
+}

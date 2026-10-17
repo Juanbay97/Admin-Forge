@@ -1,1 +1,34 @@
-{}
+{
+  "layout": {
+    "company": "Empresa",
+    "noCompany": "Esta cuenta aún no pertenece a ninguna empresa.",
+    "loading": "Cargando la empresa…"
+  },
+  "home": {
+    "welcome": "Bienvenido, {{name}}",
+    "fallbackName": "usuario",
+    "partOf": "Forma parte de {{name}}.",
+    "usageTitle": "Mi uso, últimos 7 días",
+    "onlyYou": "Solo esta cuenta puede verlo.",
+    "tokensIn_one": "tokens en {{count, number}} solicitud",
+    "tokensIn_other": "tokens en {{count, number}} solicitudes",
+    "loadError": "No se pudo cargar el uso.",
+    "notYet": "El uso aparecerá aquí cuando se use la aplicación.",
+    "seeUsage": "Ver mi uso"
+  },
+  "usage": {
+    "title": "Mi uso",
+    "description": "Lo que se ha usado a través de Forge. Solo esta cuenta puede verlo.",
+    "notAvailableTitle": "El informe de uso aún no está disponible",
+    "notAvailableHint": "Este servidor de Forge aún no puede mostrar el uso personal. No hay ningún problema con la cuenta.",
+    "emptyTitle": "Aún no hay uso",
+    "emptyHint": "El uso aparece aquí después de la primera conversación en la aplicación de Forge.",
+    "label": "Mi uso",
+    "tokens": "Tokens",
+    "requests": "Solicitudes",
+    "cost": "Costo",
+    "splitTitle": "Tokens de entrada y de respuesta",
+    "prompt": "Entrada",
+    "completion": "Respuesta"
+  }
+}
