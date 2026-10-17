@@ -1,1 +1,36 @@
-{}
+{
+  "signIn": "Sign in",
+  "hero": {
+    "title": "A private AI workspace for your whole company.",
+    "text": "You choose the models. You keep the keys. Your team gets one place to work with AI that you manage, measure and control.",
+    "getApp": "Get the app"
+  },
+  "features": {
+    "label": "What you get",
+    "models": {
+      "title": "Your models, your keys",
+      "text": "Connect the gateway and the providers you already trust. Credentials stay on the server, never on a laptop."
+    },
+    "teams": {
+      "title": "One workspace for every team",
+      "text": "People join by invitation, belong to departments and see exactly the models you publish for them."
+    },
+    "usage": {
+      "title": "Usage you can read",
+      "text": "See who uses what and what it costs, per company, model and day, without exporting anything."
+    }
+  },
+  "download": {
+    "title": "Download for Windows",
+    "text": "The desktop app connects to your company workspace. Sign in with the account your administrator created for you.",
+    "checking": "Checking for the installer",
+    "loadError": "The installer information could not be loaded.",
+    "notPublishedTitle": "The installer is not published yet",
+    "notPublishedBody": "Your company administrator will tell you when it is ready. You can already sign in to the web workspace.",
+    "version": "Version {{version}}",
+    "released": "Released {{date}}",
+    "sha": "SHA-256 of the installer",
+    "shaHint": "Check it in PowerShell with Get-FileHash and the SHA256 algorithm before you run the file."
+  },
+  "footer": "Prometheon Forge is built on OpenYak, an open-source project, used under the <license>Apache License 2.0</license>."
+}

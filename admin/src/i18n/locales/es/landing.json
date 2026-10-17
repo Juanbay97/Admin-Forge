@@ -1,1 +1,36 @@
-{}
+{
+  "signIn": "Iniciar sesión",
+  "hero": {
+    "title": "Un espacio de trabajo de IA privado para toda la empresa.",
+    "text": "La empresa elige los modelos y conserva las claves. El equipo tiene un único lugar para trabajar con IA que se administra, se mide y se controla.",
+    "getApp": "Obtener la aplicación"
+  },
+  "features": {
+    "label": "Qué se obtiene",
+    "models": {
+      "title": "Sus modelos, sus claves",
+      "text": "Conectar el gateway y los proveedores en los que ya se confía. Las credenciales permanecen en el servidor, nunca en un portátil."
+    },
+    "teams": {
+      "title": "Un espacio de trabajo para cada equipo",
+      "text": "Las personas se unen por invitación, pertenecen a departamentos y ven exactamente los modelos que se publican para ellas."
+    },
+    "usage": {
+      "title": "Un uso que se puede leer",
+      "text": "Ver quién usa qué y cuánto cuesta, por empresa, modelo y día, sin exportar nada."
+    }
+  },
+  "download": {
+    "title": "Descargar para Windows",
+    "text": "La aplicación de escritorio se conecta con el espacio de trabajo de la empresa. Iniciar sesión con la cuenta que creó el administrador.",
+    "checking": "Buscando el instalador",
+    "loadError": "No se pudo cargar la información del instalador.",
+    "notPublishedTitle": "El instalador aún no está publicado",
+    "notPublishedBody": "El administrador de la empresa avisará cuando esté listo. Ya se puede iniciar sesión en el espacio de trabajo web.",
+    "version": "Versión {{version}}",
+    "released": "Publicado el {{date}}",
+    "sha": "SHA-256 del instalador",
+    "shaHint": "Comprobarlo en PowerShell con Get-FileHash y el algoritmo SHA256 antes de ejecutar el archivo."
+  },
+  "footer": "Prometheon Forge está construido sobre OpenYak, un proyecto de código abierto, usado bajo la <license>licencia Apache 2.0</license>."
+}
