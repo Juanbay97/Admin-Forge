@@ -1,5 +1,6 @@
 import { Building2 } from "lucide-react";
 import { useEffect, useReducer, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { AccountApi, Organization } from "../api/account";
 import { ApiError } from "../api/client";
 import { ADMIN_ROLE } from "../auth/access";
@@ -20,6 +21,7 @@ interface OverviewProps {
 }
 
 export function Overview({ api, organization }: OverviewProps) {
+  const { t } = useTranslation(["company", "common"]);
   const [scope, dispatch] = useReducer(scopeReducer, initialScope);
   const [attempt, setAttempt] = useState(0);
 
@@ -38,29 +40,29 @@ export function Overview({ api, organization }: OverviewProps) {
   const isAdmin = organization.roles.includes(ADMIN_ROLE);
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title={organization.display_name} description="Your company at a glance." />
-      <section aria-label="Summary">
+      <PageHeader title={organization.display_name} description={t("overview.description")} />
+      <section aria-label={t("overview.summary")}>
         <dl className="grid gap-4 sm:grid-cols-3">
-          <Stat label="Departments">{loading ? <Skeleton className="h-6 w-10" /> : scope.departments.length}</Stat>
-          <Stat label="Your role">{isAdmin ? "Administrator" : "Member"}</Stat>
-          <Stat label="Status">
-            <Badge tone="success">{organization.status === "active" ? "Active" : organization.status}</Badge>
+          <Stat label={t("overview.departments")}>{loading ? <Skeleton className="h-6 w-10" /> : scope.departments.length}</Stat>
+          <Stat label={t("overview.role")}>{isAdmin ? t("common:roles.administrator") : t("common:roles.member")}</Stat>
+          <Stat label={t("overview.status")}>
+            <Badge tone="success">{organization.status === "active" ? t("overview.active") : organization.status}</Badge>
           </Stat>
         </dl>
       </section>
       <Card>
         <CardHeader>
-          <CardTitle>Departments</CardTitle>
+          <CardTitle>{t("overview.departments")}</CardTitle>
         </CardHeader>
         <CardContent>
           {scope.status === "error" && (
-            <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => setAttempt((count) => count + 1)}>Try again</Button>}>
-              Something went wrong. Try again.
+            <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => setAttempt((count) => count + 1)}>{t("common:actions.tryAgain")}</Button>}>
+              {t("common:errors.generic")}
             </Alert>
           )}
           {loading && (
             <div role="status">
-              <span className="sr-only">Loading departments…</span>
+              <span className="sr-only">{t("overview.loadingDepartments")}</span>
               <SkeletonText lines={3} />
             </div>
           )}
@@ -75,7 +77,7 @@ export function Overview({ api, organization }: OverviewProps) {
                 ))}
               </ul>
             ) : (
-              <EmptyState icon={Building2} title="No departments yet" hint="Departments group the members of your company; they appear here once they are set up." />
+              <EmptyState icon={Building2} title={t("overview.emptyTitle")} hint={t("overview.emptyHint")} />
             ))}
         </CardContent>
       </Card>

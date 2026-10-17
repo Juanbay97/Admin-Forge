@@ -1,6 +1,7 @@
 import { Activity, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { Organization } from "../../../api/account";
 import { ApiError } from "../../../api/client";
@@ -10,7 +11,7 @@ import { Delta } from "../../../components/usage/Delta";
 import { RangePicker } from "../../../components/usage/RangePicker";
 import { useDays } from "../../../components/usage/useDays";
 import { filterPeople, shareOf, summarize, topPeople, withDepartments, type Person } from "../../../company/people";
-import { formatCostMicros, formatPercent, formatTokens } from "../../../lib/format";
+import { formatCostMicros, formatNumber, formatPercent, formatTokens } from "../../../lib/format";
 import { changeOf, previousWindow, windowFor } from "../../../platform/range";
 import { tokensOf } from "../../../platform/usage";
 import { errorMessage } from "../../../shell/errors";
@@ -27,6 +28,7 @@ import { Stat } from "../../../ui/Stat";
 
 /** What each person used, for the range: the company administrator's view (the server shows administrators only their own company). */
 export function UsageSection({ services, organization }: { services: Services; organization: Organization }) {
+  const { t } = useTranslation(["company", "common"]);
   const orgId = organization.id;
   const [days, setDays] = useDays();
   const current = windowFor(days);
@@ -46,7 +48,7 @@ export function UsageSection({ services, organization }: { services: Services; o
   const columns: Column<Person>[] = [
     {
       id: "person",
-      header: "Person",
+      header: t("dashboard.columns.person"),
       sortValue: (person) => person.name,
       cell: (person) => (
         <span className="flex flex-col py-1">
@@ -55,14 +57,14 @@ export function UsageSection({ services, organization }: { services: Services; o
         </span>
       ),
     },
-    { id: "department", header: "Department", sortValue: (person) => person.department ?? "", cell: (person) => person.department ?? <span className="text-muted">—</span> },
-    { id: "status", header: "Status", sortValue: (person) => person.state, cell: (person) => <Badge tone={person.state === "active" ? "success" : "warning"}>{person.state === "active" ? "Active" : "Suspended"}</Badge> },
-    { id: "requests", header: "Requests", align: "right", sortValue: (person) => person.requests, cell: (person) => person.requests.toLocaleString("en-US") },
-    { id: "tokens", header: "Tokens", align: "right", sortValue: (person) => tokensOf(person), cell: (person) => formatTokens(tokensOf(person)) },
-    { id: "cost", header: "Cost", align: "right", sortValue: (person) => person.cost_micros, cell: (person) => formatCostMicros(person.cost_micros) },
+    { id: "department", header: t("dashboard.columns.department"), sortValue: (person) => person.department ?? "", cell: (person) => person.department ?? <span className="text-muted">—</span> },
+    { id: "status", header: t("dashboard.columns.status"), sortValue: (person) => person.state, cell: (person) => <Badge tone={person.state === "active" ? "success" : "warning"}>{person.state === "active" ? t("common:memberStatus.active") : t("common:memberStatus.suspended")}</Badge> },
+    { id: "requests", header: t("dashboard.columns.requests"), align: "right", sortValue: (person) => person.requests, cell: (person) => formatNumber(person.requests) },
+    { id: "tokens", header: t("dashboard.columns.tokens"), align: "right", sortValue: (person) => tokensOf(person), cell: (person) => formatTokens(tokensOf(person)) },
+    { id: "cost", header: t("dashboard.columns.cost"), align: "right", sortValue: (person) => person.cost_micros, cell: (person) => formatCostMicros(person.cost_micros) },
     {
       id: "share",
-      header: "Share of tokens",
+      header: t("dashboard.columns.share"),
       sortValue: (person) => shareOf(person, totals.tokens),
       cell: (person) => {
         const share = shareOf(person, totals.tokens);
@@ -81,38 +83,38 @@ export function UsageSection({ services, organization }: { services: Services; o
   const departments = organization.departments;
   const nobody = ready && totals.withUsage === 0;
   return (
-    <section aria-label="Usage" className="flex flex-col gap-6">
+    <section aria-label={t("dashboard.title")} className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-title text-section font-semibold text-fg">Usage</h2>
+        <h2 className="font-title text-section font-semibold text-fg">{t("dashboard.title")}</h2>
         <RangePicker days={days} onChange={setDays} />
       </div>
       {now.isError && now.error instanceof ApiError && now.error.status === 404 && (
-        <EmptyState icon={Activity} title="Usage is not available" hint="This server does not report usage for your company yet. Nothing is wrong with your account." />
+        <EmptyState icon={Activity} title={t("dashboard.notAvailableTitle")} hint={t("dashboard.notAvailableHint")} />
       )}
-      {now.isError && !(now.error instanceof ApiError && now.error.status === 404) && <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void now.refetch()}>Try again</Button>}>{errorMessage(now.error)}</Alert>}
-      {now.isPending && <div aria-busy="true"><span className="sr-only">Loading usage…</span><Skeleton className="h-28 w-full" /></div>}
-      {ready && totals.unpriced > 0 && <Alert tone="warning">{totals.unpriced} {totals.unpriced === 1 ? "request" : "requests"} had no model price, so the cost shown does not include {totals.unpriced === 1 ? "it" : "them"}. Your platform operator sets prices.</Alert>}
+      {now.isError && !(now.error instanceof ApiError && now.error.status === 404) && <Alert tone="destructive" action={<Button size="sm" variant="outline" onClick={() => void now.refetch()}>{t("common:actions.tryAgain")}</Button>}>{errorMessage(now.error)}</Alert>}
+      {now.isPending && <div aria-busy="true"><span className="sr-only">{t("dashboard.loading")}</span><Skeleton className="h-28 w-full" /></div>}
+      {ready && totals.unpriced > 0 && <Alert tone="warning">{t("dashboard.unpriced", { count: totals.unpriced })}</Alert>}
       {nobody && (
         <EmptyState
           icon={Activity}
-          title="No usage yet"
-          hint="Usage appears here after your people send their first request. Invite them and point them at the app download."
-          action={<Link to="/company/members" className={buttonVariants({})}>Invite people</Link>}
+          title={t("dashboard.emptyTitle")}
+          hint={t("dashboard.emptyHint")}
+          action={<Link to="/company/members" className={buttonVariants({})}>{t("dashboard.invite")}</Link>}
         />
       )}
       {ready && !nobody && (
         <>
-          <section aria-label="Key figures">
+          <section aria-label={t("dashboard.keyFigures")}>
             <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat label="People using Forge">{totals.withUsage} of {Math.max(totals.people, (roster.data ?? []).length)}</Stat>
-              <Stat label="Tokens"><span className="flex flex-wrap items-center gap-2">{formatTokens(totals.tokens)}{previous.data && <Delta change={changeOf(totals.tokens, earlier.tokens)} />}</span></Stat>
-              <Stat label="Cost"><span className="flex flex-wrap items-center gap-2">{formatCostMicros(totals.cost_micros)}{previous.data && <Delta change={changeOf(totals.cost_micros, earlier.cost_micros)} />}</span></Stat>
-              <Stat label="Requests">{totals.requests.toLocaleString("en-US")}</Stat>
+              <Stat label={t("dashboard.peopleUsing")}>{t("dashboard.peopleOf", { used: totals.withUsage, total: Math.max(totals.people, (roster.data ?? []).length) })}</Stat>
+              <Stat label={t("dashboard.tokens")}><span className="flex flex-wrap items-center gap-2">{formatTokens(totals.tokens)}{previous.data && <Delta change={changeOf(totals.tokens, earlier.tokens)} />}</span></Stat>
+              <Stat label={t("dashboard.cost")}><span className="flex flex-wrap items-center gap-2">{formatCostMicros(totals.cost_micros)}{previous.data && <Delta change={changeOf(totals.cost_micros, earlier.cost_micros)} />}</span></Stat>
+              <Stat label={t("dashboard.requests")}>{formatNumber(totals.requests)}</Stat>
             </dl>
           </section>
-          <BarChart id="top-people" title="Top people by tokens" items={topPeople(people, 5, "tokens").map((person) => ({ label: person.name, value: tokensOf(person) }))} />
+          <BarChart id="top-people" title={t("dashboard.topPeople")} items={topPeople(people, 5, "tokens").map((person) => ({ label: person.name, value: tokensOf(person) }))} />
           <DataTable
-            caption="People"
+            caption={t("dashboard.caption")}
             columns={columns}
             rows={shown}
             rowKey={(person) => person.member_id}
@@ -120,19 +122,19 @@ export function UsageSection({ services, organization }: { services: Services; o
             initialSort={{ id: "cost", direction: "desc" }}
             filter={
               <div className="flex flex-wrap items-end gap-3">
-                <Field label="Search people" className="min-w-0 flex-1 sm:max-w-sm">
+                <Field label={t("dashboard.search")} className="min-w-0 flex-1 sm:max-w-sm">
                   {(control) => (
                     <div className="relative">
                       <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-                      <Input {...control} type="search" value={q} onChange={(event) => setQ(event.target.value)} placeholder="Name or email" className="pl-9" />
+                      <Input {...control} type="search" value={q} onChange={(event) => setQ(event.target.value)} placeholder={t("dashboard.searchPlaceholder")} className="pl-9" />
                     </div>
                   )}
                 </Field>
                 {departments.length > 0 && (
-                  <Field label="Department" className="w-48">
+                  <Field label={t("dashboard.department")} className="w-48">
                     {(control) => (
                       <Select {...control} value={department} onChange={(event) => setDepartment(event.target.value)}>
-                        <option value="">All departments</option>
+                        <option value="">{t("dashboard.allDepartments")}</option>
                         {departments.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
                       </Select>
                     )}
@@ -140,7 +142,7 @@ export function UsageSection({ services, organization }: { services: Services; o
                 )}
               </div>
             }
-            empty={<EmptyState icon={Search} title="No people match" hint="Try another name or clear the department filter." action={<Button variant="outline" onClick={() => { setQ(""); setDepartment(""); }}>Clear filters</Button>} />}
+            empty={<EmptyState icon={Search} title={t("dashboard.noMatchTitle")} hint={t("dashboard.noMatchHint")} action={<Button variant="outline" onClick={() => { setQ(""); setDepartment(""); }}>{t("dashboard.clearFilters")}</Button>} />}
           />
         </>
       )}

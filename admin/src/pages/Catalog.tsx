@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Organization } from "../api/account";
 import type { CatalogApi, CatalogStatus } from "../api/catalog";
 import { ApiError } from "../api/client";
@@ -48,6 +49,7 @@ async function fetchCatalog(catalogApi: CatalogApi, orgId: string): Promise<Load
 }
 
 export function Catalog({ catalogApi, organization, newOperationId = () => crypto.randomUUID() }: CatalogProps) {
+  const { t } = useTranslation(["company", "common"]);
   const orgId = organization.id;
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
@@ -108,7 +110,7 @@ export function Catalog({ catalogApi, organization, newOperationId = () => crypt
         operationId: newOperationId(),
       });
       const count = Object.keys(selection.aliases).length;
-      setNotice(`Published ${count} ${count === 1 ? "alias" : "aliases"}.`);
+      setNotice(t("catalog.published", { count }));
       setLoad(await reload());
     } catch (error) {
       setFailure(describeCatalogFailure(error, "publish"));
@@ -125,10 +127,10 @@ export function Catalog({ catalogApi, organization, newOperationId = () => crypt
   const defaultUpstream = discovery ? effectiveDefault(discovery.rows, discovery.preferredDefault) : "";
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Catalog" description="The models your members can choose, published under aliases." />
+      <PageHeader title={t("catalog.title")} description={t("catalog.description")} />
       {load.status === "loading" && (
         <div role="status" className="flex flex-col gap-4">
-          <span className="sr-only">Loading catalog…</span>
+          <span className="sr-only">{t("catalog.loading")}</span>
           <Skeleton className="h-28" />
           <SkeletonText lines={3} />
         </div>
@@ -138,31 +140,31 @@ export function Catalog({ catalogApi, organization, newOperationId = () => crypt
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Status</CardTitle>
+              <CardTitle>{t("catalog.statusTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              <section aria-label="Catalog status" className="flex flex-col gap-2">
+              <section aria-label={t("catalog.statusLabel")} className="flex flex-col gap-2">
                 <div>
                   <Badge tone={load.catalog.publication_state === "CURRENT" ? "success" : "warning"}>{publicationLabel(load.catalog.publication_state)}</Badge>
                 </div>
-                <p className="text-muted">Catalog revision {load.catalog.catalogue_revision}</p>
-                {load.catalog.default_model && <p>Default model: {load.catalog.default_model}</p>}
+                <p className="text-muted">{t("catalog.revision", { revision: load.catalog.catalogue_revision })}</p>
+                {load.catalog.default_model && <p>{t("catalog.defaultModel", { model: load.catalog.default_model })}</p>}
               </section>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex-row items-start justify-between gap-3">
               <div className="flex flex-col gap-1">
-                <CardTitle>Published aliases</CardTitle>
-                <CardDescription>What members see in the client.</CardDescription>
+                <CardTitle>{t("catalog.publishedTitle")}</CardTitle>
+                <CardDescription>{t("catalog.publishedDescription")}</CardDescription>
               </div>
               <Button loading={busy} onClick={() => void refreshModels()}>
-                Refresh models
+                {t("catalog.refresh")}
               </Button>
             </CardHeader>
             <CardContent>
               {load.aliases.length > 0 ? (
-                <ul aria-label="Published aliases" className="flex flex-wrap gap-2">
+                <ul aria-label={t("catalog.publishedTitle")} className="flex flex-wrap gap-2">
                   {load.aliases.map((alias) => (
                     <li key={alias} className="rounded-full border border-line bg-subtle px-3 py-1 text-body">
                       {alias}
@@ -170,7 +172,7 @@ export function Catalog({ catalogApi, organization, newOperationId = () => crypt
                   ))}
                 </ul>
               ) : (
-                <EmptyState icon={Layers} title="No aliases are published." hint="Refresh the models from your gateway, choose what to publish and publish the catalog." />
+                <EmptyState icon={Layers} title={t("catalog.emptyTitle")} hint={t("catalog.emptyHint")} />
               )}
             </CardContent>
           </Card>
@@ -190,17 +192,17 @@ export function Catalog({ catalogApi, organization, newOperationId = () => crypt
       {discovery && (
         <Card>
           <CardHeader>
-            <CardTitle>Model mapping</CardTitle>
-            <CardDescription>Choose the models to publish, name each alias and pick the default.</CardDescription>
+            <CardTitle>{t("catalog.mappingTitle")}</CardTitle>
+            <CardDescription>{t("catalog.mappingDescription")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <RadioGroup aria-label="Default model" value={defaultUpstream} onValueChange={(upstream) => setDiscovery({ ...discovery, preferredDefault: upstream })}>
+            <RadioGroup aria-label={t("catalog.defaultGroup")} value={defaultUpstream} onValueChange={(upstream) => setDiscovery({ ...discovery, preferredDefault: upstream })}>
               <div className="relative overflow-auto rounded-card border border-line">
                 <table className="w-full border-collapse text-body">
-                  <caption className="sr-only">Model mapping</caption>
+                  <caption className="sr-only">{t("catalog.mappingTitle")}</caption>
                   <thead>
                     <tr>
-                      {["Publish", "Upstream model", "Alias", "Default"].map((heading) => (
+                      {([t("catalog.columns.publish"), t("catalog.columns.upstream"), t("catalog.columns.alias"), t("catalog.columns.default")] as const).map((heading) => (
                         <th key={heading} scope="col" className={`${CELL} h-11 whitespace-nowrap border-b border-line bg-subtle font-semibold`}>
                           {heading}
                         </th>
@@ -211,14 +213,14 @@ export function Catalog({ catalogApi, organization, newOperationId = () => crypt
                     {discovery.rows.map((row) => (
                       <tr key={row.upstream} className="border-t border-line first:border-t-0">
                         <td className={CELL}>
-                          <Checkbox checked={row.selected} onCheckedChange={(checked) => edit(row.upstream, { selected: checked === true })} label={<span className="sr-only">Publish {row.upstream}</span>} />
+                          <Checkbox checked={row.selected} onCheckedChange={(checked) => edit(row.upstream, { selected: checked === true })} label={<span className="sr-only">{t("catalog.publishSr", { id: row.upstream })}</span>} />
                         </td>
                         <td className={`${CELL} font-mono`}>{row.upstream}</td>
                         <td className={CELL}>
-                          <Input aria-label={`Alias for ${row.upstream}`} value={row.alias} disabled={!row.selected} onChange={(event) => edit(row.upstream, { alias: event.target.value })} className="min-w-40" />
+                          <Input aria-label={t("catalog.aliasAria", { id: row.upstream })} value={row.alias} disabled={!row.selected} onChange={(event) => edit(row.upstream, { alias: event.target.value })} className="min-w-40" />
                         </td>
                         <td className={CELL}>
-                          <Radio value={row.upstream} disabled={!row.selected} label={<span className="sr-only">Default: {row.upstream}</span>} />
+                          <Radio value={row.upstream} disabled={!row.selected} label={<span className="sr-only">{t("catalog.defaultSr", { id: row.upstream })}</span>} />
                         </td>
                       </tr>
                     ))}
@@ -228,7 +230,7 @@ export function Catalog({ catalogApi, organization, newOperationId = () => crypt
             </RadioGroup>
             <div>
               <Button loading={busy} onClick={() => void publish()}>
-                Publish catalog
+                {t("catalog.publish")}
               </Button>
             </div>
           </CardContent>

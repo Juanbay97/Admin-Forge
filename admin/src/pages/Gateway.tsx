@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Organization } from "../api/account";
 import { ApiError } from "../api/client";
 import type { Gateway as GatewayState, GatewayApi } from "../api/gateway";
@@ -20,6 +21,7 @@ type Load = { status: "loading" | "not-found" | "error" } | { status: "ready"; g
 
 /** Read-only: the gateway key belongs to the platform; an administrator sees only whether it is usable. */
 export function Gateway({ gatewayApi, organization }: GatewayProps) {
+  const { t } = useTranslation(["company", "common"]);
   const orgId = organization.id;
   const [load, setLoad] = useState<Load>({ status: "loading" });
 
@@ -38,10 +40,10 @@ export function Gateway({ gatewayApi, organization }: GatewayProps) {
 
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Gateway" description="Where Forge sends model requests for your company." />
+      <PageHeader title={t("gateway.title")} description={t("gateway.description")} />
       {load.status === "loading" && (
         <div role="status" className="flex flex-col gap-4">
-          <span className="sr-only">Loading gateway…</span>
+          <span className="sr-only">{t("gateway.loading")}</span>
           <div className="grid gap-4 sm:grid-cols-2">
             <Skeleton className="h-24" />
             <Skeleton className="h-24" />
@@ -52,18 +54,18 @@ export function Gateway({ gatewayApi, organization }: GatewayProps) {
       {load.status === "error" && <Alert tone="destructive">{describeGatewayFailure(null)}</Alert>}
       {load.status === "ready" && (
         <>
-          <section aria-label="Gateway status">
+          <section aria-label={t("gateway.statusLabel")}>
             <dl className="grid gap-4 sm:grid-cols-2">
-              <Stat label="Status">
+              <Stat label={t("gateway.status")}>
                 <Badge tone={load.gateway.status === "NOT_CONFIGURED" ? "warning" : "success"}>{gatewayStateLabel(load.gateway.status)}</Badge>
               </Stat>
-              <Stat label="Usable platform keys">{load.gateway.revision}</Stat>
+              <Stat label={t("gateway.usableKeys")}>{load.gateway.revision}</Stat>
             </dl>
           </section>
           <Card className="max-w-2xl">
             <CardHeader>
-              <CardTitle>Managed by the platform</CardTitle>
-              <CardDescription>The gateway key is managed by the platform. Contact the platform operator to change it.</CardDescription>
+              <CardTitle>{t("gateway.managedTitle")}</CardTitle>
+              <CardDescription>{t("gateway.managedBody")}</CardDescription>
             </CardHeader>
           </Card>
         </>

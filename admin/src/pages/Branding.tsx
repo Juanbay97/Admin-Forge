@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import type { Organization } from "../api/account";
 import type { BrandingApi } from "../api/branding";
 import { ApiError } from "../api/client";
@@ -33,6 +34,7 @@ type CopyState = "idle" | "copied" | "failed";
 
 // The organization's company code: the one thing employees type in the client before they see the branding.
 function CompanyCode({ code }: { code: string }) {
+  const { t } = useTranslation(["company", "common"]);
   const [copy, setCopy] = useState<CopyState>("idle");
   async function copyCode() {
     try {
@@ -43,10 +45,10 @@ function CompanyCode({ code }: { code: string }) {
     }
   }
   return (
-    <Card role="group" aria-label="Company code" className="max-w-2xl">
+    <Card role="group" aria-label={t("branding.codeGroup")} className="max-w-2xl">
       <CardHeader>
-        <h2 className="font-title text-card font-semibold">Company code</h2>
-        <CardDescription>Employees type this code the first time they open the app so it shows your company&apos;s branding.</CardDescription>
+        <h2 className="font-title text-card font-semibold">{t("branding.codeTitle")}</h2>
+        <CardDescription>{t("branding.codeDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -54,11 +56,11 @@ function CompanyCode({ code }: { code: string }) {
             {code}
           </code>
           <Button variant="outline" onClick={() => void copyCode()}>
-            Copy company code
+            {t("branding.copyCode")}
           </Button>
         </div>
-        {copy === "copied" && <Alert tone="success">Company code copied.</Alert>}
-        {copy === "failed" && <Alert tone="destructive">Could not copy the code. Select it and copy it manually.</Alert>}
+        {copy === "copied" && <Alert tone="success">{t("branding.copied")}</Alert>}
+        {copy === "failed" && <Alert tone="destructive">{t("branding.copyFailed")}</Alert>}
       </CardContent>
     </Card>
   );
@@ -68,6 +70,7 @@ function releaseBitmaps(uploads: Uploads) {
 }
 
 export function Branding({ api, organization, branding, onChanged }: BrandingProps) {
+  const { t } = useTranslation(["company", "common"]);
   const orgId = organization.id;
   const [saved, setSaved] = useState(branding);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(branding));
@@ -157,7 +160,7 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
     await run(async () => {
       const next = await api.save(orgId, saved.revision, draftToDocument(draft));
       adopt(next);
-      setNotice(`Branding saved (revision ${next.revision}).`);
+      setNotice(t("branding.saved", { revision: next.revision }));
     });
   }
 
@@ -165,7 +168,7 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
     await run(async () => {
       const next = await api.reset(orgId, saved.revision);
       adopt(next);
-      setNotice(`Branding reset to the Prometheon default (revision ${next.revision}).`);
+      setNotice(t("branding.resetDone", { revision: next.revision }));
     });
   }
 
@@ -177,13 +180,13 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
 
   return (
     <section className="flex flex-col gap-6">
-      <PageHeader title="Branding" description="How Forge looks for your company: name, colors, fonts and logos." />
-      <p className="-mt-3 text-body text-muted">Revision {saved.revision}</p>
+      <PageHeader title={t("branding.title")} description={t("branding.description")} />
+      <p className="-mt-3 text-body text-muted">{t("branding.revision", { revision: saved.revision })}</p>
       {saved.code !== undefined && <CompanyCode code={saved.code} />}
-      <Card role="region" aria-label="Brand editor" className="max-w-2xl">
+      <Card role="region" aria-label={t("branding.editorTitle")} className="max-w-2xl">
         <CardHeader>
-          <CardTitle>Brand editor</CardTitle>
-          <CardDescription>The previews below follow every edit; the app itself changes when you save.</CardDescription>
+          <CardTitle>{t("branding.editorTitle")}</CardTitle>
+          <CardDescription>{t("branding.editorDescription")}</CardDescription>
         </CardHeader>
         <form onSubmit={save} noValidate>
           <CardContent className="flex flex-col gap-4">
@@ -202,14 +205,14 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
           </CardContent>
           <CardFooter className="flex-wrap gap-3">
             <Button type="submit" loading={busy}>
-              Save branding
+              {t("branding.save")}
             </Button>
             <Button variant="outline" disabled={busy} onClick={() => setConfirmingReset(true)}>
-              Reset to default
+              {t("branding.reset")}
             </Button>
             {conflict && (
               <Button variant="outline" disabled={busy} onClick={() => void reload()}>
-                Reload branding
+                {t("branding.reload")}
               </Button>
             )}
           </CardFooter>
@@ -218,9 +221,9 @@ export function Branding({ api, organization, branding, onChanged }: BrandingPro
       <AlertDialog
         open={confirmingReset}
         onOpenChange={setConfirmingReset}
-        title="Reset branding?"
-        description="Reset to the Prometheon default? This publishes a new revision; the history is kept."
-        confirmLabel="Confirm reset"
+        title={t("branding.resetTitle")}
+        description={t("branding.resetDescription")}
+        confirmLabel={t("branding.resetConfirm")}
         destructive
         onConfirm={reset}
       />

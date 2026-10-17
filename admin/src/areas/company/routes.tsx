@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Branding } from "../../pages/Branding";
 import { Catalog } from "../../pages/Catalog";
 import { Gateway } from "../../pages/Gateway";
@@ -37,32 +38,34 @@ export function CatalogRoute() {
 }
 
 export function DownloadRoute() {
+  const { t } = useTranslation();
   const { services, organization, brand } = useCompany();
   return (
     <section key={organization.id} className="flex flex-col gap-6">
-      <PageHeader title="Download Prometheon Forge" description={`Install Forge on your computer and connect it to ${organization.display_name}.`} />
+      <PageHeader title={t("download.title")} description={t("download.pageDescription", { name: organization.display_name })} />
       <DownloadPanel services={services} organization={organization} code={brand.status === "ready" ? (brand.branding.code ?? null) : null} />
     </section>
   );
 }
 
 export function BrandingRoute() {
+  const { t } = useTranslation(["company", "common"]);
   const { services, organization, brand, replaceBranding, reloadBranding } = useCompany();
   if (brand.status === "ready") {
     return <Branding key={organization.id} api={services.branding} organization={organization} branding={brand.branding} onChanged={replaceBranding} />;
   }
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="font-title text-2xl font-bold text-primary">Branding</h1>
+      <h1 className="font-title text-2xl font-bold text-primary">{t("routes.brandingTitle")}</h1>
       <p role="alert" className="font-medium text-red-800">
-        Branding could not be loaded. Try again.
+        {t("routes.brandingLoadError")}
       </p>
       <button
         type="button"
         onClick={reloadBranding}
         className="self-start rounded border border-teal px-4 py-2 text-teal transition-colors hover:bg-teal hover:text-white"
       >
-        Try again
+        {t("common:actions.tryAgain")}
       </button>
     </section>
   );

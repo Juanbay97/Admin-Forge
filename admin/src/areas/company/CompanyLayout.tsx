@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Outlet, useOutletContext } from "react-router";
 import type { Organization } from "../../api/account";
 import type { Services } from "../../api/services";
@@ -28,6 +29,7 @@ export const useCompany = () => useOutletContext<CompanyContext>();
  * several), its branding applied to the shell, and the pages rendered through the router outlet.
  */
 export function CompanyLayout() {
+  const { t } = useTranslation(["company", "common"]);
   const services = useServices();
   const identity = useIdentity();
   const entry = resolveEntry({ account: identity.account, organizations: identity.orgs });
@@ -40,10 +42,10 @@ export function CompanyLayout() {
   const switcher =
     organizations.length > 1 ? (
       <label className="flex items-center gap-2 text-body">
-        <span className="hidden text-muted sm:inline">Organization</span>
-        <span className="sr-only sm:hidden">Organization</span>
+        <span className="hidden text-muted sm:inline">{t("layout.organization")}</span>
+        <span className="sr-only sm:hidden">{t("layout.organization")}</span>
         <Select value={orgId} onChange={(event) => setOrgId(event.target.value)} className="min-w-0 max-w-40 sm:max-w-56">
-          {!selected && <option value="">Select an organization…</option>}
+          {!selected && <option value="">{t("layout.selectOrganization")}</option>}
           {organizations.map((organization) => (
             <option key={organization.id} value={organization.id}>
               {organization.display_name}
@@ -57,9 +59,9 @@ export function CompanyLayout() {
   return (
     <AppShell area={AREAS.company} brand={theme} switcher={switcher}>
       {!selected ? (
-        <p>Select an organization to continue.</p>
+        <p>{t("layout.selectToContinue")}</p>
       ) : brand.status === "loading" ? (
-        <p role="status">Loading branding…</p>
+        <p role="status">{t("layout.loadingBranding")}</p>
       ) : (
         <Outlet context={context} />
       )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { AccountApi, Department, Organization } from "../api/account";
 import { ApiError } from "../api/client";
 import type { InviteInput, Member, MembersApi } from "../api/members";
@@ -25,6 +26,7 @@ type Load =
   | { status: "ready"; members: Member[]; departments: Department[] };
 
 export function Members({ api, membersApi, organization }: MembersProps) {
+  const { t } = useTranslation(["company", "common"]);
   const orgId = organization.id;
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [pending, setPending] = useState<PendingInvite[]>([]);
@@ -74,7 +76,7 @@ export function Members({ api, membersApi, organization }: MembersProps) {
     const departments = load.status === "ready" ? load.departments : [];
     const departmentName = departments.find((department) => department.id === input.departmentId)?.name ?? "";
     setPending((current) => [...current, { email: input.email, name: input.name, departmentName }]);
-    setNotice(`Invitation sent to ${input.email}.`);
+    setNotice(t("members.invitationSent", { email: input.email }));
     setInviting(false);
   }
 
@@ -82,11 +84,11 @@ export function Members({ api, membersApi, organization }: MembersProps) {
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
-        title="Members"
-        description="Who can use Forge in your company."
+        title={t("members.title")}
+        description={t("members.description")}
         actions={
           <Button disabled={!ready || ready.departments.length === 0} onClick={() => setInviting(true)}>
-            Invite member
+            {t("members.invite")}
           </Button>
         }
       />
@@ -95,9 +97,9 @@ export function Members({ api, membersApi, organization }: MembersProps) {
       {load.status === "error" && <Alert tone="destructive">{describeFailure(null, "load")}</Alert>}
       {load.status !== "error" && (
         <Tabs defaultValue="people">
-          <TabsList aria-label="Members sections">
-            <TabsTrigger value="people">People</TabsTrigger>
-            <TabsTrigger value="departments">Departments</TabsTrigger>
+          <TabsList aria-label={t("members.sections")}>
+            <TabsTrigger value="people">{t("members.people")}</TabsTrigger>
+            <TabsTrigger value="departments">{t("members.departments")}</TabsTrigger>
           </TabsList>
           <TabsContent value="people">
             <MemberTable
@@ -127,9 +129,9 @@ export function Members({ api, membersApi, organization }: MembersProps) {
       <AlertDialog
         open={suspending !== null}
         onOpenChange={(open) => !open && setSuspending(null)}
-        title={`Suspend ${suspending?.display_name ?? ""}?`}
-        description="They lose access to Forge until you reactivate them."
-        confirmLabel="Suspend"
+        title={t("members.suspendTitle", { name: suspending?.display_name ?? "" })}
+        description={t("members.suspendDescription")}
+        confirmLabel={t("members.suspendConfirm")}
         destructive
         onConfirm={() => (suspending ? change(suspending, "suspend") : undefined)}
       />
