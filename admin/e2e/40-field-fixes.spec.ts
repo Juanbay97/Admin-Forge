@@ -2,6 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { meteredChat, releaseTokens, tokenFor } from "./support/api";
 import { mailTo, readCompany, shot, signInOwner } from "./support/stack";
 
+// The admin follows the browser language and these journeys assert English copy, whatever the machine's own locale is.
+test.use({ locale: "en-US" });
+
 // The field fixes on the real stack, after 30-portal-journey created and joined the company: the public landing, the forgot-password
 // flow through the real mailbox, the download area for both roles, and the platform owner's model discovery through the fake gateway.
 test.describe.configure({ mode: "serial" });

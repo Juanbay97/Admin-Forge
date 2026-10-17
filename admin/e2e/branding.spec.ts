@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { makePng } from "../tests/png";
 
+// The admin follows the browser language and these journeys assert English copy, whatever the machine's own locale is.
+test.use({ locale: "en-US" });
+
 // Real stack (owned PostgreSQL, two seeded organizations, control plane serving the production bundle),
 // started by scripts\admin-e2e.ps1. Nothing here is mocked: validation, CAS, the sanitizer and the
 // public endpoint are the server's own.

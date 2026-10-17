@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
+// The admin follows the browser language and these journeys assert English copy, whatever the machine's own locale is.
+test.use({ locale: "en-US" });
+
 // Real stack, no mocks: the shell's role redirect, deep links, expiry from a genuinely revoked token and the responsive drawer.
 interface Credentials {
   organizations: Array<{ slug: string; organization_id: string; accounts: Array<{ email: string; role: string; password: string }> }>;

@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 import { ensureCatalogue, meteredChat, seededOrg, releaseTokens, tokenFor } from "./support/api";
 import { mailTo, readCompany, shot, signInOwner, writeCompany } from "./support/stack";
 
+// The admin follows the browser language and these journeys assert English copy, whatever the machine's own locale is.
+test.use({ locale: "en-US" });
+
 // The platform console against the real stack, after 10-platform-owner created the owner. Each journey signs in with a password
 // and the next TOTP step; usage comes from real metered chats through the fake gateway.
 test.describe.configure({ mode: "serial" });

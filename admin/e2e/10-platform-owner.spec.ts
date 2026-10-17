@@ -3,6 +3,9 @@ import { expect, test } from "@playwright/test";
 import { OWNER_EMAIL, ownerLinkFile, passCodeStep, readOwner, shot, signInOwner, writeOwner } from "./support/stack";
 import { totpCode } from "./support/totp";
 
+// The admin follows the browser language and these journeys assert English copy, whatever the machine's own locale is.
+test.use({ locale: "en-US" });
+
 // The platform owner's first hour on the real stack: the bootstrap link, the first password, mandatory TOTP enrollment, recovery
 // codes, and signing in again with a code. Later journeys reuse the owner this file creates (state kept in the private workspace).
 test.describe.configure({ mode: "serial" });

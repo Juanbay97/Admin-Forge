@@ -4,6 +4,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { ensureCatalogue, meteredChat, releaseTokens, tokenFor } from "./support/api";
 import { mailTo, readCompany, shot } from "./support/stack";
 
+// The admin follows the browser language and these journeys assert English copy, whatever the machine's own locale is.
+test.use({ locale: "en-US" });
+
 // The invitation-to-usage journey on the real stack. The company comes from 20-platform-console (the wizard created it and mailed its
 // first administrator); everything here is what that administrator and the people they invite actually do.
 test.describe.configure({ mode: "serial" });

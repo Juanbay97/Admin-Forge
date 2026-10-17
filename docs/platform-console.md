@@ -83,6 +83,34 @@ The sibling changes landed with a smaller surface than the plan assumed, so some
   proxy (see `docs/deploy.md`).
 - Each change re-validates a fresh verified owner in the database; the console never decides authority.
 
+## Language
+
+The admin (platform console, company administration, member portal, the public join and password pages, and the landing) ships in English
+and Spanish through `i18next` and `react-i18next`. Both catalogues are bundled, so the first paint is already translated.
+
+- **Detection.** The language follows the browser: the first entry of `navigator.languages` decides, any `es*` tag is Spanish and everything
+  else is English. A person who picks a language in the **Language** switch (the topbar of every signed-in page, and the sign-in, join,
+  password and landing pages) overrides the browser; the choice is stored in `localStorage` under `forge.admin.language` and wins on the next
+  visit. Detection alone never writes anything. Where storage is blocked, the choice still applies to the current page view.
+- **Document language.** `document.documentElement.lang` follows the active language at runtime (`index.html` keeps `lang="en"` as the
+  pre-script default).
+- **Catalogues.** `admin/src/i18n/locales/{en,es}/<area>.json`, one file per area: `common` (shell, UI kit, charts, errors and the shared
+  members, branding, catalog and download components), `platform`, `company`, `portal`, `public` and `landing`. English is the source of
+  truth and the keys are type-checked against it (`tsc --noEmit` fails on an unknown key). Plural forms use `_one` and `_other`; interpolation
+  uses `{{name}}`; inline markup uses `<tag>` placeholders rendered through `<Trans>`. `tests/unit/i18n.spec.ts` keeps `es` at exactly the
+  keys, order and placeholders of `en`.
+- **Spanish style.** Neutral and professional, formal register without an explicit "usted": actions are infinitives ("Guardar", "Invitar",
+  "Publicar"). The product names (Prometheon Forge, Forge) stay as they are.
+- **Formatting.** Numbers, currency, percentages and dates go through `Intl` with the active language (`admin/src/lib/format.ts`):
+  English reads `$1,234.56` and `Oct 12, 2026`, Spanish `1234,56 US$` and `12 oct 2026`. Dates stay in UTC. Price inputs keep a decimal point
+  in both languages because the wire format is decimal USD.
+- **Tests.** The UI harness pins the browser to `en-US` (`tests/ui/support.ts`), so specs assert English copy; a spec that needs Spanish says
+  `test.use({ locale: "es-CO" })` or stores the language first (`tests/ui/i18n.spec.ts`). Outside a browser (unit tests) the language is always
+  English.
+- **Adding copy.** Add the key to `en/<area>.json` and `es/<area>.json` in the same position, then read it with
+  `useTranslation(["<area>", "common"])` in components or `t` from `src/i18n/config` in plain modules. Messages raised from schemas use
+  `issue(...)` so they resolve when the error is produced.
+
 ## Tests
 
 - Unit and mocked-UI: `cd admin && npm run test:unit` (UI specs run the production bundle in the system Chrome against `tests/ui/platformSupport.ts`).

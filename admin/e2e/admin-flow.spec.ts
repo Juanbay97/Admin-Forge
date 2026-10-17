@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { ADMIN_CSP } from "../tests/csp";
 
+// The admin follows the browser language and these journeys assert English copy, whatever the machine's own locale is.
+test.use({ locale: "en-US" });
+
 // Runs against the real local stack started by scripts\admin-e2e.ps1: owned PostgreSQL, seeded
 // two-organization data, the control plane serving the production bundle and the fake gateway.
 interface Credentials {
